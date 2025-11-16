@@ -7,65 +7,62 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.media3.common.Player
+import androidx.media3.common.VideoSize
 import androidx.media3.exoplayer.ExoPlayer
 import top.rootu.dddplayer.model.MediaItem
-import top.rootu.dddplayer.model.StereoType
-import top.rootu.dddplayer.renderer.AnaglyphShader
+import top.rootu.dddplayer.model.StereoInputType
+import top.rootu.dddplayer.model.StereoOutputMode
+import top.rootu.dddplayer.renderer.StereoRenderer
 import androidx.media3.common.MediaItem as Media3MediaItem
 
 class PlayerViewModel(application: Application) : AndroidViewModel(application) {
 
-    // LiveData для UI
-    private val _isPlaying = MutableLiveData<Boolean>()
-    val isPlaying: LiveData<Boolean> = _isPlaying
-
-    private val _currentPosition = MutableLiveData<Long>()
-    val currentPosition: LiveData<Long> = _currentPosition
-
-    private val _duration = MutableLiveData<Long>()
-    val duration: LiveData<Long> = _duration
-
-    // LiveData для кастомных настроек
-    private val _stereoMode = MutableLiveData<AnaglyphShader.StereoMode>()
-    val stereoMode: LiveData<AnaglyphShader.StereoMode> = _stereoMode
-
-    private val _anaglyphType = MutableLiveData<AnaglyphShader.AnaglyphType>()
-    val anaglyphType: LiveData<AnaglyphShader.AnaglyphType> = _anaglyphType
-
-    private val handler = Handler(Looper.getMainLooper())
-
-    // ИСПРАВЛЕНИЕ 1: Инициализируем плеер ЗДЕСЬ, до того как он понадобится.
     val player: ExoPlayer = ExoPlayer.Builder(application).build()
 
+    private val _isPlaying = MutableLiveData<Boolean>()
+    val isPlaying: LiveData<Boolean> = _isPlaying
+    private val _currentPosition = MutableLiveData<Long>()
+    val currentPosition: LiveData<Long> = _currentPosition
+    private val _duration = MutableLiveData<Long>()
+    val duration: LiveData<Long> = _duration
+    private val _videoSize = MutableLiveData<VideoSize>()
+    val videoSize: LiveData<VideoSize> = _videoSize
+
+    private val _inputType = MutableLiveData<StereoInputType>()
+    val inputType: LiveData<StereoInputType> = _inputType
+    private val _outputMode = MutableLiveData<StereoOutputMode>()
+    val outputMode: LiveData<StereoOutputMode> = _outputMode
+    private val _anaglyphType = MutableLiveData<StereoRenderer.AnaglyphType>()
+    val anaglyphType: LiveData<StereoRenderer.AnaglyphType> = _anaglyphType
+    private val _swapEyes = MutableLiveData<Boolean>()
+    val swapEyes: LiveData<Boolean> = _swapEyes
+
+    private val handler = Handler(Looper.getMainLooper())
     private val progressUpdater = object : Runnable {
         override fun run() {
-            // Теперь 'player' гарантированно существует
             _currentPosition.value = player.currentPosition
             handler.postDelayed(this, 500)
         }
     }
 
     init {
-        // ИСПРАВЛЕНИЕ 2: Убираем инициализацию отсюда, оставляем только настройку.
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 _isPlaying.value = isPlaying
-                if (isPlaying) {
-                    handler.post(progressUpdater)
-                } else {
-                    handler.removeCallbacks(progressUpdater)
-                }
+                if (isPlaying) handler.post(progressUpdater) else handler.removeCallbacks(progressUpdater)
             }
-
             override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == Player.STATE_READY) {
-                    _duration.value = player.duration
-                }
+                if (playbackState == Player.STATE_READY) _duration.value = player.duration
+            }
+            override fun onVideoSizeChanged(videoSize: VideoSize) {
+                _videoSize.value = videoSize
             }
         })
 
-        _stereoMode.value = AnaglyphShader.StereoMode.NONE
-        _anaglyphType.value = AnaglyphShader.AnaglyphType.DUBOIS
+        _inputType.value = StereoInputType.NONE
+        _outputMode.value = StereoOutputMode.ANAGLYPH
+        _anaglyphType.value = StereoRenderer.AnaglyphType.DUBOIS
+        _swapEyes.value = false
     }
 
     fun loadMedia(mediaItem: MediaItem) {
@@ -75,33 +72,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         player.playWhenReady = true
     }
 
-    fun togglePlayPause() {
-        if (player.isPlaying) {
-            player.pause()
-        } else {
-            player.play()
-        }
-    }
-
-    fun seekForward() {
-        player.seekTo(player.currentPosition + 10000) // 10 секунд вперед
-    }
-
-    fun seekBack() {
-        player.seekTo(player.currentPosition - 10000) // 10 секунд назад
-    }
-
-    fun setStereoType(stereoType: StereoType) {
-        _stereoMode.value = when (stereoType) {
-            StereoType.SIDE_BY_SIDE -> AnaglyphShader.StereoMode.SIDE_BY_SIDE
-            StereoType.TOP_BOTTOM -> AnaglyphShader.StereoMode.TOP_BOTTOM
-            StereoType.NONE -> AnaglyphShader.StereoMode.NONE
-        }
-    }
-
-    fun setAnaglyphType(anaglyphType: AnaglyphShader.AnaglyphType) {
-        _anaglyphType.value = anaglyphType
-    }
+    fun togglePlayPause() { if (player.isPlaying) player.pause() else player.play() }
+    fun seekForward() { player.seekTo(player.currentPosition + 10000) }
+    fun seekBack() { player.seekTo(player.currentPosition - 10000) }
+    fun setInputType(inputType: StereoInputType) { _inputType.value = inputType }
+    fun setOutputMode(outputMode: StereoOutputMode) { _outputMode.value = outputMode }
+    fun setAnaglyphType(anaglyphType: StereoRenderer.AnaglyphType) { _anaglyphType.value = anaglyphType }
+    fun toggleSwapEyes() { _swapEyes.value = !(_swapEyes.value ?: false) }
 
     override fun onCleared() {
         super.onCleared()
