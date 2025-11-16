@@ -1,6 +1,6 @@
 package top.rootu.dddplayer.ui
 
-import android.annotation.SuppressLint
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -16,24 +16,24 @@ import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import top.rootu.dddplayer.R
-import top.rootu.dddplayer.model.StereoType
-import top.rootu.dddplayer.renderer.AnaglyphShader
+import top.rootu.dddplayer.model.StereoInputType
+import top.rootu.dddplayer.model.StereoOutputMode
 import top.rootu.dddplayer.renderer.OnFpsUpdatedListener
 import top.rootu.dddplayer.renderer.OnSurfaceReadyListener
+import top.rootu.dddplayer.renderer.StereoRenderer
 import top.rootu.dddplayer.viewmodel.PlayerViewModel
 import android.opengl.GLSurfaceView
 import android.view.Surface
-import java.util.Locale
-import androidx.core.view.isVisible
 import androidx.core.net.toUri
+import androidx.core.view.isVisible
+import java.util.Locale
 
 class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener {
 
     private val viewModel: PlayerViewModel by viewModels()
     private lateinit var glSurfaceView: GLSurfaceView
-    private lateinit var anaglyphShader: AnaglyphShader
+    private lateinit var stereoRenderer: StereoRenderer
 
-    // UI элементы
     private lateinit var rootContainer: ViewGroup
     private lateinit var controlsView: View
     private lateinit var fpsCounterTextView: TextView
@@ -43,8 +43,9 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
     private lateinit var seekBar: SeekBar
     private lateinit var timeCurrentTextView: TextView
     private lateinit var timeDurationTextView: TextView
-    private lateinit var stereoModeButton: Button
-    private lateinit var anaglyphTypeButton: Button
+    private lateinit var inputFormatButton: Button
+    private lateinit var outputModeButton: Button
+    private lateinit var swapEyesButton: Button
 
     private val hideControlsHandler = Handler(Looper.getMainLooper())
     private var isSeeking = false
@@ -54,8 +55,8 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         bindViews(view)
 
         glSurfaceView.setEGLContextClientVersion(2)
-        anaglyphShader = AnaglyphShader(glSurfaceView, this, this)
-        glSurfaceView.setRenderer(anaglyphShader)
+        stereoRenderer = StereoRenderer(glSurfaceView, this, this)
+        glSurfaceView.setRenderer(stereoRenderer)
         glSurfaceView.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
 
         return view
@@ -72,8 +73,9 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         seekBar = controlsView.findViewById(R.id.seek_bar)
         timeCurrentTextView = controlsView.findViewById(R.id.time_current)
         timeDurationTextView = controlsView.findViewById(R.id.time_duration)
-        stereoModeButton = controlsView.findViewById(R.id.button_stereo_mode)
-        anaglyphTypeButton = controlsView.findViewById(R.id.button_anaglyph_type)
+        inputFormatButton = controlsView.findViewById(R.id.button_input_format)
+        outputModeButton = controlsView.findViewById(R.id.button_output_mode)
+        swapEyesButton = controlsView.findViewById(R.id.button_swap_eyes)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -82,20 +84,35 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         setupControls()
         observeViewModel()
 
-//        val videoUri = "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-//        val videoUri = "http://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8"
-        val videoUri = "http://epg.rootu.top/tmp/3D/bbb_sunflower_1080p_30fps_stereo_abl.mp4"
-        viewModel.loadMedia(top.rootu.dddplayer.model.MediaItem(videoUri.toUri()))
-    }
+        // Получаем URI из аргументов фрагмента
+        val videoUri = arguments?.getParcelable<Uri>(ARG_VIDEO_URI)
 
+        if (videoUri != null) {
+            // Если URI есть, загружаем его
+            viewModel.loadMedia(top.rootu.dddplayer.model.MediaItem(videoUri))
+        } else {
+            // Если приложение запущено из лаунчера без файла,
+            // можно показать заглушку или загрузить видео по умолчанию.
+//            val videoUri = "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+//            val videoUri = "http://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8"
+            val videoUri = "http://epg.rootu.top/tmp/3D/bbb_sunflower_1080p_30fps_stereo_abl.mp4"
+            viewModel.loadMedia(top.rootu.dddplayer.model.MediaItem(videoUri.toUri()))
+        }
+    }
     private fun setupControls() {
+        // Показываем/скрываем контролы по клику мыши/тачскрина
         rootContainer.setOnClickListener { toggleControls() }
 
-        // ИСПРАВЛЕНО: Улучшенный обработчик нажатий для пульта
-        rootContainer.setOnKeyListener { _, keyCode, event ->
+        rootContainer.setOnKeyListener { v, keyCode, event ->
+            // Этот слушатель должен срабатывать, только если фокус находится на самом rootContainer,
+            // а не на его дочерних элементах (кнопках).
+            if (!v.hasFocus()) {
+                return@setOnKeyListener false
+            }
+
             if (event.action == KeyEvent.ACTION_DOWN) {
-                // Если контролы видны, любое нажатие на D-pad сбрасывает таймер
-                if (controlsView.isVisible) {
+                // Если контролы скрыты, любое нажатие на D-pad их покажет
+                if (controlsView.visibility == View.GONE) {
                     when (keyCode) {
                         KeyEvent.KEYCODE_DPAD_UP,
                         KeyEvent.KEYCODE_DPAD_DOWN,
@@ -103,31 +120,27 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
                         KeyEvent.KEYCODE_DPAD_RIGHT,
                         KeyEvent.KEYCODE_DPAD_CENTER,
                         KeyEvent.KEYCODE_ENTER -> {
-                            hideControlsWithDelay() // Сбрасываем таймер
+                            showControls()
+                            return@setOnKeyListener true // Событие обработано
                         }
                     }
                 }
-
-                // Центральная кнопка всегда показывает/скрывает контролы
-                if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) {
-                    // Если контролы скрыты, нажатие их покажет.
-                    // Если видны, то нажатие на кнопку (например, Play) выполнит действие,
-                    // а toggleControls() вызывать не нужно, так как это сделает сама кнопка.
-                    // Поэтому вызываем toggleControls только если фокус НЕ на кнопках.
-                    if (!controlsView.hasFocus()) {
-                        toggleControls()
-                        return@setOnKeyListener true
-                    }
-                }
             }
-            return@setOnKeyListener false
+            return@setOnKeyListener false // Событие не обработано
+        }
+
+        // Устанавливаем слушатель на саму панель, чтобы сбрасывать таймер при навигации по ней
+        controlsView.setOnKeyListener { _, _, _ ->
+            hideControlsWithDelay() // Сбрасываем таймер при любом действии на панели
+            return@setOnKeyListener false // Не перехватываем событие, чтобы кнопки работали
         }
 
         playPauseButton.setOnClickListener { viewModel.togglePlayPause() }
         rewindButton.setOnClickListener { viewModel.seekBack() }
         ffwdButton.setOnClickListener { viewModel.seekForward() }
-        stereoModeButton.setOnClickListener { showStereoModeSelector() }
-        anaglyphTypeButton.setOnClickListener { showAnaglyphTypeSelector() }
+        swapEyesButton.setOnClickListener { viewModel.toggleSwapEyes() }
+        inputFormatButton.setOnClickListener { showInputFormatSelector() }
+        outputModeButton.setOnClickListener { showOutputModeSelector() }
 
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -151,30 +164,27 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
 
     private fun observeViewModel() {
         viewModel.isPlaying.observe(viewLifecycleOwner) { isPlaying ->
-            val iconRes = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
-            playPauseButton.setImageResource(iconRes)
+            playPauseButton.setImageResource(if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play)
         }
-
         viewModel.duration.observe(viewLifecycleOwner) { duration ->
             seekBar.max = duration.toInt()
             timeDurationTextView.text = formatTime(duration)
         }
-
         viewModel.currentPosition.observe(viewLifecycleOwner) { position ->
             if (!isSeeking) {
                 seekBar.progress = position.toInt()
                 timeCurrentTextView.text = formatTime(position)
             }
         }
-
-        viewModel.stereoMode.observe(viewLifecycleOwner) { mode ->
-            anaglyphShader.setStereoMode(mode)
-            glSurfaceView.requestRender()
+        viewModel.videoSize.observe(viewLifecycleOwner) { videoSize ->
+            stereoRenderer.setVideoDimensions(videoSize.width, videoSize.height)
         }
-
-        viewModel.anaglyphType.observe(viewLifecycleOwner) { type ->
-            anaglyphShader.setAnaglyphType(type)
-            glSurfaceView.requestRender()
+        viewModel.inputType.observe(viewLifecycleOwner) { type -> stereoRenderer.setInputType(type) }
+        viewModel.outputMode.observe(viewLifecycleOwner) { mode -> stereoRenderer.setOutputMode(mode) }
+        viewModel.anaglyphType.observe(viewLifecycleOwner) { type -> stereoRenderer.setAnaglyphType(type) }
+        viewModel.swapEyes.observe(viewLifecycleOwner) { swap ->
+            stereoRenderer.setSwapEyes(swap)
+            swapEyesButton.alpha = if (swap) 1.0f else 0.5f
         }
     }
 
@@ -209,34 +219,38 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         hideControlsHandler.postDelayed({ hideControls() }, 3000)
     }
 
-    private fun showStereoModeSelector() {
+    private fun showInputFormatSelector() {
+        val items = StereoInputType.values().map { it.name.replace("_", " ") }.toTypedArray()
         AlertDialog.Builder(requireContext(), androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
-            .setTitle(R.string.action_select_stereo_mode)
-            .setItems(arrayOf(
-                getString(R.string.stereo_mode_none),
-                getString(R.string.stereo_mode_side_by_side),
-                getString(R.string.stereo_mode_top_bottom)
-            )) { dialog, which ->
-                val type = when (which) {
-                    0 -> StereoType.NONE
-                    1 -> StereoType.SIDE_BY_SIDE
-                    2 -> StereoType.TOP_BOTTOM
-                    else -> StereoType.NONE
+            .setTitle(R.string.action_select_input_format)
+            .setItems(items) { dialog, which ->
+                viewModel.setInputType(StereoInputType.values()[which])
+                dialog.dismiss()
+            }
+            .show()
+    }
+
+    private fun showOutputModeSelector() {
+        val items = StereoOutputMode.values().map { it.name.replace("_", " ") }.toTypedArray()
+        AlertDialog.Builder(requireContext(), androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
+            .setTitle(R.string.action_select_output_mode)
+            .setItems(items) { dialog, which ->
+                val selectedMode = StereoOutputMode.values()[which]
+                viewModel.setOutputMode(selectedMode)
+                if (selectedMode == StereoOutputMode.ANAGLYPH) {
+                    showAnaglyphTypeSelector()
                 }
-                viewModel.setStereoType(type)
                 dialog.dismiss()
             }
             .show()
     }
 
     private fun showAnaglyphTypeSelector() {
-        val anaglyphTypes = AnaglyphShader.AnaglyphType.entries.toTypedArray()
-        val anaglyphTypeNames = anaglyphTypes.map { it.name.replace("_", " ") }.toTypedArray()
+        val items = StereoRenderer.AnaglyphType.values().map { it.name.replace("_", " ") }.toTypedArray()
         AlertDialog.Builder(requireContext(), androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
             .setTitle(R.string.action_select_anaglyph_type)
-            .setItems(anaglyphTypeNames) { dialog, which ->
-                val type = anaglyphTypes[which]
-                viewModel.setAnaglyphType(type)
+            .setItems(items) { dialog, which ->
+                viewModel.setAnaglyphType(StereoRenderer.AnaglyphType.values()[which])
                 dialog.dismiss()
             }
             .show()
@@ -246,41 +260,28 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         val seconds = (millis / 1000) % 60
         val minutes = (millis / (1000 * 60)) % 60
         val hours = (millis / (1000 * 60 * 60))
-        return if (hours > 0) {
-            String.format(Locale.getDefault(), "%d:%02d:%02d", hours, minutes, seconds)
-        } else {
-            String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
-        }
+        return if (hours > 0) String.format(Locale.getDefault(), "%d:%02d:%02d", hours, minutes, seconds)
+        else String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
     }
 
-    override fun onSurfaceReady(surface: Surface) {
-        activity?.runOnUiThread { viewModel.player.setVideoSurface(surface) }
-    }
-
-    @SuppressLint("SetTextI18n")
-    override fun onFpsUpdated(fps: Int) {
-        activity?.runOnUiThread { fpsCounterTextView.text = "FPS: $fps" }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        viewModel.player.playWhenReady = true
-        glSurfaceView.onResume()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        viewModel.player.playWhenReady = false
-        glSurfaceView.onPause()
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        viewModel.player.setVideoSurface(null)
-        glSurfaceView.onPause()
-    }
+    override fun onSurfaceReady(surface: Surface) { activity?.runOnUiThread { viewModel.player.setVideoSurface(surface) } }
+    override fun onFpsUpdated(fps: Int) { activity?.runOnUiThread { fpsCounterTextView.text = "FPS: $fps" } }
+    override fun onResume() { super.onResume(); viewModel.player.playWhenReady = true; glSurfaceView.onResume() }
+    override fun onPause() { super.onPause(); viewModel.player.playWhenReady = false; glSurfaceView.onPause() }
+    override fun onDestroyView() { super.onDestroyView(); viewModel.player.setVideoSurface(null); glSurfaceView.onPause() }
 
     companion object {
-        fun newInstance() = PlayerFragment()
+        private const val ARG_VIDEO_URI = "video_uri"
+
+        fun newInstance(videoUri: Uri? = null): PlayerFragment {
+            val fragment = PlayerFragment()
+            // Передаем URI через Bundle, это правильный способ
+            // передавать данные во фрагменты.
+            val args = Bundle().apply {
+                putParcelable(ARG_VIDEO_URI, videoUri)
+            }
+            fragment.arguments = args
+            return fragment
+        }
     }
 }

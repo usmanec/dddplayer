@@ -4,6 +4,8 @@
     <string name="stereo_mode_none">Обычное видео</string>
     <string name="stereo_mode_side_by_side">Стереопара (горизонтальная)</string>
     <string name="stereo_mode_top_bottom">Стереопара (вертикальная)</string>
-    <string name="action_select_stereo_mode">Выбрать режим стерео</string>
-    <string name="action_select_anaglyph_type">Выбрать тип анаглифа</string>
+    <string name="action_select_input_format">Формат</string>
+    <string name="action_select_output_mode">Режим</string>
+    <string name="action_select_anaglyph_type">Тип анаглифа</string>
+    <string name="action_swap_eyes">L/R</string>
 </resources>

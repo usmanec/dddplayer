@@ -9,12 +9,11 @@
     <uses-feature
         android:name="android.hardware.touchscreen"
         android:required="false" />
-    <!-- Добавьте эту строку -->
-    <uses-feature android:glEsVersion="0x00020000" android:required="true" />
+    <uses-feature
+        android:glEsVersion="0x00020000"
+        android:required="true" />
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Для Android 10+ используйте android:requestLegacyExternalStorage="true" в application
-         или перейдите на Storage Access Framework для доступа к файлам -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
 
     <application
@@ -27,7 +26,7 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:requestLegacyExternalStorage="true"
         android:theme="@style/AppTheme"
-        tools:targetApi="24">
+        >
 
         <activity
             android:name=".ui.PlayerActivity"
@@ -41,6 +40,27 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
+
+            <!-- Добавляем фильтры для открытия видео -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <!-- Поддержка сетевых ссылок (http, https) -->
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+                <!-- Поддержка локальных файлов (content://, file://) -->
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <!-- Указываем типы файлов, которые мы можем открыть -->
+                <data android:mimeType="video/*" />
+                <data android:mimeType="application/sdp" />
+                <data android:mimeType="application/vnd.apple.mpegurl" />
+                <data android:mimeType="application/x-mpegURL"
+                    tools:ignore="AppLinkUrlError" />
+                <data android:mimeType="application/dash+xml" />
+            </intent-filter>
+
         </activity>
     </application>
 

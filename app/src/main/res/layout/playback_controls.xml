@@ -36,7 +36,7 @@
         app:layout_constraintEnd_toStartOf="@id/button_play_pause"
         app:layout_constraintTop_toTopOf="@id/button_play_pause"
         android:nextFocusUp="@id/seek_bar"
-        android:nextFocusLeft="@id/button_stereo_mode"
+        android:nextFocusLeft="@id/button_input_format"
         android:nextFocusRight="@id/button_play_pause"/>
 
     <ImageButton
@@ -52,7 +52,7 @@
         app:layout_constraintTop_toTopOf="@id/button_play_pause"
         android:nextFocusUp="@id/seek_bar"
         android:nextFocusLeft="@id/button_play_pause"
-        android:nextFocusRight="@id/button_anaglyph_type"/>
+        android:nextFocusRight="@id/button_output_mode"/>
 
     <SeekBar
         android:id="@+id/seek_bar"
@@ -84,11 +84,11 @@
         tools:text="10:00" />
 
     <Button
-        android:id="@+id/button_stereo_mode"
+        android:id="@+id/button_input_format"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:focusable="true"
-        android:text="@string/action_select_stereo_mode"
+        android:text="@string/action_select_input_format"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toStartOf="@id/button_rewind"
         app:layout_constraintHorizontal_bias="0.1"
@@ -97,16 +97,29 @@
         android:nextFocusRight="@id/button_rewind"/>
 
     <Button
-        android:id="@+id/button_anaglyph_type"
+        android:id="@+id/button_output_mode"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:focusable="true"
-        android:text="@string/action_select_anaglyph_type"
+        android:nextFocusLeft="@id/button_ffwd"
+        android:nextFocusRight="@id/button_swap_eyes"
+        android:nextFocusUp="@id/seek_bar"
+        android:text="@string/action_select_output_mode"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.9"
-        app:layout_constraintStart_toEndOf="@id/button_ffwd"
+        app:layout_constraintHorizontal_bias="0.568"
+        app:layout_constraintStart_toEndOf="@id/button_ffwd" />
+
+    <Button
+        android:id="@+id/button_swap_eyes"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:focusable="true"
+        android:text="@string/action_swap_eyes"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/button_output_mode"
         android:nextFocusUp="@id/seek_bar"
-        android:nextFocusLeft="@id/button_ffwd"/>
+        android:nextFocusLeft="@id/button_output_mode"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

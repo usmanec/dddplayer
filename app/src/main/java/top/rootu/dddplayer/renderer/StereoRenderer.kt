@@ -4,50 +4,56 @@ import android.graphics.SurfaceTexture
 import android.opengl.GLES11Ext
 import android.opengl.GLES20
 import android.opengl.GLSurfaceView
-import android.util.Log
 import android.view.Surface
+import top.rootu.dddplayer.model.StereoInputType
+import top.rootu.dddplayer.model.StereoOutputMode
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
-// Добавляем новый интерфейс для FPS
 interface OnFpsUpdatedListener {
     fun onFpsUpdated(fps: Int)
 }
+
 interface OnSurfaceReadyListener {
     fun onSurfaceReady(surface: Surface)
 }
-class AnaglyphShader(
+
+class StereoRenderer(
     private val glSurfaceView: GLSurfaceView,
     private val surfaceReadyListener: OnSurfaceReadyListener,
     private val fpsUpdatedListener: OnFpsUpdatedListener
 ) : GLSurfaceView.Renderer, SurfaceTexture.OnFrameAvailableListener {
 
-    private val TAG = "AnaglyphShader"
+    private val TAG = "StereoRenderer"
 
     private var program: Int = 0
     private var positionHandle: Int = 0
     private var texCoordHandle: Int = 0
     private var textureHandle: Int = 0
     private var texMatrixHandle: Int = 0
-    private var texScaleHandle: Int = 0
-    private var leftOffsetHandle: Int = 0
-    private var rightOffsetHandle: Int = 0
     private var lRow1Handle: Int = 0
     private var lRow2Handle: Int = 0
     private var lRow3Handle: Int = 0
     private var rRow1Handle: Int = 0
     private var rRow2Handle: Int = 0
     private var rRow3Handle: Int = 0
-    private var isVRHandle: Int = 0
+    private var inputTypeHandle: Int = 0
+    private var outputModeHandle: Int = 0
+    private var swapEyesHandle: Int = 0
+    private var videoDimensionsHandle: Int = 0
 
     private val vertexBuffer: FloatBuffer
     private val texCoordBuffer: FloatBuffer
 
-    private var currentStereoMode: StereoMode = StereoMode.NONE
+    private var currentInputType: StereoInputType = StereoInputType.NONE
+    private var currentOutputMode: StereoOutputMode = StereoOutputMode.ANAGLYPH
     private var currentAnaglyphType: AnaglyphType = AnaglyphType.DUBOIS
+    private var swapEyes: Boolean = false
+    private var videoWidth: Int = 1920
+    private var videoHeight: Int = 1080
 
     private val textureId = IntArray(1)
     private lateinit var surfaceTexture: SurfaceTexture
@@ -57,32 +63,17 @@ class AnaglyphShader(
     @Volatile
     private var frameAvailable = false
 
-    private val vertices = floatArrayOf(
-        -1.0f, -1.0f,
-        1.0f, -1.0f,
-        -1.0f,  1.0f,
-        1.0f,  1.0f
-    )
-
-    private val texCoords = floatArrayOf(
-        0.0f, 1.0f,
-        1.0f, 1.0f,
-        0.0f, 0.0f,
-        1.0f, 0.0f
-    )
-
-    // Переменные для подсчета FPS
     private var frameCount = 0
     private var lastTime: Long = 0
     private var currentFps = 0
 
-    init {
-        vertexBuffer = ByteBuffer.allocateDirect(vertices.size * FLOAT_SIZE_BYTES)
-            .order(ByteOrder.nativeOrder()).asFloatBuffer()
-        vertexBuffer.put(vertices).position(0)
+    private val vertices = floatArrayOf(-1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f)
+    private val texCoords = floatArrayOf(0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f)
 
-        texCoordBuffer = ByteBuffer.allocateDirect(texCoords.size * FLOAT_SIZE_BYTES)
-            .order(ByteOrder.nativeOrder()).asFloatBuffer()
+    init {
+        vertexBuffer = ByteBuffer.allocateDirect(vertices.size * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
+        vertexBuffer.put(vertices).position(0)
+        texCoordBuffer = ByteBuffer.allocateDirect(texCoords.size * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
         texCoordBuffer.put(texCoords).position(0)
     }
 
@@ -118,7 +109,6 @@ class AnaglyphShader(
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureId[0])
         GLES20.glUniform1i(textureHandle, 0)
-
         GLES20.glUniformMatrix4fv(texMatrixHandle, 1, false, texMatrix, 0)
 
         vertexBuffer.position(0)
@@ -137,19 +127,6 @@ class AnaglyphShader(
         GLES20.glDisableVertexAttribArray(texCoordHandle)
 
         calculateFps()
-    }
-
-    private fun calculateFps() {
-        frameCount++
-        val currentTime = System.nanoTime()
-        val elapsedTime = currentTime - lastTime
-        if (elapsedTime >= 1_000_000_000) { // 1 секунда в наносекундах
-            currentFps = frameCount
-            frameCount = 0
-            lastTime = currentTime
-            // Вызываем callback с новым значением FPS
-            fpsUpdatedListener.onFpsUpdated(currentFps)
-        }
     }
 
     override fun onFrameAvailable(surfaceTexture: SurfaceTexture?) {
@@ -177,127 +154,73 @@ class AnaglyphShader(
         GLES20.glAttachShader(program, fragmentShader)
         GLES20.glLinkProgram(program)
 
-        val linkStatus = IntArray(1)
-        GLES20.glGetProgramiv(program, GLES20.GL_LINK_STATUS, linkStatus, 0)
-        if (linkStatus[0] == 0) {
-            Log.e(TAG, "Could not link program: " + GLES20.glGetProgramInfoLog(program))
-            GLES20.glDeleteProgram(program)
-            program = 0
-            return
-        }
-
         positionHandle = GLES20.glGetAttribLocation(program, "a_position")
         texCoordHandle = GLES20.glGetAttribLocation(program, "a_texCoord")
         textureHandle = GLES20.glGetUniformLocation(program, "u_texture")
         texMatrixHandle = GLES20.glGetUniformLocation(program, "u_texMatrix")
-        texScaleHandle = GLES20.glGetUniformLocation(program, "u_texScale")
-        leftOffsetHandle = GLES20.glGetUniformLocation(program, "u_leftOffset")
-        rightOffsetHandle = GLES20.glGetUniformLocation(program, "u_rightOffset")
         lRow1Handle = GLES20.glGetUniformLocation(program, "u_l_row1")
         lRow2Handle = GLES20.glGetUniformLocation(program, "u_l_row2")
         lRow3Handle = GLES20.glGetUniformLocation(program, "u_l_row3")
         rRow1Handle = GLES20.glGetUniformLocation(program, "u_r_row1")
         rRow2Handle = GLES20.glGetUniformLocation(program, "u_r_row2")
         rRow3Handle = GLES20.glGetUniformLocation(program, "u_r_row3")
-        isVRHandle = GLES20.glGetUniformLocation(program, "u_isVR")
-
-        GLES20.glDeleteShader(vertexShader)
-        GLES20.glDeleteShader(fragmentShader)
+        inputTypeHandle = GLES20.glGetUniformLocation(program, "u_inputType")
+        outputModeHandle = GLES20.glGetUniformLocation(program, "u_outputMode")
+        swapEyesHandle = GLES20.glGetUniformLocation(program, "u_swapEyes")
+        videoDimensionsHandle = GLES20.glGetUniformLocation(program, "u_videoDimensions")
     }
 
     private fun loadShader(type: Int, shaderCode: String): Int {
         val shader = GLES20.glCreateShader(type)
         GLES20.glShaderSource(shader, shaderCode)
         GLES20.glCompileShader(shader)
-
-        val compileStatus = IntArray(1)
-        GLES20.glGetShaderiv(shader, GLES20.GL_COMPILE_STATUS, compileStatus, 0)
-        if (compileStatus[0] == 0) {
-            Log.e(TAG, "Could not compile shader $type: " + GLES20.glGetShaderInfoLog(shader))
-            GLES20.glDeleteShader(shader)
-            return 0
-        }
         return shader
     }
 
-    fun setStereoMode(mode: StereoMode) {
-        currentStereoMode = mode
-    }
-
-    fun setAnaglyphType(type: AnaglyphType) {
-        currentAnaglyphType = type
+    fun setInputType(type: StereoInputType) { currentInputType = type }
+    fun setOutputMode(mode: StereoOutputMode) { currentOutputMode = mode }
+    fun setAnaglyphType(type: AnaglyphType) { currentAnaglyphType = type }
+    fun setSwapEyes(swap: Boolean) { swapEyes = swap }
+    fun setVideoDimensions(width: Int, height: Int) {
+        videoWidth = width
+        videoHeight = height
     }
 
     private fun updateShaderUniforms() {
-        val texScale = floatArrayOf(1.0f, 1.0f)
-        val leftOffset = floatArrayOf(0.0f, 0.0f)
-        val rightOffset = floatArrayOf(0.0f, 0.0f)
-        var isVR = false
+        GLES20.glUniform1i(inputTypeHandle, currentInputType.ordinal)
+        GLES20.glUniform1i(outputModeHandle, currentOutputMode.ordinal)
+        GLES20.glUniform1i(swapEyesHandle, if (swapEyes) 1 else 0)
+        GLES20.glUniform2f(videoDimensionsHandle, videoWidth.toFloat(), videoHeight.toFloat())
 
-        when (currentStereoMode) {
-            StereoMode.NONE -> {
-                isVR = true
-            }
-            StereoMode.SIDE_BY_SIDE -> {
-                texScale[0] = 0.5f
-                leftOffset[0] = 0.0f
-                rightOffset[0] = 0.5f
-            }
-            StereoMode.TOP_BOTTOM -> {
-                texScale[1] = 0.5f
-                leftOffset[1] = 0.0f
-                rightOffset[1] = 0.5f
+        if (currentOutputMode == StereoOutputMode.ANAGLYPH) {
+            val matrices = anaglyphModes[currentAnaglyphType]
+            if (matrices != null) {
+                GLES20.glUniform3f(lRow1Handle, matrices.l[0], matrices.l[1], matrices.l[2])
+                GLES20.glUniform3f(lRow2Handle, matrices.l[3], matrices.l[4], matrices.l[5])
+                GLES20.glUniform3f(lRow3Handle, matrices.l[6], matrices.l[7], matrices.l[8])
+                GLES20.glUniform3f(rRow1Handle, matrices.r[0], matrices.r[1], matrices.r[2])
+                GLES20.glUniform3f(rRow2Handle, matrices.r[3], matrices.r[4], matrices.r[5])
+                GLES20.glUniform3f(rRow3Handle, matrices.r[6], matrices.r[7], matrices.r[8])
             }
         }
+    }
 
-        GLES20.glUniform2fv(texScaleHandle, 1, texScale, 0)
-        GLES20.glUniform2fv(leftOffsetHandle, 1, leftOffset, 0)
-        GLES20.glUniform2fv(rightOffsetHandle, 1, rightOffset, 0)
-        GLES20.glUniform1i(isVRHandle, if (isVR) 1 else 0)
-
-        val matrices = anaglyphModes[currentAnaglyphType]
-        if (matrices != null) {
-            GLES20.glUniform3f(lRow1Handle, matrices.l[0], matrices.l[1], matrices.l[2])
-            GLES20.glUniform3f(lRow2Handle, matrices.l[3], matrices.l[4], matrices.l[5])
-            GLES20.glUniform3f(lRow3Handle, matrices.l[6], matrices.l[7], matrices.l[8])
-            GLES20.glUniform3f(rRow1Handle, matrices.r[0], matrices.r[1], matrices.r[2])
-            GLES20.glUniform3f(rRow2Handle, matrices.r[3], matrices.r[4], matrices.r[5])
-            GLES20.glUniform3f(rRow3Handle, matrices.r[6], matrices.r[7], matrices.r[8])
-        } else {
-            Log.e(TAG, "Anaglyph matrices not found for type: $currentAnaglyphType")
+    private fun calculateFps() {
+        frameCount++
+        val currentTime = System.nanoTime()
+        val elapsedTime = currentTime - lastTime
+        if (elapsedTime >= 1_000_000_000) {
+            currentFps = frameCount
+            frameCount = 0
+            lastTime = currentTime
+            fpsUpdatedListener.onFpsUpdated(currentFps)
         }
     }
 
-    fun release() {
-        GLES20.glDeleteProgram(program)
-        GLES20.glDeleteTextures(1, textureId, 0)
-        surfaceTexture.release()
-        videoSurface.release()
-    }
-
-    enum class StereoMode {
-        NONE,
-        SIDE_BY_SIDE,
-        TOP_BOTTOM
-    }
-
-    enum class AnaglyphType {
-        DUBOIS,
-        RC_HALF_COLOR,
-        RC_COLOR,
-        RC_MONO,
-        RC_OPTIMIZED,
-        YB_HALF_COLOR,
-        YB_COLOR,
-        YB_MONO,
-        RB_MONO
-    }
-
+    enum class AnaglyphType { DUBOIS, RC_HALF_COLOR, RC_COLOR, RC_MONO, RC_OPTIMIZED, YB_HALF_COLOR, YB_COLOR, YB_MONO, RB_MONO }
     data class AnaglyphMatrices(val l: FloatArray, val r: FloatArray)
 
     companion object {
-        private const val FLOAT_SIZE_BYTES = 4
-
         private const val VERTEX_SHADER_CODE = """
             attribute vec4 a_position;
             attribute vec2 a_texCoord;
@@ -314,37 +237,98 @@ class AnaglyphShader(
         private const val FRAGMENT_SHADER_CODE = """
             #extension GL_OES_EGL_image_external : require
             precision mediump float;
-            uniform samplerExternalOES u_texture;
-            uniform vec2 u_texScale;
-            uniform vec2 u_leftOffset;
-            uniform vec2 u_rightOffset;
+
             varying vec2 v_texCoord;
-            uniform vec3 u_l_row1;
-            uniform vec3 u_l_row2;
-            uniform vec3 u_l_row3;
-            uniform vec3 u_r_row1;
-            uniform vec3 u_r_row2;
-            uniform vec3 u_r_row3;
-            uniform bool u_isVR;
+            uniform samplerExternalOES u_texture;
+            
+            uniform int u_inputType;
+            uniform int u_outputMode;
+            uniform bool u_swapEyes;
+            uniform vec2 u_videoDimensions;
+
+            uniform vec3 u_l_row1; uniform vec3 u_l_row2; uniform vec3 u_l_row3;
+            uniform vec3 u_r_row1; uniform vec3 u_r_row2; uniform vec3 u_r_row3;
+
+            const int INPUT_NONE = 0;
+            const int INPUT_SBS = 1; const int INPUT_SBS_CROSSED = 2;
+            const int INPUT_TB = 3; const int INPUT_TB_REVERSED = 4;
+            const int INPUT_INTERLACED = 5; const int INPUT_TILED_1080P = 6;
+
+            const int OUTPUT_ANAGLYPH = 0;
+            const int OUTPUT_LEFT_ONLY = 1;
+            const int OUTPUT_RIGHT_ONLY = 2;
+            const int OUTPUT_CARDBOARD = 3;
 
             void main() {
-                vec2 lTC = v_texCoord * u_texScale + u_leftOffset;
-                vec2 rTC = v_texCoord * u_texScale + u_rightOffset;
-                vec3 lC = texture2D(u_texture, lTC).rgb;
+                vec2 left_tc;
+                vec2 right_tc;
 
-                if (u_isVR) {
-                    gl_FragColor = vec4(lC, 1.0);
-                    return;
+                if (u_inputType == INPUT_SBS || u_inputType == INPUT_SBS_CROSSED) {
+                    left_tc = vec2(v_texCoord.x * 0.5, v_texCoord.y);
+                    right_tc = vec2(v_texCoord.x * 0.5 + 0.5, v_texCoord.y);
+                    if (u_inputType == INPUT_SBS_CROSSED) { vec2 temp = left_tc; left_tc = right_tc; right_tc = temp; }
+                } else if (u_inputType == INPUT_TB || u_inputType == INPUT_TB_REVERSED) {
+                    left_tc = vec2(v_texCoord.x, v_texCoord.y * 0.5);
+                    right_tc = vec2(v_texCoord.x, v_texCoord.y * 0.5 + 0.5);
+                    if (u_inputType == INPUT_TB_REVERSED) { vec2 temp = left_tc; left_tc = right_tc; right_tc = temp; }
+                } else { // NONE, INTERLACED, TILED
+                    left_tc = v_texCoord;
+                    right_tc = v_texCoord;
                 }
 
-                vec3 rC = texture2D(u_texture, rTC).rgb;
-                float fR = dot(u_l_row1, lC) + dot(u_r_row1, rC);
-                float fG = dot(u_l_row2, lC) + dot(u_r_row2, rC);
-                float fB = dot(u_l_row3, lC) + dot(u_r_row3, rC);
-                gl_FragColor = vec4(clamp(vec3(fR, fG, fB), 0.0, 1.0), 1.0);
+                if (u_swapEyes) { vec2 temp = left_tc; left_tc = right_tc; right_tc = temp; }
+
+                vec3 left_color;
+                vec3 right_color;
+
+                if (u_inputType == INPUT_INTERLACED) {
+                    float is_odd_line = mod(floor(v_texCoord.y * u_videoDimensions.y), 2.0);
+                    if (is_odd_line > 0.5) { // Нечетная строка - правый глаз
+                        left_color = texture2D(u_texture, v_texCoord - vec2(0.0, 1.0/u_videoDimensions.y)).rgb;
+                        right_color = texture2D(u_texture, v_texCoord).rgb;
+                    } else { // Четная строка - левый глаз
+                        left_color = texture2D(u_texture, v_texCoord).rgb;
+                        right_color = texture2D(u_texture, v_texCoord + vec2(0.0, 1.0/u_videoDimensions.y)).rgb;
+                    }
+                } else if (u_inputType == INPUT_TILED_1080P) {
+                    vec2 left_eye_tc = v_texCoord * vec2(1280.0/1920.0, 720.0/1080.0);
+                    left_color = texture2D(u_texture, left_eye_tc).rgb;
+                    
+                    vec2 right_eye_tc;
+                    if (v_texCoord.x < 0.5) { // Левая половина правого глаза
+                        right_eye_tc = vec2(1280.0/1920.0 + v_texCoord.x * 2.0 * (320.0/1920.0), v_texCoord.y * (720.0/1080.0));
+                    } else { // Правая половина правого глаза
+                        if (v_texCoord.y < 0.5) { // Верхняя четверть
+                            right_eye_tc = vec2((v_texCoord.x - 0.5) * 2.0 * (320.0/1920.0), 720.0/1080.0 + v_texCoord.y * 2.0 * (180.0/1080.0));
+                        } else { // Нижняя четверть
+                            right_eye_tc = vec2(320.0/1920.0 + (v_texCoord.x - 0.5) * 2.0 * (320.0/1920.0), 720.0/1080.0 + (v_texCoord.y - 0.5) * 2.0 * (180.0/1080.0));
+                        }
+                    }
+                    right_color = texture2D(u_texture, right_eye_tc).rgb;
+
+                } else {
+                    left_color = texture2D(u_texture, left_tc).rgb;
+                    right_color = texture2D(u_texture, right_tc).rgb;
+                }
+
+                if (u_outputMode == OUTPUT_LEFT_ONLY || u_inputType == INPUT_NONE) {
+                    gl_FragColor = vec4(left_color, 1.0);
+                } else if (u_outputMode == OUTPUT_RIGHT_ONLY) {
+                    gl_FragColor = vec4(right_color, 1.0);
+                } else if (u_outputMode == OUTPUT_CARDBOARD) {
+                    if (gl_FragCoord.x < u_videoDimensions.x / 2.0) {
+                        gl_FragColor = vec4(left_color, 1.0);
+                    } else {
+                        gl_FragColor = vec4(right_color, 1.0);
+                    }
+                } else { // OUTPUT_ANAGLYPH
+                    float r = dot(u_l_row1, left_color) + dot(u_r_row1, right_color);
+                    float g = dot(u_l_row2, left_color) + dot(u_r_row2, right_color);
+                    float b = dot(u_l_row3, left_color) + dot(u_r_row3, right_color);
+                    gl_FragColor = vec4(clamp(vec3(r, g, b), 0.0, 1.0), 1.0);
+                }
             }
         """
-
         val anaglyphModes = mapOf(
             AnaglyphType.DUBOIS to AnaglyphMatrices(
                 l = floatArrayOf(0.456f, 0.500f, 0.176f, -0.040f, -0.038f, -0.016f, -0.015f, -0.021f, -0.005f),
