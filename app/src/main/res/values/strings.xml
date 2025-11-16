@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DDD Video Player</string>
+    <string name="stereo_mode_none">Обычное видео</string>
+    <string name="stereo_mode_side_by_side">Стереопара (горизонтальная)</string>
+    <string name="stereo_mode_top_bottom">Стереопара (вертикальная)</string>
+    <string name="action_select_stereo_mode">Выбрать режим стерео</string>
+    <string name="action_select_anaglyph_type">Выбрать тип анаглифа</string>
+</resources>

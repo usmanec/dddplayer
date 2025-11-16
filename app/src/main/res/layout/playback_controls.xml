@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_gravity="bottom"
+    android:background="#CC000000"
+    android:padding="16dp">
+
+    <ImageButton
+        android:id="@+id/button_play_pause"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="32dp"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Play/Pause"
+        android:focusable="true"
+        android:src="@android:drawable/ic_media_play"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        android:nextFocusUp="@id/seek_bar"
+        android:nextFocusLeft="@id/button_rewind"
+        android:nextFocusRight="@id/button_ffwd"/>
+
+    <ImageButton
+        android:id="@+id/button_rewind"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Rewind"
+        android:focusable="true"
+        android:src="@android:drawable/ic_media_rew"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/button_play_pause"
+        app:layout_constraintTop_toTopOf="@id/button_play_pause"
+        android:nextFocusUp="@id/seek_bar"
+        android:nextFocusLeft="@id/button_stereo_mode"
+        android:nextFocusRight="@id/button_play_pause"/>
+
+    <ImageButton
+        android:id="@+id/button_ffwd"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Fast Forward"
+        android:focusable="true"
+        android:src="@android:drawable/ic_media_ff"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toEndOf="@id/button_play_pause"
+        app:layout_constraintTop_toTopOf="@id/button_play_pause"
+        android:nextFocusUp="@id/seek_bar"
+        android:nextFocusLeft="@id/button_play_pause"
+        android:nextFocusRight="@id/button_anaglyph_type"/>
+
+    <SeekBar
+        android:id="@+id/seek_bar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:focusable="true"
+        app:layout_constraintBottom_toTopOf="@id/button_play_pause"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        android:nextFocusDown="@id/button_play_pause"/>
+
+    <TextView
+        android:id="@+id/time_current"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@android:color/white"
+        app:layout_constraintBottom_toTopOf="@id/seek_bar"
+        app:layout_constraintStart_toStartOf="parent"
+        tools:text="01:23" />
+
+    <TextView
+        android:id="@+id/time_duration"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@android:color/white"
+        app:layout_constraintBottom_toTopOf="@id/seek_bar"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:text="10:00" />
+
+    <Button
+        android:id="@+id/button_stereo_mode"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:focusable="true"
+        android:text="@string/action_select_stereo_mode"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/button_rewind"
+        app:layout_constraintHorizontal_bias="0.1"
+        app:layout_constraintStart_toStartOf="parent"
+        android:nextFocusUp="@id/seek_bar"
+        android:nextFocusRight="@id/button_rewind"/>
+
+    <Button
+        android:id="@+id/button_anaglyph_type"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:focusable="true"
+        android:text="@string/action_select_anaglyph_type"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.9"
+        app:layout_constraintStart_toEndOf="@id/button_ffwd"
+        android:nextFocusUp="@id/seek_bar"
+        android:nextFocusLeft="@id/button_ffwd"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
