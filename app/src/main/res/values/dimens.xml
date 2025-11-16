@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Размеры, специфичные для Android TV -->
+    <dimen name="playback_controls_height">80dp</dimen>
+    <dimen name="playback_controls_margin_bottom">16dp</dimen>
+</resources>
