@@ -19,8 +19,6 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
-import androidx.media3.common.Player
-import androidx.media3.common.VideoSize
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.model.StereoInputType
 import top.rootu.dddplayer.model.StereoOutputMode
@@ -232,19 +230,9 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         viewModel.inputType.observe(viewLifecycleOwner) { type -> stereoRenderer.setInputType(type) }
         viewModel.outputMode.observe(viewLifecycleOwner) { mode -> stereoRenderer.setOutputMode(mode) }
         viewModel.anaglyphType.observe(viewLifecycleOwner) { type -> stereoRenderer.setAnaglyphType(type) }
-        viewModel.isAnamorphic.observe(viewLifecycleOwner) { isAnamorphic ->
-            stereoRenderer.setIsAnamorphic(isAnamorphic)
+        viewModel.singleFrameSize.observe(viewLifecycleOwner) { (width, height) ->
+            stereoRenderer.setSingleFrameDimensions(width, height)
         }
-
-        viewModel.player.addListener(object : Player.Listener {
-            override fun onVideoSizeChanged(videoSize: VideoSize) {
-                val width = videoSize.width
-                val height = videoSize.height
-                if (width > 0 && height > 0) {
-                    stereoRenderer.setVideoAspectRatio(width.toFloat() / height.toFloat())
-                }
-            }
-        })
     }
 
     private fun showControls(focusOnSeekBar: Boolean = false) {
