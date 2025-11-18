@@ -7,7 +7,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.media3.common.Player
-import androidx.media3.common.VideoSize
 import androidx.media3.exoplayer.ExoPlayer
 import top.rootu.dddplayer.model.MediaItem
 import top.rootu.dddplayer.model.StereoInputType
@@ -46,8 +45,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private val _swapEyes = MutableLiveData(false)
     val swapEyes: LiveData<Boolean> = _swapEyes
 
-    private val _isAnamorphic = MutableLiveData(false)
-    val isAnamorphic: LiveData<Boolean> = _isAnamorphic
+    private val _singleFrameSize = MutableLiveData<Pair<Float, Float>>()
+    val singleFrameSize: LiveData<Pair<Float, Float>> = _singleFrameSize
 
     private val handler = Handler(Looper.getMainLooper())
     val player: ExoPlayer = ExoPlayer.Builder(application).build()
@@ -82,40 +81,42 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 _videoTitle.value = title ?: mediaItem?.localConfiguration?.uri?.lastPathSegment
             }
 
-            override fun onVideoSizeChanged(videoSize: VideoSize) {
-                val width = videoSize.width
-                val height = videoSize.height
-                if (width == 0 || height == 0) return
+            override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
+                val width = videoSize.width.toFloat()
+                val height = videoSize.height.toFloat()
+                if (width == 0f || height == 0f) return
 
-                val videoAspectRatio = width.toFloat() / height.toFloat()
-                val pixelAspectRatio = videoSize.pixelWidthHeightRatio
+                val videoAspectRatio = width / height
 
                 var detectedInputType = StereoInputType.NONE
-                var detectedAnamorphic = false
+                var singleFrameWidth = width
+                var singleFrameHeight = height
 
-                // Соотношение сторон одного кадра с учетом неквадратных пикселей
-                val singleFrameAR = pixelAspectRatio * videoAspectRatio
-
-                // Эвристика для анаморфных пар
-                if (singleFrameAR > 2.2) { // Очень широкое -> анаморфная SBS (например, 2.35:1 пожатый в 16:9)
+                // 1. Проверяем на Side-by-Side (SBS)
+                // Соотношение сторон должно быть ОЧЕНЬ большим. 3.2 - это примерно 2 кадра 16:9.
+                if (videoAspectRatio > 3.0) {
                     detectedInputType = StereoInputType.SIDE_BY_SIDE
-                    detectedAnamorphic = true
-                } else if (singleFrameAR < 1.0 && singleFrameAR > 0.6) { // Очень высокое -> анаморфная TB
-                    detectedInputType = StereoInputType.TOP_BOTTOM
-                    detectedAnamorphic = true
-                } else {
-                    // Эвристика для полных пар
-                    if (videoAspectRatio > 2.2) { // Шире, чем 21:9 -> полная SBS
-                        detectedInputType = StereoInputType.SIDE_BY_SIDE
-                        detectedAnamorphic = false
-                    } else if (videoAspectRatio < 1.0 && videoAspectRatio > 0.6) { // Выше, чем 16:9 -> полная TB
+                    singleFrameWidth = width / 2
+                    singleFrameHeight = height
+                }
+                // 2. Проверяем на Top-Bottom (TB)
+                // Соотношение сторон должно быть близко к квадрату или выше.
+                // 0.88 (два кадра 16:9) до 1.2 (два широкоэкранных кадра).
+                else if (videoAspectRatio > 0.8 && videoAspectRatio < 1.2) {
+                    // Дополнительная проверка: высота должна быть значительно больше ширины
+                    // для типичных разрешений (например, 1920x2160, 1280x1440).
+                    if (height > width * 1.1) {
                         detectedInputType = StereoInputType.TOP_BOTTOM
-                        detectedAnamorphic = false
+                        singleFrameWidth = width
+                        singleFrameHeight = height / 2
                     }
                 }
 
+                // Если ни одно из условий не сработало, остается NONE,
+                // и размеры кадра равны размерам видео, что правильно.
+
                 _inputType.value = detectedInputType
-                _isAnamorphic.value = detectedAnamorphic
+                _singleFrameSize.value = Pair(singleFrameWidth, singleFrameHeight)
             }
         })
     }

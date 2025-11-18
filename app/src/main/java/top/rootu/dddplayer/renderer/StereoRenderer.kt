@@ -45,9 +45,8 @@ class StereoRenderer(
     private var outputModeHandle: Int = 0
     private var swapEyesHandle: Int = 0
     private var videoDimensionsHandle: Int = 0
-    private var videoAspectRatioHandle: Int = 0
     private var screenAspectRatioHandle: Int = 0
-    private var isAnamorphicHandle: Int = 0
+    private var singleFrameDimensionsHandle: Int = 0
 
     private val vertexBuffer: FloatBuffer
     private val texCoordBuffer: FloatBuffer
@@ -58,9 +57,9 @@ class StereoRenderer(
     private var swapEyes: Boolean = false
     private var videoWidth: Int = 1920
     private var videoHeight: Int = 1080
-    private var videoAspectRatio: Float = 16f / 9f
     private var screenAspectRatio: Float = 16f / 9f
-    private var isAnamorphic: Boolean = false
+    private var singleFrameWidth: Float = 1920f
+    private var singleFrameHeight: Float = 1080f
 
     private val textureId = IntArray(1)
     private lateinit var surfaceTexture: SurfaceTexture
@@ -89,12 +88,9 @@ class StereoRenderer(
     )
 
     init {
-        vertexBuffer = ByteBuffer.allocateDirect(vertices.size * 4)
-            .order(ByteOrder.nativeOrder()).asFloatBuffer()
+        vertexBuffer = ByteBuffer.allocateDirect(vertices.size * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
         vertexBuffer.put(vertices).position(0)
-
-        texCoordBuffer = ByteBuffer.allocateDirect(texCoords.size * 4)
-            .order(ByteOrder.nativeOrder()).asFloatBuffer()
+        texCoordBuffer = ByteBuffer.allocateDirect(texCoords.size * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
         texCoordBuffer.put(texCoords).position(0)
     }
 
@@ -200,9 +196,8 @@ class StereoRenderer(
         outputModeHandle = GLES20.glGetUniformLocation(program, "u_outputMode")
         swapEyesHandle = GLES20.glGetUniformLocation(program, "u_swapEyes")
         videoDimensionsHandle = GLES20.glGetUniformLocation(program, "u_videoDimensions")
-        videoAspectRatioHandle = GLES20.glGetUniformLocation(program, "u_videoAspectRatio")
         screenAspectRatioHandle = GLES20.glGetUniformLocation(program, "u_screenAspectRatio")
-        isAnamorphicHandle = GLES20.glGetUniformLocation(program, "u_isAnamorphic")
+        singleFrameDimensionsHandle = GLES20.glGetUniformLocation(program, "u_singleFrameDimensions")
 
         GLES20.glDeleteShader(vertexShader)
         GLES20.glDeleteShader(fragmentShader)
@@ -231,17 +226,18 @@ class StereoRenderer(
         videoWidth = width
         videoHeight = height
     }
-    fun setVideoAspectRatio(aspectRatio: Float) { this.videoAspectRatio = aspectRatio }
-    fun setIsAnamorphic(anamorphic: Boolean) { isAnamorphic = anamorphic }
+    fun setSingleFrameDimensions(width: Float, height: Float) {
+        this.singleFrameWidth = width
+        this.singleFrameHeight = height
+    }
 
     private fun updateShaderUniforms() {
         GLES20.glUniform1i(inputTypeHandle, currentInputType.ordinal)
         GLES20.glUniform1i(outputModeHandle, currentOutputMode.ordinal)
         GLES20.glUniform1i(swapEyesHandle, if (swapEyes) 1 else 0)
         GLES20.glUniform2f(videoDimensionsHandle, videoWidth.toFloat(), videoHeight.toFloat())
-        GLES20.glUniform1f(videoAspectRatioHandle, videoAspectRatio)
         GLES20.glUniform1f(screenAspectRatioHandle, screenAspectRatio)
-        GLES20.glUniform1i(isAnamorphicHandle, if (isAnamorphic) 1 else 0)
+        GLES20.glUniform2f(singleFrameDimensionsHandle, singleFrameWidth, singleFrameHeight)
 
         if (currentOutputMode == StereoOutputMode.ANAGLYPH) {
             val matrices = anaglyphModes[currentAnaglyphType]
@@ -302,9 +298,8 @@ class StereoRenderer(
             uniform int u_inputType;
             uniform int u_outputMode;
             uniform bool u_swapEyes;
-            uniform bool u_isAnamorphic;
             uniform vec2 u_videoDimensions;
-            uniform float u_videoAspectRatio;
+            uniform vec2 u_singleFrameDimensions;
             uniform float u_screenAspectRatio;
 
             uniform vec3 u_l_row1; uniform vec3 u_l_row2; uniform vec3 u_l_row3;
@@ -323,25 +318,23 @@ class StereoRenderer(
 
             vec2 fitToScreen(vec2 tc, float videoAR, float screenAR) {
                 float arScale = videoAR / screenAR;
+                vec2 final_tc = tc;
                 if (arScale > 1.0) {
-                    tc.y = (tc.y - 0.5) / arScale + 0.5;
+                    final_tc.y = (tc.y - 0.5) / arScale + 0.5;
                 } else {
-                    tc.x = (tc.x - 0.5) * arScale + 0.5;
+                    final_tc.x = (tc.x - 0.5) * arScale + 0.5;
                 }
-                return tc;
+                return final_tc;
             }
 
             void main() {
                 vec2 left_tc;
                 vec2 right_tc;
-                float singleFrameAR = u_videoAspectRatio;
 
                 if (u_inputType == INPUT_SBS) {
-                    singleFrameAR = u_isAnamorphic ? (u_videoAspectRatio * 2.0) : (u_videoAspectRatio / 2.0);
                     left_tc = vec2(v_texCoord.x * 0.5, v_texCoord.y);
                     right_tc = vec2(v_texCoord.x * 0.5 + 0.5, v_texCoord.y);
                 } else if (u_inputType == INPUT_TB) {
-                    singleFrameAR = u_isAnamorphic ? (u_videoAspectRatio / 2.0) : (u_videoAspectRatio * 2.0);
                     left_tc = vec2(v_texCoord.x, v_texCoord.y * 0.5);
                     right_tc = vec2(v_texCoord.x, v_texCoord.y * 0.5 + 0.5);
                 } else if (u_inputType == INPUT_INTERLACED) {
@@ -354,6 +347,8 @@ class StereoRenderer(
                     left_tc = v_texCoord;
                     right_tc = v_texCoord;
                 }
+
+                float singleFrameAR = u_singleFrameDimensions.x / u_singleFrameDimensions.y;
 
                 left_tc = fitToScreen(left_tc, singleFrameAR, u_screenAspectRatio);
                 right_tc = fitToScreen(right_tc, singleFrameAR, u_screenAspectRatio);
