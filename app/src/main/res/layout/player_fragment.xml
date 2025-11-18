@@ -8,7 +8,7 @@
     android:clickable="true"
     tools:context=".ui.PlayerFragment">
 
-    <android.opengl.GLSurfaceView
+    <top.rootu.dddplayer.renderer.StereoGLSurfaceView
         android:id="@+id/gl_surface_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
@@ -32,5 +32,13 @@
         layout="@layout/playback_controls"
         android:visibility="gone"
         tools:visibility="visible"/>
-
+    
+    <!-- Индикатор буферизации по центру экрана -->
+    <ProgressBar
+        android:id="@+id/buffering_indicator"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:layout_gravity="center"
+        android:visibility="gone"
+        tools:visibility="visible"/>
 </FrameLayout>

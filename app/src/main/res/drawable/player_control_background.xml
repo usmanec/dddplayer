@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Состояние, когда кнопка в фокусе -->
+    <item android:state_focused="true">
+        <shape android:shape="oval">
+            <!-- Полупрозрачный белый круг для эффекта "гало" -->
+            <solid android:color="#50FFFFFF" />
+            <stroke android:width="2dp" android:color="@android:color/white" />
+        </shape>
+    </item>
+    <!-- Состояние по умолчанию (полностью прозрачный) -->
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="@android:color/transparent" />
+        </shape>
+    </item>
+</selector>

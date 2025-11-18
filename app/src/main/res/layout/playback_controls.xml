@@ -2,124 +2,173 @@
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/player_controls_root"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_gravity="bottom"
-    android:background="#CC000000"
-    android:padding="16dp">
+    android:background="#D0000000"
+    android:padding="16dp"
+    android:animateLayoutChanges="true">
 
+    <!-- =========================================================== -->
+    <!-- ИСПРАВЛЕНИЕ: Нижний ряд теперь является "якорем" для низа -->
+    <!-- =========================================================== -->
+    <LinearLayout
+        android:id="@+id/bottom_controls_row"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:visibility="gone"
+        tools:visibility="visible"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <ImageButton
+            android:id="@+id/button_playlist"
+            style="@style/PlayerSecondaryControlButton"
+            android:src="@drawable/ic_playlist_play"
+            android:tint="@android:color/white"
+            android:nextFocusUp="@id/button_rewind"
+            android:nextFocusRight="@id/button_input_mode"
+            tools:ignore="ContentDescription" />
+
+        <ImageButton
+            android:id="@+id/button_input_mode"
+            style="@style/PlayerSecondaryControlButton"
+            android:src="@drawable/ic_input_mode_mono"
+            android:tint="@android:color/white"
+            android:nextFocusUp="@id/seek_bar"
+            android:nextFocusRight="@id/button_output_mode"
+            android:nextFocusLeft="@id/button_playlist"
+            tools:ignore="ContentDescription" />
+
+        <ImageButton
+            android:id="@+id/button_output_mode"
+            style="@style/PlayerSecondaryControlButton"
+            android:src="@drawable/ic_output_mode_3d_off"
+            android:tint="@android:color/white"
+            android:nextFocusUp="@id/button_play_pause"
+            android:nextFocusRight="@id/button_tracks"
+            android:nextFocusLeft="@id/button_input_mode"
+            tools:ignore="ContentDescription" />
+
+        <ImageButton
+            android:id="@+id/button_tracks"
+            style="@style/PlayerSecondaryControlButton"
+            android:src="@drawable/ic_subtitles"
+            android:tint="@android:color/white"
+            android:nextFocusUp="@id/seek_bar"
+            android:nextFocusRight="@id/button_swap_eyes"
+            android:nextFocusLeft="@id/button_output_mode"
+            tools:ignore="ContentDescription" />
+
+        <ImageButton
+            android:id="@+id/button_swap_eyes"
+            style="@style/PlayerSecondaryControlButton"
+            android:src="@drawable/ic_swap_horiz"
+            android:tint="@android:color/white"
+            android:nextFocusUp="@id/button_ffwd"
+            android:nextFocusLeft="@id/button_tracks"
+            tools:ignore="ContentDescription" />
+
+    </LinearLayout>
+
+    <!-- ==================================================================== -->
+    <!-- ИСПРАВЛЕНИЕ: Средний ряд теперь привязан к верху нижнего ряда -->
+    <!-- ==================================================================== -->
     <ImageButton
         android:id="@+id/button_play_pause"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="32dp"
-        android:background="?android:attr/selectableItemBackgroundBorderless"
-        android:contentDescription="Play/Pause"
-        android:focusable="true"
-        android:src="@android:drawable/ic_media_play"
-        app:layout_constraintBottom_toBottomOf="parent"
+        style="@style/PlayerControlButton"
+        android:src="@drawable/ic_play_arrow"
+        android:tint="@android:color/white"
+        android:layout_marginBottom="16dp"
+        app:layout_constraintBottom_toTopOf="@id/bottom_controls_row"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         android:nextFocusUp="@id/seek_bar"
+        android:nextFocusDown="@id/button_output_mode"
         android:nextFocusLeft="@id/button_rewind"
-        android:nextFocusRight="@id/button_ffwd"/>
+        android:nextFocusRight="@id/button_ffwd"
+        tools:ignore="ContentDescription" />
 
     <ImageButton
         android:id="@+id/button_rewind"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:background="?android:attr/selectableItemBackgroundBorderless"
-        android:contentDescription="Rewind"
-        android:focusable="true"
-        android:src="@android:drawable/ic_media_rew"
-        app:layout_constraintBottom_toBottomOf="parent"
+        style="@style/PlayerControlButton"
+        android:layout_marginEnd="24dp"
+        android:src="@drawable/ic_fast_rewind"
+        android:tint="@android:color/white"
+        app:layout_constraintBottom_toBottomOf="@id/button_play_pause"
         app:layout_constraintEnd_toStartOf="@id/button_play_pause"
         app:layout_constraintTop_toTopOf="@id/button_play_pause"
         android:nextFocusUp="@id/seek_bar"
-        android:nextFocusLeft="@id/button_input_format"
-        android:nextFocusRight="@id/button_play_pause"/>
+        android:nextFocusDown="@id/button_playlist"
+        android:nextFocusRight="@id/button_play_pause"
+        tools:ignore="ContentDescription" />
 
     <ImageButton
         android:id="@+id/button_ffwd"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:background="?android:attr/selectableItemBackgroundBorderless"
-        android:contentDescription="Fast Forward"
-        android:focusable="true"
-        android:src="@android:drawable/ic_media_ff"
-        app:layout_constraintBottom_toBottomOf="parent"
+        style="@style/PlayerControlButton"
+        android:layout_marginStart="24dp"
+        android:src="@drawable/ic_fast_forward"
+        android:tint="@android:color/white"
+        app:layout_constraintBottom_toBottomOf="@id/button_play_pause"
         app:layout_constraintStart_toEndOf="@id/button_play_pause"
         app:layout_constraintTop_toTopOf="@id/button_play_pause"
         android:nextFocusUp="@id/seek_bar"
+        android:nextFocusDown="@id/button_swap_eyes"
         android:nextFocusLeft="@id/button_play_pause"
-        android:nextFocusRight="@id/button_output_mode"/>
+        tools:ignore="ContentDescription" />
 
+    <!-- ==================================================================== -->
+    <!-- Верхний ряд (SeekBar и текст) остается привязанным к среднему ряду -->
+    <!-- ==================================================================== -->
     <SeekBar
         android:id="@+id/seek_bar"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"
+        android:layout_marginBottom="12dp"
         android:focusable="true"
         app:layout_constraintBottom_toTopOf="@id/button_play_pause"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        android:nextFocusDown="@id/button_play_pause"/>
+        android:nextFocusDown="@id/button_play_pause" />
 
     <TextView
         android:id="@+id/time_current"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textColor="@android:color/white"
+        android:textSize="14sp"
         app:layout_constraintBottom_toTopOf="@id/seek_bar"
         app:layout_constraintStart_toStartOf="parent"
         tools:text="01:23" />
+
+    <TextView
+        android:id="@+id/video_title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="8dp"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:maxLines="1"
+        android:textColor="@android:color/white"
+        android:textSize="16sp"
+        app:layout_constraintBottom_toBottomOf="@id/time_current"
+        app:layout_constraintEnd_toStartOf="@id/time_duration"
+        app:layout_constraintStart_toEndOf="@id/time_current"
+        app:layout_constraintTop_toTopOf="@id/time_current"
+        tools:text="Очень длинное название фильма, которое не помещается" />
 
     <TextView
         android:id="@+id/time_duration"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textColor="@android:color/white"
+        android:textSize="14sp"
         app:layout_constraintBottom_toTopOf="@id/seek_bar"
         app:layout_constraintEnd_toEndOf="parent"
-        tools:text="10:00" />
-
-    <Button
-        android:id="@+id/button_input_format"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:focusable="true"
-        android:text="@string/action_select_input_format"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/button_rewind"
-        app:layout_constraintHorizontal_bias="0.1"
-        app:layout_constraintStart_toStartOf="parent"
-        android:nextFocusUp="@id/seek_bar"
-        android:nextFocusRight="@id/button_rewind"/>
-
-    <Button
-        android:id="@+id/button_output_mode"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:focusable="true"
-        android:nextFocusLeft="@id/button_ffwd"
-        android:nextFocusRight="@id/button_swap_eyes"
-        android:nextFocusUp="@id/seek_bar"
-        android:text="@string/action_select_output_mode"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.568"
-        app:layout_constraintStart_toEndOf="@id/button_ffwd" />
-
-    <Button
-        android:id="@+id/button_swap_eyes"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:focusable="true"
-        android:text="@string/action_swap_eyes"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@id/button_output_mode"
-        android:nextFocusUp="@id/seek_bar"
-        android:nextFocusLeft="@id/button_output_mode"/>
+        tools:text="1:45:10" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
