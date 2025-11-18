@@ -1,12 +1,12 @@
 package top.rootu.dddplayer.viewmodel
 
 import android.app.Application
-import android.media.audiofx.LoudnessEnhancer
 import android.os.Handler
 import android.os.Looper
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MediaItem as Media3MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
@@ -21,32 +21,24 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     // --- LiveData для UI ---
     private val _isPlaying = MutableLiveData<Boolean>()
     val isPlaying: LiveData<Boolean> = _isPlaying
-
     private val _currentPosition = MutableLiveData<Long>()
     val currentPosition: LiveData<Long> = _currentPosition
-
     private val _duration = MutableLiveData<Long>()
     val duration: LiveData<Long> = _duration
-
     private val _videoTitle = MutableLiveData<String?>()
     val videoTitle: LiveData<String?> = _videoTitle
-
     private val _isBuffering = MutableLiveData<Boolean>()
     val isBuffering: LiveData<Boolean> = _isBuffering
 
     // --- LiveData для настроек рендерера ---
     private val _inputType = MutableLiveData(StereoInputType.NONE)
     val inputType: LiveData<StereoInputType> = _inputType
-
     private val _outputMode = MutableLiveData(StereoOutputMode.ANAGLYPH)
     val outputMode: LiveData<StereoOutputMode> = _outputMode
-
     private val _anaglyphType = MutableLiveData(StereoRenderer.AnaglyphType.DUBOIS)
     val anaglyphType: LiveData<StereoRenderer.AnaglyphType> = _anaglyphType
-
     private val _swapEyes = MutableLiveData(false)
     val swapEyes: LiveData<Boolean> = _swapEyes
-
     private val _singleFrameSize = MutableLiveData<Pair<Float, Float>>()
     val singleFrameSize: LiveData<Pair<Float, Float>> = _singleFrameSize
 
@@ -84,58 +76,73 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 _videoTitle.value = title ?: mediaItem?.localConfiguration?.uri?.lastPathSegment
             }
 
-            override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
-                lastVideoSize = videoSize // Сохраняем последний известный размер
-
+            override fun onVideoSizeChanged(videoSize: VideoSize) {
+                lastVideoSize = videoSize
                 val width = videoSize.width.toFloat()
                 val height = videoSize.height.toFloat()
                 if (width == 0f || height == 0f) return
 
                 val videoAspectRatio = width / height
 
-                var singleFrameWidth = width
-                var singleFrameHeight = height
-
+                // Автоопределение типа (остается таким же)
                 val detectedInputType = when {
                     videoAspectRatio > 3.0 -> StereoInputType.SIDE_BY_SIDE
                     videoAspectRatio > 0.8 && videoAspectRatio < 1.2 && height > width * 1.1 -> StereoInputType.TOP_BOTTOM
                     else -> StereoInputType.NONE
                 }
-
-                _inputType.value = detectedInputType
-                calculateFrameSize(detectedInputType, videoSize)
+                // Устанавливаем тип, что автоматически вызовет calculateFrameSize
+                setInputType(detectedInputType)
             }
         })
     }
 
+    /**
+     * Главная логика. Вычисляет ПРАВИЛЬНЫЕ, НЕИСКАЖЕННЫЕ размеры одного кадра.
+     */
     private fun calculateFrameSize(inputType: StereoInputType, videoSize: VideoSize) {
         val width = videoSize.width.toFloat()
         val height = videoSize.height.toFloat()
 
-        var singleFrameWidth = width
-        var singleFrameHeight = height
+        var finalFrameWidth: Float
+        var finalFrameHeight: Float
 
         when (inputType) {
             StereoInputType.SIDE_BY_SIDE -> {
-                singleFrameWidth = width / 2
-                singleFrameHeight = height
+                val halfWidth = width / 2
+                val halfAR = halfWidth / height
+                // Если половинка кадра "худая" (AR < 1.2), значит это анаморф и его надо растянуть
+                if (halfAR < 1.2f) {
+                    finalFrameWidth = halfWidth * 2 // Растягиваем до нормальной ширины
+                    finalFrameHeight = height
+                } else { // Иначе это полная стереопара, и половинка уже имеет правильные пропорции
+                    finalFrameWidth = halfWidth
+                    finalFrameHeight = height
+                }
             }
             StereoInputType.TOP_BOTTOM -> {
-                singleFrameWidth = width
-                singleFrameHeight = height / 2
+                val halfHeight = height / 2
+                val halfAR = width / halfHeight
+                // Если половинка кадра "слишком широкая" (AR > 2.5), это анаморф
+                if (halfAR > 2.5f) {
+                    finalFrameWidth = width
+                    finalFrameHeight = halfHeight * 2 // Растягиваем до нормальной высоты
+                } else { // Иначе это полная стереопара
+                    finalFrameWidth = width
+                    finalFrameHeight = halfHeight
+                }
             }
             else -> { // NONE и другие
-                singleFrameWidth = width
-                singleFrameHeight = height
+                finalFrameWidth = width
+                finalFrameHeight = height
             }
         }
-        _singleFrameSize.value = Pair(singleFrameWidth, singleFrameHeight)
+        _singleFrameSize.value = Pair(finalFrameWidth, finalFrameHeight)
     }
 
     fun loadMedia(mediaItem: MediaItem) {
         val exoMediaItem = Media3MediaItem.Builder()
             .setUri(mediaItem.uri)
-            .setMediaMetadata(androidx.media3.common.MediaMetadata.Builder().setTitle(mediaItem.title).build())
+            .setMediaMetadata(MediaMetadata.Builder().setTitle(mediaItem.title).build())
             .build()
         player.setMediaItem(exoMediaItem)
         player.prepare()
@@ -146,6 +153,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     fun seekForward() { player.seekTo(player.currentPosition + 10000) }
     fun seekBack() { player.seekTo(player.currentPosition - 10000) }
     fun setInputType(inputType: StereoInputType) {
+        // Проверяем, чтобы не вызывать лишних обновлений
+        if (_inputType.value == inputType) return
         _inputType.value = inputType
         lastVideoSize?.let {
             calculateFrameSize(inputType, it)
