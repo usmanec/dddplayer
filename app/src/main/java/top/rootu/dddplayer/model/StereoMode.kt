@@ -4,13 +4,11 @@ package top.rootu.dddplayer.model
  * Типы входного стерео-формата видеофайла.
  */
 enum class StereoInputType {
-    NONE,                   // Обычное 2D видео
-    SIDE_BY_SIDE,           // Параллельная пара (Левый/Правый)
-    SIDE_BY_SIDE_CROSSED,   // Перекрестная пара (Правый/Левый)
-    TOP_BOTTOM,             // Вертикальная пара (Левый/Правый)
-    TOP_BOTTOM_REVERSED,    // Вертикальная пара (Правый/Левый)
-    INTERLACED,             // Чересстрочный
-    TILED_1080P             // 3D Tiles Format/3DZ Tiles Format
+    NONE,
+    SIDE_BY_SIDE,
+    TOP_BOTTOM,
+    INTERLACED,
+    TILED_1080P
 }
 
 /**

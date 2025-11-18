@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:height="24dp"  android:viewportHeight="100" android:viewportWidth="100" android:width="24dp">
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="8"
+        android:pathData="M15,20 H85 A5,5 0 0 1 90,25 V75 A5,5 0 0 1 85,80 H15 A5,5 0 0 1 10,75 V25 A5,5 0 0 1 15,20 Z"/>
+
+    <!-- Буква L -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M43,27 L49,27 L49,42 L57,42 L57,47 L43,47 Z"/>
+
+    <!-- Нижняя часть -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M16,50 H84 V74 H16 Z"/>
+</vector>
