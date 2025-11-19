@@ -7,6 +7,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
 import android.view.LayoutInflater
+import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
@@ -16,6 +17,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
+import androidx.core.net.toUri
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -27,15 +29,13 @@ import top.rootu.dddplayer.renderer.OnSurfaceReadyListener
 import top.rootu.dddplayer.renderer.StereoGLSurfaceView
 import top.rootu.dddplayer.renderer.StereoRenderer
 import top.rootu.dddplayer.viewmodel.PlayerViewModel
-import android.view.Surface
-import androidx.core.net.toUri
 import java.util.Locale
 
 class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener {
 
     private val viewModel: PlayerViewModel by viewModels()
     private lateinit var glSurfaceView: StereoGLSurfaceView
-    private lateinit var stereoRenderer: StereoRenderer
+    private var stereoRenderer: StereoRenderer? = null
 
     // --- UI State ---
     private var isPanelExpanded = false
@@ -104,12 +104,11 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         if (videoUri != null) {
             viewModel.loadMedia(top.rootu.dddplayer.model.MediaItem(videoUri, videoUri.lastPathSegment))
         } else {
-            // Если приложение запущено из лаунчера без файла,
-            // можно показать заглушку или загрузить видео по умолчанию.
-//            val videoUri = "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-//            val videoUri = "http://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8"
-            val videoUri = "http://epg.rootu.top/tmp/3D/bbb_sunflower_1080p_30fps_stereo_abl.mp4"
-            viewModel.loadMedia(top.rootu.dddplayer.model.MediaItem(videoUri.toUri()))
+            // Дефолтное видео для теста
+//            val defaultUri = "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+//            val defaultUri = "http://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8"
+            val defaultUri = "http://epg.rootu.top/tmp/3D/bbb_sunflower_1080p_30fps_stereo_abl.mp4"
+            viewModel.loadMedia(top.rootu.dddplayer.model.MediaItem(defaultUri.toUri()))
         }
     }
 
@@ -159,6 +158,11 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
                 if (currentFocus?.id == R.id.seek_bar) {
                     isUserSeeking = true
                 }
+            }
+            KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
+                viewModel.togglePlayPause()
+                showControls()
+                return true
             }
         }
         return false
@@ -224,14 +228,14 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
             bufferingIndicator.isVisible = isBuffering
         }
         viewModel.swapEyes.observe(viewLifecycleOwner) { swap ->
-            stereoRenderer.setSwapEyes(swap)
+            stereoRenderer?.setSwapEyes(swap)
             swapEyesButton.alpha = if (swap) 1.0f else 0.5f
         }
-        viewModel.inputType.observe(viewLifecycleOwner) { type -> stereoRenderer.setInputType(type) }
-        viewModel.outputMode.observe(viewLifecycleOwner) { mode -> stereoRenderer.setOutputMode(mode) }
-        viewModel.anaglyphType.observe(viewLifecycleOwner) { type -> stereoRenderer.setAnaglyphType(type) }
+        viewModel.inputType.observe(viewLifecycleOwner) { type -> stereoRenderer?.setInputType(type) }
+        viewModel.outputMode.observe(viewLifecycleOwner) { mode -> stereoRenderer?.setOutputMode(mode) }
+        viewModel.anaglyphType.observe(viewLifecycleOwner) { type -> stereoRenderer?.setAnaglyphType(type) }
         viewModel.singleFrameSize.observe(viewLifecycleOwner) { (width, height) ->
-            stereoRenderer.setSingleFrameDimensions(width, height)
+            stereoRenderer?.setSingleFrameDimensions(width, height)
         }
     }
 
@@ -334,12 +338,38 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         }
     }
 
-    override fun onSurfaceReady(surface: Surface) { activity?.runOnUiThread { viewModel.player.setVideoSurface(surface) } }
-    override fun onFpsUpdated(fps: Int) { activity?.runOnUiThread { fpsCounterTextView.text = "FPS: $fps" } }
+    override fun onSurfaceReady(surface: Surface) {
+        activity?.runOnUiThread { viewModel.player.setVideoSurface(surface) }
+    }
 
-    override fun onResume() { super.onResume(); viewModel.player.playWhenReady = true; glSurfaceView.onResume() }
-    override fun onPause() { super.onPause(); viewModel.player.playWhenReady = false; glSurfaceView.onPause() }
-    override fun onDestroyView() { super.onDestroyView(); viewModel.player.setVideoSurface(null); glSurfaceView.onPause() }
+    override fun onFpsUpdated(fps: Int) {
+        activity?.runOnUiThread { fpsCounterTextView.text = "FPS: $fps" }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        viewModel.player.playWhenReady = true
+        glSurfaceView.onResume()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        viewModel.player.playWhenReady = false
+        glSurfaceView.onPause()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        // Очищаем колбэки, чтобы избежать утечек и крашей
+        hideControlsHandler.removeCallbacksAndMessages(null)
+
+        // Отвязываем поверхность от плеера
+        viewModel.player.setVideoSurface(null)
+
+        // Освобождаем ресурсы рендерера
+        stereoRenderer?.release()
+        stereoRenderer = null
+    }
 
     companion object {
         private const val ARG_VIDEO_URI = "video_uri"

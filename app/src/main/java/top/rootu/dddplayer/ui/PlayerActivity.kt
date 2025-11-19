@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.net.Uri
 import android.os.Bundle
 import android.view.KeyEvent
+import android.view.WindowManager
 import androidx.fragment.app.FragmentActivity
 import top.rootu.dddplayer.R
 
@@ -13,6 +14,9 @@ class PlayerActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Держим экран включенным во время воспроизведения
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
         setContentView(R.layout.player_activity)
 
         if (savedInstanceState == null) {
@@ -33,6 +37,7 @@ class PlayerActivity : FragmentActivity() {
      * Центральный обработчик всех нажатий кнопок.
      * Это самый надежный способ управлять UI плеера.
      */
+    @SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         // Передаем событие во фрагмент для обработки.
         // Если фрагмент его обработал (вернул true), то мы прекращаем дальнейшее распространение.

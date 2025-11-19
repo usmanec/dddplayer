@@ -51,19 +51,19 @@ class StereoRenderer(
     private val vertexBuffer: FloatBuffer
     private val texCoordBuffer: FloatBuffer
 
-    private var currentInputType: StereoInputType = StereoInputType.NONE
-    private var currentOutputMode: StereoOutputMode = StereoOutputMode.ANAGLYPH
-    private var currentAnaglyphType: AnaglyphType = AnaglyphType.DUBOIS
-    private var swapEyes: Boolean = false
-    private var videoWidth: Int = 1920
-    private var videoHeight: Int = 1080
+    @Volatile private var currentInputType: StereoInputType = StereoInputType.NONE
+    @Volatile private var currentOutputMode: StereoOutputMode = StereoOutputMode.ANAGLYPH
+    @Volatile private var currentAnaglyphType: AnaglyphType = AnaglyphType.DUBOIS
+    @Volatile private var swapEyes: Boolean = false
+    @Volatile private var videoWidth: Int = 1920
+    @Volatile private var videoHeight: Int = 1080
     private var screenAspectRatio: Float = 16f / 9f
-    private var singleFrameWidth: Float = 1920f
-    private var singleFrameHeight: Float = 1080f
+    @Volatile private var singleFrameWidth: Float = 1920f
+    @Volatile private var singleFrameHeight: Float = 1080f
 
     private val textureId = IntArray(1)
-    private lateinit var surfaceTexture: SurfaceTexture
-    private lateinit var videoSurface: Surface
+    private var surfaceTexture: SurfaceTexture? = null
+    private var videoSurface: Surface? = null
 
     private val texMatrix = FloatArray(16)
     @Volatile
@@ -100,11 +100,11 @@ class StereoRenderer(
         setupTexture()
 
         surfaceTexture = SurfaceTexture(textureId[0])
-        surfaceTexture.setOnFrameAvailableListener(this)
+        surfaceTexture?.setOnFrameAvailableListener(this)
         videoSurface = Surface(surfaceTexture)
 
         lastTime = System.nanoTime()
-        surfaceReadyListener.onSurfaceReady(videoSurface)
+        videoSurface?.let { surfaceReadyListener.onSurfaceReady(it) }
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
@@ -115,8 +115,8 @@ class StereoRenderer(
     override fun onDrawFrame(gl: GL10?) {
         synchronized(this) {
             if (frameAvailable) {
-                surfaceTexture.updateTexImage()
-                surfaceTexture.getTransformMatrix(texMatrix)
+                surfaceTexture?.updateTexImage()
+                surfaceTexture?.getTransformMatrix(texMatrix)
                 frameAvailable = false
             }
         }
@@ -265,10 +265,16 @@ class StereoRenderer(
     }
 
     fun release() {
-        GLES20.glDeleteProgram(program)
-        GLES20.glDeleteTextures(1, textureId, 0)
-        surfaceTexture.release()
-        videoSurface.release()
+        // Освобождаем Java-объекты Surface, чтобы ExoPlayer перестал в них писать
+        surfaceTexture?.release()
+        surfaceTexture = null
+        videoSurface?.release()
+        videoSurface = null
+
+        // Примечание: glDeleteProgram и glDeleteTextures должны вызываться в GL потоке.
+        // Обычно GLSurfaceView сам уничтожает контекст при детаче, поэтому явное удаление
+        // текстур здесь может быть избыточным или вызвать ошибку, если контекст уже мертв.
+        // Главное - освободить SurfaceTexture.
     }
 
     enum class AnaglyphType { DUBOIS, RC_HALF_COLOR, RC_COLOR, RC_MONO, RC_OPTIMIZED, YB_HALF_COLOR, YB_COLOR, YB_MONO, RB_MONO }
