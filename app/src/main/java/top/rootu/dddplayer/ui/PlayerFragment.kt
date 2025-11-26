@@ -16,21 +16,23 @@ import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
-import androidx.appcompat.app.AlertDialog
 import androidx.core.net.toUri
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.ui.SubtitleView
 import top.rootu.dddplayer.R
-import top.rootu.dddplayer.model.StereoInputType
 import top.rootu.dddplayer.model.StereoOutputMode
 import top.rootu.dddplayer.renderer.OnFpsUpdatedListener
 import top.rootu.dddplayer.renderer.OnSurfaceReadyListener
 import top.rootu.dddplayer.renderer.StereoGLSurfaceView
 import top.rootu.dddplayer.renderer.StereoRenderer
 import top.rootu.dddplayer.viewmodel.PlayerViewModel
+import top.rootu.dddplayer.viewmodel.SettingType
 import java.util.Locale
 
+@UnstableApi
 class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener {
 
     private val viewModel: PlayerViewModel by viewModels()
@@ -43,11 +45,33 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
     private val hideControlsRunnable = Runnable { hideControls() }
     private var isUserSeeking = false
 
+    private val settingsHideHandler = Handler(Looper.getMainLooper())
+    private val settingsHideRunnable = Runnable {
+        if (viewModel.isSettingsPanelVisible.value == true) {
+            viewModel.closeSettingsPanel(true)
+        }
+    }
+
     // --- Views ---
+    private lateinit var rootContainer: View
+    private lateinit var touchZoneTop: View
+
+    // Субтитры
+    private lateinit var subtitleView: SubtitleView
+    private lateinit var subtitleSplitContainer: View
+    private lateinit var subtitleViewLeft: SubtitleView
+    private lateinit var subtitleViewRight: SubtitleView
+
     private lateinit var controlsView: View
     private lateinit var bottomControlsRow: View
     private lateinit var fpsCounterTextView: TextView
+
+    // Лоадеры
     private lateinit var bufferingIndicator: ProgressBar
+    private lateinit var bufferingSplitContainer: View
+    private lateinit var loaderLeft: ProgressBar
+    private lateinit var loaderRight: ProgressBar
+
     private lateinit var playPauseButton: ImageButton
     private lateinit var rewindButton: ImageButton
     private lateinit var ffwdButton: ImageButton
@@ -61,7 +85,19 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
     private lateinit var tracksButton: ImageButton
     private lateinit var playlistButton: ImageButton
 
-    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+    // --- OSD Views ---
+    private lateinit var topSettingsPanel: View
+    private lateinit var titleContainer: View
+    private lateinit var settingTitle: TextView
+    private lateinit var settingValue: TextView
+    private lateinit var btnSettingsPrev: View
+    private lateinit var btnSettingsNext: View
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
         val view = inflater.inflate(R.layout.player_fragment, container, false)
         bindViews(view)
 
@@ -74,11 +110,24 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
     }
 
     private fun bindViews(view: View) {
+        rootContainer = view.findViewById(R.id.root_container)
+        touchZoneTop = view.findViewById(R.id.touch_zone_top)
+
+        subtitleView = view.findViewById(R.id.subtitle_view)
+        subtitleSplitContainer = view.findViewById(R.id.subtitle_split_container)
+        subtitleViewLeft = view.findViewById(R.id.subtitle_view_left)
+        subtitleViewRight = view.findViewById(R.id.subtitle_view_right)
+
         controlsView = view.findViewById(R.id.playback_controls)
         bottomControlsRow = controlsView.findViewById(R.id.bottom_controls_row)
         glSurfaceView = view.findViewById(R.id.gl_surface_view)
         fpsCounterTextView = view.findViewById(R.id.fps_counter)
+
         bufferingIndicator = view.findViewById(R.id.buffering_indicator)
+        bufferingSplitContainer = view.findViewById(R.id.buffering_split_container)
+        loaderLeft = view.findViewById(R.id.loader_left)
+        loaderRight = view.findViewById(R.id.loader_right)
+
         playPauseButton = controlsView.findViewById(R.id.button_play_pause)
         rewindButton = controlsView.findViewById(R.id.button_rewind)
         ffwdButton = controlsView.findViewById(R.id.button_ffwd)
@@ -91,6 +140,13 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         swapEyesButton = controlsView.findViewById(R.id.button_swap_eyes)
         tracksButton = controlsView.findViewById(R.id.button_tracks)
         playlistButton = controlsView.findViewById(R.id.button_playlist)
+
+        topSettingsPanel = view.findViewById(R.id.top_settings_panel)
+        titleContainer = topSettingsPanel.findViewById(R.id.title_container)
+        settingTitle = topSettingsPanel.findViewById(R.id.setting_title)
+        settingValue = topSettingsPanel.findViewById(R.id.setting_value)
+        btnSettingsPrev = topSettingsPanel.findViewById(R.id.btn_settings_prev)
+        btnSettingsNext = topSettingsPanel.findViewById(R.id.btn_settings_next)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -102,7 +158,12 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
 
         val videoUri = arguments?.getParcelable<Uri>(ARG_VIDEO_URI)
         if (videoUri != null) {
-            viewModel.loadMedia(top.rootu.dddplayer.model.MediaItem(videoUri, videoUri.lastPathSegment))
+            viewModel.loadMedia(
+                top.rootu.dddplayer.model.MediaItem(
+                    videoUri,
+                    videoUri.lastPathSegment
+                )
+            )
         } else {
             // Дефолтное видео для теста
 //            val defaultUri = "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
@@ -114,11 +175,42 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
 
     fun handleKeyEvent(event: KeyEvent): Boolean {
         if (event.action != KeyEvent.ACTION_DOWN) return false
+        if (viewModel.isSettingsPanelVisible.value == true) {
+            resetSettingsHideTimer()
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_DPAD_UP -> {
+                    viewModel.onMenuUp()
+                    return true
+                }
 
-        if (controlsView.isVisible) {
-            resetHideTimer()
+                KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    viewModel.onMenuDown()
+                    return true
+                }
+
+                KeyEvent.KEYCODE_DPAD_LEFT -> {
+                    viewModel.onMenuLeft()
+                    return true
+                }
+
+                KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                    viewModel.onMenuRight()
+                    return true
+                }
+
+                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                    viewModel.closeSettingsPanel(save = true)
+                    return true
+                }
+
+                KeyEvent.KEYCODE_BACK -> {
+                    viewModel.closeSettingsPanel(save = false)
+                    return true
+                }
+            }
+            return true
         }
-
+        if (controlsView.isVisible) resetHideTimer()
         val currentFocus = activity?.currentFocus
 
         when (event.keyCode) {
@@ -128,28 +220,34 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
                     return true
                 }
             }
+
             KeyEvent.KEYCODE_DPAD_DOWN -> {
                 if (!controlsView.isVisible) {
                     showControls()
                     return true
                 }
-                if (!isPanelExpanded) {
-                    val topRowIds = listOf(R.id.button_play_pause, R.id.button_rewind, R.id.button_ffwd, R.id.seek_bar)
-                    if (currentFocus?.id in topRowIds) {
-                        expandControls()
-                        return true
-                    }
+                if (!isPanelExpanded && currentFocus?.id in listOf(
+                        R.id.button_play_pause,
+                        R.id.button_rewind,
+                        R.id.button_ffwd,
+                        R.id.seek_bar
+                    )
+                ) {
+                    expandControls()
+                    return true
                 }
             }
+
             KeyEvent.KEYCODE_DPAD_UP -> {
                 if (controlsView.isVisible && currentFocus?.id == R.id.seek_bar) {
                     hideControls()
                     return true
                 } else if (!controlsView.isVisible) {
-                    showPlaylist()
+                    viewModel.openSettingsPanel()
                     return true
                 }
             }
+
             KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> {
                 if (!controlsView.isVisible) {
                     showControls(focusOnSeekBar = true)
@@ -159,6 +257,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
                     isUserSeeking = true
                 }
             }
+
             KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
                 viewModel.togglePlayPause()
                 showControls()
@@ -169,15 +268,25 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
     }
 
     private fun setupControls() {
+        btnSettingsPrev.setOnClickListener { viewModel.onMenuLeft(); resetSettingsHideTimer() }
+        btnSettingsNext.setOnClickListener { viewModel.onMenuRight(); resetSettingsHideTimer() }
+        titleContainer.setOnClickListener { viewModel.onMenuDown(); resetSettingsHideTimer() }
+        topSettingsPanel.setOnClickListener { resetSettingsHideTimer() }
+        touchZoneTop.setOnClickListener { if (viewModel.isSettingsPanelVisible.value != true) viewModel.openSettingsPanel() }
+        rootContainer.setOnClickListener {
+            if (viewModel.isSettingsPanelVisible.value == true) viewModel.closeSettingsPanel(
+                save = true
+            ) else if (controlsView.isVisible) hideControls() else showControls()
+        }
+        controlsView.setOnClickListener { resetHideTimer() }
         playPauseButton.setOnClickListener { viewModel.togglePlayPause() }
         rewindButton.setOnClickListener { viewModel.seekBack() }
         ffwdButton.setOnClickListener { viewModel.seekForward() }
         swapEyesButton.setOnClickListener { viewModel.toggleSwapEyes() }
-        inputModeButton.setOnClickListener { showInputFormatSelector() }
-        outputModeButton.setOnClickListener { showOutputModeSelector() }
-        tracksButton.setOnClickListener { showTracksSelector() }
-        playlistButton.setOnClickListener { showPlaylist() }
-
+        inputModeButton.setOnClickListener { viewModel.openSettingsPanel() }
+        outputModeButton.setOnClickListener { viewModel.openSettingsPanel() }
+        tracksButton.setOnClickListener { viewModel.openSettingsPanel() }
+        playlistButton.setOnClickListener { viewModel.openSettingsPanel() }
         seekBar.setOnKeyListener { _, keyCode, event ->
             if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
                 if (event.action == KeyEvent.ACTION_DOWN) {
@@ -194,10 +303,12 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) timeCurrentTextView.text = formatTime(progress.toLong())
             }
+
             override fun onStartTrackingTouch(seekBar: SeekBar?) {
                 isUserSeeking = true
                 hideControlsHandler.removeCallbacks(hideControlsRunnable)
             }
+
             override fun onStopTrackingTouch(seekBar: SeekBar?) {
                 seekBar?.progress?.let { viewModel.player.seekTo(it.toLong()) }
                 isUserSeeking = false
@@ -224,18 +335,187 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         viewModel.videoTitle.observe(viewLifecycleOwner) { title ->
             videoTitleTextView.text = title
         }
+
         viewModel.isBuffering.observe(viewLifecycleOwner) { isBuffering ->
-            bufferingIndicator.isVisible = isBuffering
+            val mode = viewModel.outputMode.value
+            if (isBuffering) {
+                if (mode == StereoOutputMode.CARDBOARD_VR) {
+                    bufferingIndicator.isVisible = false
+                    bufferingSplitContainer.isVisible = true
+                } else {
+                    bufferingIndicator.isVisible = true
+                    bufferingSplitContainer.isVisible = false
+                }
+            } else {
+                bufferingIndicator.isVisible = false
+                bufferingSplitContainer.isVisible = false
+            }
         }
+
         viewModel.swapEyes.observe(viewLifecycleOwner) { swap ->
             stereoRenderer?.setSwapEyes(swap)
             swapEyesButton.alpha = if (swap) 1.0f else 0.5f
         }
         viewModel.inputType.observe(viewLifecycleOwner) { type -> stereoRenderer?.setInputType(type) }
-        viewModel.outputMode.observe(viewLifecycleOwner) { mode -> stereoRenderer?.setOutputMode(mode) }
+
+        viewModel.outputMode.observe(viewLifecycleOwner) { mode ->
+            stereoRenderer?.setOutputMode(mode)
+            if (mode == StereoOutputMode.CARDBOARD_VR) {
+                subtitleView.isVisible = false
+                subtitleSplitContainer.isVisible = true
+                if (viewModel.isBuffering.value == true) {
+                    bufferingIndicator.isVisible = false
+                    bufferingSplitContainer.isVisible = true
+                }
+            } else {
+                subtitleView.isVisible = true
+                subtitleSplitContainer.isVisible = false
+                if (viewModel.isBuffering.value == true) {
+                    bufferingIndicator.isVisible = true
+                    bufferingSplitContainer.isVisible = false
+                }
+            }
+        }
+
         viewModel.anaglyphType.observe(viewLifecycleOwner) { type -> stereoRenderer?.setAnaglyphType(type) }
         viewModel.singleFrameSize.observe(viewLifecycleOwner) { (width, height) ->
             stereoRenderer?.setSingleFrameDimensions(width, height)
+        }
+        viewModel.depth.observe(viewLifecycleOwner) { d -> stereoRenderer?.setDepth(d) }
+
+        viewModel.screenSeparation.observe(viewLifecycleOwner) { sep ->
+            stereoRenderer?.setScreenSeparation(sep)
+
+            // sep - это доля от ширины экрана (например 0.05 = 5%)
+            val screenWidth = resources.displayMetrics.widthPixels
+            val shiftPx = sep * screenWidth
+
+            // Сдвигаем UI элементы
+            subtitleViewLeft.translationX = -shiftPx
+            subtitleViewRight.translationX = shiftPx
+            loaderLeft.translationX = -shiftPx
+            loaderRight.translationX = shiftPx
+        }
+
+        // VR Observers
+        viewModel.vrK1.observe(viewLifecycleOwner) { updateVrParams(); updateSettingsText() }
+        viewModel.vrK2.observe(viewLifecycleOwner) { updateVrParams() }
+        viewModel.vrScale.observe(viewLifecycleOwner) { updateVrParams(); updateSettingsText() }
+
+        // OSD Observers
+        viewModel.isSettingsPanelVisible.observe(viewLifecycleOwner) { isVisible ->
+            topSettingsPanel.isVisible = isVisible
+            if (isVisible) {
+                hideControls()
+                resetSettingsHideTimer()
+                updateSettingsText()
+            } else {
+                settingsHideHandler.removeCallbacks(settingsHideRunnable)
+            }
+        }
+
+        viewModel.currentSettingType.observe(viewLifecycleOwner) { updateSettingsText() }
+        viewModel.inputType.observe(viewLifecycleOwner) { updateSettingsText() }
+        viewModel.outputMode.observe(viewLifecycleOwner) { updateSettingsText() }
+        viewModel.anaglyphType.observe(viewLifecycleOwner) { updateSettingsText() }
+        viewModel.swapEyes.observe(viewLifecycleOwner) { updateSettingsText() }
+        viewModel.depth.observe(viewLifecycleOwner) { updateSettingsText() }
+        viewModel.screenSeparation.observe(viewLifecycleOwner) { updateSettingsText() }
+        viewModel.currentAudioName.observe(viewLifecycleOwner) { updateSettingsText() }
+        viewModel.currentSubtitleName.observe(viewLifecycleOwner) { updateSettingsText() }
+
+        viewModel.cues.observe(viewLifecycleOwner) { cues ->
+            subtitleView.setCues(cues)
+            subtitleViewLeft.setCues(cues)
+            subtitleViewRight.setCues(cues)
+        }
+
+        viewModel.toastMessage.observe(viewLifecycleOwner) { msg ->
+            if (msg != null) {
+                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                viewModel.clearToastMessage()
+            }
+        }
+    }
+
+    private fun updateVrParams() {
+        val k1 = viewModel.vrK1.value ?: 0.34f
+        val k2 = viewModel.vrK2.value ?: 0.10f
+        val scale = viewModel.vrScale.value ?: 1.2f
+        stereoRenderer?.setDistortion(k1, k2, scale)
+    }
+
+    private fun updateSettingsText() {
+        if (viewModel.isSettingsPanelVisible.value != true) return
+        val type = viewModel.currentSettingType.value ?: return
+        resetSettingsHideTimer()
+
+        when (type) {
+            SettingType.VIDEO_TYPE -> {
+                settingTitle.text = getString(R.string.setting_video_type)
+                settingValue.text = viewModel.inputType.value?.name?.replace("_", " ")
+            }
+
+            SettingType.OUTPUT_FORMAT -> {
+                settingTitle.text = getString(R.string.setting_output_format)
+                settingValue.text = viewModel.outputMode.value?.name?.replace("_", " ")
+            }
+
+            SettingType.GLASSES_TYPE -> {
+                settingTitle.text = getString(R.string.setting_glasses_type)
+                settingValue.text = getGlassesGroupName(viewModel.anaglyphType.value!!)
+            }
+
+            SettingType.FILTER_MODE -> {
+                settingTitle.text = getString(R.string.setting_filter)
+                settingValue.text = viewModel.anaglyphType.value?.name
+            }
+
+            SettingType.SWAP_EYES -> {
+                settingTitle.text = getString(R.string.setting_swap_eyes)
+                settingValue.text = if (viewModel.swapEyes.value == true) "R - L" else "L - R"
+            }
+
+            SettingType.DEPTH_3D -> {
+                settingTitle.text = getString(R.string.setting_depth)
+                settingValue.text = viewModel.depth.value.toString()
+            }
+
+            SettingType.SCREEN_SEPARATION -> {
+                settingTitle.text = getString(R.string.setting_screen_separation)
+                // Показываем в условных единицах (x100 для красоты)
+                settingValue.text = String.format("%.1f", (viewModel.screenSeparation.value ?: 0f) * 100)
+            }
+
+            SettingType.VR_DISTORTION -> {
+                settingTitle.text = getString(R.string.setting_vr_distortion)
+                settingValue.text = String.format("%.2f", viewModel.vrK1.value)
+            }
+
+            SettingType.VR_ZOOM -> {
+                settingTitle.text = getString(R.string.setting_vr_zoom)
+                settingValue.text = String.format("%.2f", viewModel.vrScale.value)
+            }
+
+            SettingType.AUDIO_TRACK -> {
+                settingTitle.text = getString(R.string.setting_audio_track)
+                settingValue.text = viewModel.currentAudioName.value
+            }
+
+            SettingType.SUBTITLES -> {
+                settingTitle.text = getString(R.string.setting_subtitles)
+                settingValue.text = viewModel.currentSubtitleName.value
+            }
+        }
+    }
+
+    private fun getGlassesGroupName(type: StereoRenderer.AnaglyphType): String {
+        return when {
+            type.name.startsWith("RC_") -> "Red - Cyan"
+            type.name.startsWith("YB_") -> "Yellow - Blue"
+            type.name.startsWith("GM_") -> "Green - Magenta"
+            type.name.startsWith("RB_") -> "Red - Blue"
+            else -> "Unknown"
         }
     }
 
@@ -269,62 +549,32 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
 
     private fun resetHideTimer() {
         hideControlsHandler.removeCallbacks(hideControlsRunnable)
-        hideControlsHandler.postDelayed(hideControlsRunnable, 5000)
+        hideControlsHandler.postDelayed(hideControlsRunnable, 10000)
+    }
+
+    private fun resetSettingsHideTimer() {
+        settingsHideHandler.removeCallbacks(settingsHideRunnable)
+        settingsHideHandler.postDelayed(settingsHideRunnable, 60000)
     }
 
     private fun setupBackPressedHandler() {
-        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                if (controlsView.isVisible) {
-                    if (isPanelExpanded) collapseControls() else hideControls()
-                } else {
-                    if (isEnabled) {
-                        isEnabled = false
-                        requireActivity().onBackPressedDispatcher.onBackPressed()
+        requireActivity().onBackPressedDispatcher.addCallback(
+            viewLifecycleOwner,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    if (viewModel.isSettingsPanelVisible.value == true) {
+                        viewModel.closeSettingsPanel(save = false)
+                    } else if (controlsView.isVisible) {
+                        if (isPanelExpanded) collapseControls()
+                        else hideControls()
+                    } else {
+                        if (isEnabled) {
+                            isEnabled = false
+                            requireActivity().onBackPressedDispatcher.onBackPressed()
+                        }
                     }
                 }
-            }
-        })
-    }
-
-    private fun showPlaylist() { Toast.makeText(context, "Playlist coming soon!", Toast.LENGTH_SHORT).show() }
-    private fun showTracksSelector() { Toast.makeText(context, "Tracks/Subs coming soon!", Toast.LENGTH_SHORT).show() }
-
-    private fun showInputFormatSelector() {
-        val items = StereoInputType.values().map { it.name.replace("_", " ") }.toTypedArray()
-        AlertDialog.Builder(requireContext(), androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
-            .setTitle(R.string.action_select_input_format)
-            .setItems(items) { dialog, which ->
-                viewModel.setInputType(StereoInputType.values()[which])
-                dialog.dismiss()
-            }
-            .show()
-    }
-
-    private fun showOutputModeSelector() {
-        val items = StereoOutputMode.values().map { it.name.replace("_", " ") }.toTypedArray()
-        AlertDialog.Builder(requireContext(), androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
-            .setTitle(R.string.action_select_output_mode)
-            .setItems(items) { dialog, which ->
-                val selectedMode = StereoOutputMode.values()[which]
-                viewModel.setOutputMode(selectedMode)
-                dialog.dismiss()
-                if (selectedMode == StereoOutputMode.ANAGLYPH) {
-                    showAnaglyphTypeSelector()
-                }
-            }
-            .show()
-    }
-
-    private fun showAnaglyphTypeSelector() {
-        val items = StereoRenderer.AnaglyphType.values().map { it.name.replace("_", " ") }.toTypedArray()
-        AlertDialog.Builder(requireContext(), androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
-            .setTitle(R.string.action_select_anaglyph_type)
-            .setItems(items) { dialog, which ->
-                viewModel.setAnaglyphType(StereoRenderer.AnaglyphType.values()[which])
-                dialog.dismiss()
-            }
-            .show()
+            })
     }
 
     private fun formatTime(millis: Long): String {
@@ -362,6 +612,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         super.onDestroyView()
         // Очищаем колбэки, чтобы избежать утечек и крашей
         hideControlsHandler.removeCallbacksAndMessages(null)
+        settingsHideHandler.removeCallbacksAndMessages(null)
 
         // Отвязываем поверхность от плеера
         viewModel.player.setVideoSurface(null)

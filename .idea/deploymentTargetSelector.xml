@@ -4,7 +4,7 @@
     <selectionStates>
       <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2025-11-16T10:31:15.451893499Z">
+        <DropdownSelection timestamp="2025-11-19T12:10:33.776837219Z">
           <Target type="DEFAULT_BOOT">
             <handle>
               <DeviceId pluginId="LocalEmulator" identifier="path=/home/putilin/.android/avd/Android_TV_720p_API_30.avd" />

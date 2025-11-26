@@ -15,7 +15,7 @@ enum class StereoInputType {
  * Типы выходного рендеринга на экране.
  */
 enum class StereoOutputMode {
-    ANAGLYPH,       // Анаглиф (красно-синие очки)
+    ANAGLYPH,       // Анаглиф
     LEFT_ONLY,      // Только левый глаз
     RIGHT_ONLY,     // Только правый глаз
     CARDBOARD_VR    // Side-by-side для VR-гарнитур

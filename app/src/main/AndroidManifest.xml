@@ -54,13 +54,10 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <!-- Поддержка сетевых ссылок (http, https) -->
                 <data android:scheme="http" />
                 <data android:scheme="https" />
-                <!-- Поддержка локальных файлов (content://, file://) -->
                 <data android:scheme="content" />
                 <data android:scheme="file" />
-                <!-- Указываем типы файлов, которые мы можем открыть -->
                 <data android:mimeType="video/*" />
                 <data android:mimeType="application/sdp" />
                 <data android:mimeType="application/vnd.apple.mpegurl" />
@@ -70,6 +67,27 @@
             </intent-filter>
 
         </activity>
+
+        <!-- Activity для настройки VR профиля (прозрачная тема) -->
+        <activity
+            android:name=".ui.VrConfigActivity"
+            android:theme="@style/Theme.AppCompat.DayNight.Dialog.Alert"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:taskAffinity="">
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+                <data android:host="google.com" />
+                <data android:host="www.google.com" />
+                <data android:pathPrefix="/cardboard/cfg" />
+            </intent-filter>
+        </activity>
+
     </application>
 
 </manifest>

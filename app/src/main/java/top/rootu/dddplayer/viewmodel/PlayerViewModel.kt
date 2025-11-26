@@ -1,21 +1,62 @@
 package top.rootu.dddplayer.viewmodel
 
 import android.app.Application
+import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.viewModelScope
+import androidx.media3.common.C
+import androidx.media3.common.Format
 import androidx.media3.common.MediaMetadata
-import androidx.media3.common.MediaItem as Media3MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
+import androidx.media3.common.text.Cue
+import androidx.media3.common.text.CueGroup
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import kotlinx.coroutines.launch
+import top.rootu.dddplayer.R
+import top.rootu.dddplayer.data.AppDatabase
+import top.rootu.dddplayer.data.VideoSettings
 import top.rootu.dddplayer.model.MediaItem
 import top.rootu.dddplayer.model.StereoInputType
 import top.rootu.dddplayer.model.StereoOutputMode
 import top.rootu.dddplayer.renderer.StereoRenderer
+import top.rootu.dddplayer.utils.StereoTypeDetector
+import java.util.Locale
+import androidx.media3.common.MediaItem as Media3MediaItem
 
+enum class SettingType {
+    VIDEO_TYPE,
+    OUTPUT_FORMAT,
+    GLASSES_TYPE,
+    FILTER_MODE,
+    SWAP_EYES,
+    DEPTH_3D,
+    SCREEN_SEPARATION,
+    VR_DISTORTION,
+    VR_ZOOM,
+    AUDIO_TRACK,
+    SUBTITLES
+}
+
+enum class GlassesGroup { RED_CYAN, YELLOW_BLUE, GREEN_MAGENTA, RED_BLUE }
+
+data class TrackOption(
+    val name: String,
+    val group: Tracks.Group?,
+    val trackIndex: Int,
+    val isOff: Boolean = false
+)
+
+@UnstableApi
 class PlayerViewModel(application: Application) : AndroidViewModel(application) {
 
     // --- LiveData для UI ---
@@ -29,22 +70,68 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     val videoTitle: LiveData<String?> = _videoTitle
     private val _isBuffering = MutableLiveData<Boolean>()
     val isBuffering: LiveData<Boolean> = _isBuffering
+    private val _toastMessage = MutableLiveData<String?>()
+    val toastMessage: LiveData<String?> = _toastMessage
+    private val _cues = MutableLiveData<List<Cue>>()
+    val cues: LiveData<List<Cue>> = _cues
 
     // --- LiveData для настроек рендерера ---
     private val _inputType = MutableLiveData(StereoInputType.NONE)
     val inputType: LiveData<StereoInputType> = _inputType
     private val _outputMode = MutableLiveData(StereoOutputMode.ANAGLYPH)
     val outputMode: LiveData<StereoOutputMode> = _outputMode
-    private val _anaglyphType = MutableLiveData(StereoRenderer.AnaglyphType.DUBOIS)
+    private val _anaglyphType = MutableLiveData(StereoRenderer.AnaglyphType.RC_DUBOIS)
     val anaglyphType: LiveData<StereoRenderer.AnaglyphType> = _anaglyphType
     private val _swapEyes = MutableLiveData(false)
     val swapEyes: LiveData<Boolean> = _swapEyes
+
+    // Параллакс (для конкретного видео)
+    private val _depth = MutableLiveData(0)
+    val depth: LiveData<Int> = _depth
+
+    // Разделение экрана (Глобальная настройка IPD) - теперь Float
+    private val _screenSeparation = MutableLiveData(0f)
+    val screenSeparation: LiveData<Float> = _screenSeparation
+
+    // VR Settings
+    private val _vrK1 = MutableLiveData(0.34f)
+    val vrK1: LiveData<Float> = _vrK1
+
+    private val _vrK2 = MutableLiveData(0.10f)
+    val vrK2: LiveData<Float> = _vrK2
+
+    private val _vrScale = MutableLiveData(1.2f)
+    val vrScale: LiveData<Float> = _vrScale
+
     private val _singleFrameSize = MutableLiveData<Pair<Float, Float>>()
     val singleFrameSize: LiveData<Pair<Float, Float>> = _singleFrameSize
+    private val _isSettingsPanelVisible = MutableLiveData(false)
+    val isSettingsPanelVisible: LiveData<Boolean> = _isSettingsPanelVisible
+    private val _currentSettingType = MutableLiveData(SettingType.VIDEO_TYPE)
+    val currentSettingType: LiveData<SettingType> = _currentSettingType
+
+    private var audioOptions = listOf<TrackOption>()
+    private var subtitleOptions = listOf<TrackOption>()
+    private var currentAudioIndex = 0
+    private var currentSubtitleIndex = 0
+    private val _currentAudioName = MutableLiveData<String>()
+    val currentAudioName: LiveData<String> = _currentAudioName
+    private val _currentSubtitleName = MutableLiveData<String>()
+    val currentSubtitleName: LiveData<String> = _currentSubtitleName
+
+    private var availableSettings = listOf<SettingType>()
+    private var backupSettings: VideoSettings? = null
+    private var isSettingsLoadedFromDb = false
 
     private val handler = Handler(Looper.getMainLooper())
-    val player: ExoPlayer = ExoPlayer.Builder(application).build()
+    private val renderersFactory = DefaultRenderersFactory(application)
+        .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+
+    val player: ExoPlayer = ExoPlayer.Builder(application, renderersFactory).build()
     private var lastVideoSize: VideoSize? = null
+    private val db = AppDatabase.getDatabase(application)
+    private val prefs = application.getSharedPreferences("global_prefs", Context.MODE_PRIVATE)
+    private var currentUri: String? = null
 
     private val progressUpdater = object : Runnable {
         override fun run() {
@@ -74,6 +161,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             override fun onMediaItemTransition(mediaItem: Media3MediaItem?, reason: Int) {
                 val title = mediaItem?.mediaMetadata?.title?.toString()
                 _videoTitle.value = title ?: mediaItem?.localConfiguration?.uri?.lastPathSegment
+                isSettingsLoadedFromDb = false
             }
 
             override fun onVideoSizeChanged(videoSize: VideoSize) {
@@ -81,24 +169,141 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 val width = videoSize.width.toFloat()
                 val height = videoSize.height.toFloat()
                 if (width == 0f || height == 0f) return
-
-                val videoAspectRatio = width / height
-
-                // Автоопределение типа (остается таким же)
-                val detectedInputType = when {
-                    videoAspectRatio > 3.0 -> StereoInputType.SIDE_BY_SIDE
-                    videoAspectRatio > 0.8 && videoAspectRatio < 1.2 && height > width * 1.1 -> StereoInputType.TOP_BOTTOM
-                    else -> StereoInputType.NONE
+                if (isSettingsLoadedFromDb) {
+                    calculateFrameSize(_inputType.value!!, videoSize); return
                 }
-                // Устанавливаем тип, что автоматически вызовет calculateFrameSize
-                setInputType(detectedInputType)
+                if (_inputType.value == StereoInputType.NONE) {
+                    val detectedType = StereoTypeDetector.detect(
+                        player.videoFormat,
+                        player.currentMediaItem?.localConfiguration?.uri
+                    )
+                    if (detectedType != StereoInputType.NONE) {
+                        setInputType(detectedType); showAutoDetectToast(
+                            detectedType,
+                            "метаданным/имени"
+                        )
+                    } else {
+                        val videoAspectRatio = width / height
+                        val heuristicType = when {
+                            videoAspectRatio > 3.0 -> StereoInputType.SIDE_BY_SIDE
+                            videoAspectRatio > 0.8 && videoAspectRatio < 1.2 && height > width * 1.1 -> StereoInputType.TOP_BOTTOM
+                            else -> StereoInputType.NONE
+                        }
+                        if (heuristicType != StereoInputType.NONE) {
+                            setInputType(heuristicType); showAutoDetectToast(
+                                heuristicType,
+                                "соотношению сторон"
+                            )
+                        } else {
+                            calculateFrameSize(StereoInputType.NONE, videoSize)
+                        }
+                    }
+                } else {
+                    calculateFrameSize(_inputType.value!!, videoSize)
+                }
+            }
+
+            override fun onTracksChanged(tracks: Tracks) {
+                extractTracks(tracks); updateAvailableSettings()
+            }
+
+            override fun onCues(cueGroup: CueGroup) {
+                _cues.value = cueGroup.cues
             }
         })
     }
 
-    /**
-     * Главная логика. Вычисляет ПРАВИЛЬНЫЕ, НЕИСКАЖЕННЫЕ размеры одного кадра.
-     */
+    private fun showAutoDetectToast(type: StereoInputType, method: String) {
+        val typeName = type.name.replace("_", " ")
+        val msg = getApplication<Application>().getString(R.string.auto_detect_toast, typeName)
+        _toastMessage.value = msg
+    }
+
+    fun clearToastMessage() {
+        _toastMessage.value = null
+    }
+
+    private fun extractTracks(tracks: Tracks) {
+        val context = getApplication<Application>()
+        val audioList = mutableListOf<TrackOption>()
+        var selectedAudioIdx = 0
+        var undCounter = 1
+        for (group in tracks.groups) {
+            if (group.type == C.TRACK_TYPE_AUDIO) {
+                for (i in 0 until group.length) {
+                    val format = group.getTrackFormat(i)
+                    val isSelected = group.isTrackSelected(i)
+                    val name = buildAudioLabel(format, undCounter)
+                    if (name.startsWith("und")) undCounter++
+                    if (isSelected) selectedAudioIdx = audioList.size
+                    audioList.add(TrackOption(name, group, i))
+                }
+            }
+        }
+        audioOptions = audioList
+        currentAudioIndex = selectedAudioIdx
+        if (audioOptions.isNotEmpty()) _currentAudioName.postValue(audioOptions[currentAudioIndex].name)
+        val subList = mutableListOf<TrackOption>()
+        subList.add(
+            TrackOption(
+                context.getString(R.string.track_off),
+                null,
+                -1,
+                true
+            )
+        )
+        var selectedSubIdx = 0
+        undCounter = 1
+        for (group in tracks.groups) {
+            if (group.type == C.TRACK_TYPE_TEXT) {
+                for (i in 0 until group.length) {
+                    val format = group.getTrackFormat(i)
+                    val isSelected = group.isTrackSelected(i)
+                    val name = buildSubtitleLabel(format, undCounter)
+                    if (name.startsWith("und")) undCounter++
+                    if (isSelected) selectedSubIdx = subList.size
+                    subList.add(TrackOption(name, group, i))
+                }
+            }
+        }
+        subtitleOptions = subList
+        currentSubtitleIndex = selectedSubIdx
+        _currentSubtitleName.postValue(subtitleOptions[currentSubtitleIndex].name)
+    }
+
+    private fun buildAudioLabel(format: Format, undIndex: Int): String {
+        val techInfo = getTechInfo(format)
+        if (!format.label.isNullOrEmpty()) return "${format.label} ($techInfo)"
+        val lang = format.language ?: "und"
+        val locale = Locale(lang)
+        var displayLang = locale.displayLanguage
+        if (lang == "und" || displayLang.isEmpty()) displayLang = "und $undIndex"
+        else displayLang =
+            displayLang.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+        return "$displayLang ($techInfo)"
+    }
+
+    private fun buildSubtitleLabel(format: Format, undIndex: Int): String {
+        if (!format.label.isNullOrEmpty()) return format.label!!
+        val lang = format.language ?: "und"
+        val locale = Locale(lang)
+        var displayLang = locale.displayLanguage
+        if (lang == "und" || displayLang.isEmpty()) displayLang = "und $undIndex"
+        else displayLang =
+            displayLang.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+        return displayLang
+    }
+
+    private fun getTechInfo(format: Format): String {
+        val codec = when (format.sampleMimeType) {
+            MimeTypes.AUDIO_AC3 -> "AC3"; MimeTypes.AUDIO_E_AC3 -> "E-AC3"; MimeTypes.AUDIO_E_AC3_JOC -> "DDP"; MimeTypes.AUDIO_DTS -> "DTS"; MimeTypes.AUDIO_DTS_HD -> "DTS-HD"; MimeTypes.AUDIO_DTS_EXPRESS -> "DTS-X"; MimeTypes.AUDIO_TRUEHD -> "TrueHD"; MimeTypes.AUDIO_AAC -> "AAC"; MimeTypes.AUDIO_MPEG -> "MP3"; MimeTypes.AUDIO_FLAC -> "FLAC"; MimeTypes.AUDIO_OPUS -> "Opus"; MimeTypes.AUDIO_VORBIS -> "Vorbis"; else -> ""
+        }
+        val channels = when (format.channelCount) {
+            1 -> "1.0"; 2 -> "2.0"; 3 -> "2.1"; 6 -> "5.1"; 8 -> "7.1"; else -> if (format.channelCount != Format.NO_VALUE) "${format.channelCount}ch" else ""
+        }
+        return if (codec.isNotEmpty() && channels.isNotEmpty()) "$codec $channels" else codec + channels
+    }
+
     private fun calculateFrameSize(inputType: StereoInputType, videoSize: VideoSize) {
         val width = videoSize.width.toFloat()
         val height = videoSize.height.toFloat()
@@ -119,6 +324,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     finalFrameHeight = height
                 }
             }
+
             StereoInputType.TOP_BOTTOM -> {
                 val halfHeight = height / 2
                 val halfAR = width / halfHeight
@@ -140,18 +346,323 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun loadMedia(mediaItem: MediaItem) {
-        val exoMediaItem = Media3MediaItem.Builder()
-            .setUri(mediaItem.uri)
-            .setMediaMetadata(MediaMetadata.Builder().setTitle(mediaItem.title).build())
-            .build()
+        currentUri = mediaItem.uri.toString()
+        val exoMediaItem = Media3MediaItem.Builder().setUri(mediaItem.uri)
+            .setMediaMetadata(MediaMetadata.Builder().setTitle(mediaItem.title).build()).build()
         player.setMediaItem(exoMediaItem)
         player.prepare()
         player.playWhenReady = true
+        isSettingsLoadedFromDb = false
+        viewModelScope.launch {
+            db.videoSettingsDao().deleteOldSettings(System.currentTimeMillis() - 2592000000L)
+            val saved = db.videoSettingsDao().getSettings(currentUri!!)
+            if (saved != null) {
+                applySettings(saved)
+                isSettingsLoadedFromDb = true
+            } else {
+                loadGlobalDefaults()
+                openSettingsPanel(isFirstRun = true)
+            }
+        }
     }
 
-    fun togglePlayPause() { if (player.isPlaying) player.pause() else player.play() }
-    fun seekForward() { player.seekTo(player.currentPosition + 10000) }
-    fun seekBack() { player.seekTo(player.currentPosition - 10000) }
+    private fun applySettings(s: VideoSettings) {
+        _inputType.postValue(s.inputType)
+        _outputMode.postValue(s.outputMode)
+        _anaglyphType.postValue(s.anaglyphType)
+        _swapEyes.postValue(s.swapEyes)
+        _depth.postValue(s.depth)
+
+        // Загружаем глобальные настройки (Используем новый ключ _pct)
+        val sep = prefs.getFloat("global_screen_separation_pct", 0f)
+        _screenSeparation.postValue(sep)
+
+        val k1 = prefs.getFloat("vr_k1", 0.34f)
+        val k2 = prefs.getFloat("vr_k2", 0.10f)
+        val scale = prefs.getFloat("vr_scale", 1.2f)
+        _vrK1.postValue(k1)
+        _vrK2.postValue(k2)
+        _vrScale.postValue(scale)
+
+        handler.post { lastVideoSize?.let { calculateFrameSize(s.inputType, it) } }
+    }
+
+    private fun loadGlobalDefaults() {
+        val outModeOrd = prefs.getInt("def_output_mode", StereoOutputMode.ANAGLYPH.ordinal)
+        _outputMode.postValue(StereoOutputMode.values()[outModeOrd])
+        val anaTypeOrd =
+            prefs.getInt("def_anaglyph_type", StereoRenderer.AnaglyphType.RC_DUBOIS.ordinal)
+        _anaglyphType.postValue(StereoRenderer.AnaglyphType.values()[anaTypeOrd])
+
+        val sep = prefs.getFloat("global_screen_separation_pct", 0f)
+        _screenSeparation.postValue(sep)
+
+        val k1 = prefs.getFloat("vr_k1", 0.34f)
+        val k2 = prefs.getFloat("vr_k2", 0.10f)
+        val scale = prefs.getFloat("vr_scale", 1.2f)
+        _vrK1.postValue(k1)
+        _vrK2.postValue(k2)
+        _vrScale.postValue(scale)
+    }
+
+    fun saveCurrentSettings() {
+        val uri = currentUri ?: return
+        val settings = VideoSettings(
+            uri,
+            System.currentTimeMillis(),
+            _inputType.value!!,
+            _outputMode.value!!,
+            _anaglyphType.value!!,
+            _swapEyes.value!!,
+            _depth.value!!
+        )
+        viewModelScope.launch { db.videoSettingsDao().saveSettings(settings) }
+
+        prefs.edit()
+            .putInt("def_output_mode", settings.outputMode.ordinal)
+            .putInt("def_anaglyph_type", settings.anaglyphType.ordinal)
+            .putFloat("global_screen_separation_pct", _screenSeparation.value!!)
+            .putFloat("vr_k1", _vrK1.value!!)
+            .putFloat("vr_k2", _vrK2.value!!)
+            .putFloat("vr_scale", _vrScale.value!!)
+            .apply()
+
+        isSettingsLoadedFromDb = true
+    }
+
+    fun openSettingsPanel(isFirstRun: Boolean = false) {
+        backupSettings = VideoSettings(
+            "",
+            0,
+            _inputType.value!!,
+            _outputMode.value!!,
+            _anaglyphType.value!!,
+            _swapEyes.value!!,
+            _depth.value!!
+        )
+        updateAvailableSettings()
+        _currentSettingType.value = SettingType.VIDEO_TYPE
+        _isSettingsPanelVisible.postValue(true)
+    }
+
+    fun closeSettingsPanel(save: Boolean) {
+        if (save) saveCurrentSettings() else {
+            backupSettings?.let { applySettings(it) }
+            // Восстанавливаем глобальные настройки из префов
+            val sep = prefs.getFloat("global_screen_separation_pct", 0f)
+            _screenSeparation.postValue(sep)
+            val k1 = prefs.getFloat("vr_k1", 0.34f)
+            val k2 = prefs.getFloat("vr_k2", 0.10f)
+            val scale = prefs.getFloat("vr_scale", 1.2f)
+            _vrK1.postValue(k1)
+            _vrK2.postValue(k2)
+            _vrScale.postValue(scale)
+        }
+        _isSettingsPanelVisible.value = false
+    }
+
+    private fun updateAvailableSettings() {
+        val list = mutableListOf<SettingType>()
+        list.add(SettingType.VIDEO_TYPE)
+        if (_inputType.value != StereoInputType.NONE) {
+            list.add(SettingType.OUTPUT_FORMAT)
+            if (_outputMode.value == StereoOutputMode.ANAGLYPH) {
+                list.add(SettingType.GLASSES_TYPE); list.add(SettingType.FILTER_MODE)
+            }
+            list.add(SettingType.SWAP_EYES)
+            list.add(SettingType.DEPTH_3D)
+
+            if (_outputMode.value == StereoOutputMode.CARDBOARD_VR) {
+                list.add(SettingType.SCREEN_SEPARATION)
+                list.add(SettingType.VR_DISTORTION)
+                list.add(SettingType.VR_ZOOM)
+            }
+        }
+        if (audioOptions.size > 1) list.add(SettingType.AUDIO_TRACK)
+        if (subtitleOptions.size > 1) list.add(SettingType.SUBTITLES)
+        availableSettings = list
+        if (_currentSettingType.value !in list) _currentSettingType.value = list.first()
+    }
+
+    fun onMenuUp() {
+        val current = _currentSettingType.value ?: return
+        val idx = availableSettings.indexOf(current)
+        _currentSettingType.value =
+            if (idx > 0) availableSettings[idx - 1] else availableSettings.last()
+    }
+
+    fun onMenuDown() {
+        val current = _currentSettingType.value ?: return
+        val idx = availableSettings.indexOf(current)
+        _currentSettingType.value =
+            if (idx < availableSettings.size - 1) availableSettings[idx + 1] else availableSettings.first()
+    }
+
+    fun onMenuLeft() {
+        changeSettingValue(-1)
+    }
+
+    fun onMenuRight() {
+        changeSettingValue(1)
+    }
+
+    private fun changeSettingValue(direction: Int) {
+        when (_currentSettingType.value) {
+            SettingType.VIDEO_TYPE -> {
+                val values = StereoInputType.values()
+                val nextOrd = (_inputType.value!!.ordinal + direction + values.size) % values.size
+                setInputType(values[nextOrd])
+                updateAvailableSettings()
+            }
+
+            SettingType.OUTPUT_FORMAT -> {
+                val values = StereoOutputMode.values()
+                val nextOrd = (_outputMode.value!!.ordinal + direction + values.size) % values.size
+                _outputMode.value = values[nextOrd]
+                updateAvailableSettings()
+            }
+
+            SettingType.GLASSES_TYPE -> {
+                val currentGroup = getGlassesGroup(_anaglyphType.value!!)
+                val groups = GlassesGroup.values()
+                val nextGroup =
+                    groups[(currentGroup.ordinal + direction + groups.size) % groups.size]
+                _anaglyphType.value = getDefaultFilterForGroup(nextGroup)
+            }
+
+            SettingType.FILTER_MODE -> {
+                val currentGroup = getGlassesGroup(_anaglyphType.value!!)
+                val filters = getFiltersForGroup(currentGroup)
+                val currentIdx = filters.indexOf(_anaglyphType.value!!)
+                val nextIdx = (currentIdx + direction + filters.size) % filters.size
+                _anaglyphType.value = filters[nextIdx]
+            }
+
+            SettingType.SWAP_EYES -> _swapEyes.value = !_swapEyes.value!!
+            SettingType.DEPTH_3D -> {
+                val current = _depth.value ?: 0
+                _depth.value = (current + direction).coerceIn(-50, 50)
+            }
+
+            SettingType.SCREEN_SEPARATION -> {
+                val current = _screenSeparation.value ?: 0f
+                // Шаг 0.5% от ширины экрана
+                val newVal = (current + direction * 0.005f).coerceIn(-0.15f, 0.15f)
+                _screenSeparation.value = newVal
+            }
+
+            SettingType.VR_DISTORTION -> {
+                val current = _vrK1.value ?: 0.34f
+                val newVal = (current + direction * 0.02f).coerceIn(0.0f, 2.0f)
+                _vrK1.value = newVal
+            }
+
+            SettingType.VR_ZOOM -> {
+                val current = _vrScale.value ?: 1.2f
+                val newVal = (current + direction * 0.05f).coerceIn(0.5f, 3.0f)
+                _vrScale.value = newVal
+            }
+
+            SettingType.AUDIO_TRACK -> {
+                if (audioOptions.isNotEmpty()) {
+                    currentAudioIndex =
+                        (currentAudioIndex + direction + audioOptions.size) % audioOptions.size
+                    val option = audioOptions[currentAudioIndex]
+                    _currentAudioName.value = option.name
+                    player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+                        .setOverrideForType(
+                            TrackSelectionOverride(
+                                option.group!!.mediaTrackGroup,
+                                option.trackIndex
+                            )
+                        ).build()
+                    if (player.playerError != null) {
+                        player.prepare(); player.play()
+                    }
+                }
+            }
+
+            SettingType.SUBTITLES -> {
+                if (subtitleOptions.isNotEmpty()) {
+                    currentSubtitleIndex =
+                        (currentSubtitleIndex + direction + subtitleOptions.size) % subtitleOptions.size
+                    val option = subtitleOptions[currentSubtitleIndex]
+                    _currentSubtitleName.value = option.name
+                    val builder = player.trackSelectionParameters.buildUpon()
+                    if (option.isOff) builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                    else {
+                        builder.setTrackTypeDisabled(
+                            C.TRACK_TYPE_TEXT,
+                            false
+                        ); builder.setOverrideForType(
+                            TrackSelectionOverride(
+                                option.group!!.mediaTrackGroup,
+                                option.trackIndex
+                            )
+                        )
+                    }
+                    player.trackSelectionParameters = builder.build()
+                }
+            }
+
+            else -> {}
+        }
+    }
+
+    private fun getGlassesGroup(type: StereoRenderer.AnaglyphType): GlassesGroup {
+        return when {
+            type.name.startsWith("RC_") -> GlassesGroup.RED_CYAN
+            type.name.startsWith("YB_") -> GlassesGroup.YELLOW_BLUE
+            type.name.startsWith("GM_") -> GlassesGroup.GREEN_MAGENTA
+            type.name.startsWith("RB_") -> GlassesGroup.RED_BLUE
+            else -> GlassesGroup.RED_CYAN
+        }
+    }
+
+    private fun getFiltersForGroup(group: GlassesGroup): List<StereoRenderer.AnaglyphType> {
+        return when (group) {
+            GlassesGroup.RED_CYAN -> listOf(
+                StereoRenderer.AnaglyphType.RC_DUBOIS,
+                StereoRenderer.AnaglyphType.RC_COLOR,
+                StereoRenderer.AnaglyphType.RC_HALF_COLOR,
+                StereoRenderer.AnaglyphType.RC_OPTIMIZED,
+                StereoRenderer.AnaglyphType.RC_MONO
+            )
+
+            GlassesGroup.YELLOW_BLUE -> listOf(
+                StereoRenderer.AnaglyphType.YB_DUBOIS,
+                StereoRenderer.AnaglyphType.YB_COLOR,
+                StereoRenderer.AnaglyphType.YB_HALF_COLOR,
+                StereoRenderer.AnaglyphType.YB_MONO
+            )
+
+            GlassesGroup.GREEN_MAGENTA -> listOf(
+                StereoRenderer.AnaglyphType.GM_DUBOIS,
+                StereoRenderer.AnaglyphType.GM_COLOR,
+                StereoRenderer.AnaglyphType.GM_HALF_COLOR,
+                StereoRenderer.AnaglyphType.GM_MONO
+            )
+
+            GlassesGroup.RED_BLUE -> listOf(StereoRenderer.AnaglyphType.RB_MONO)
+        }
+    }
+
+    private fun getDefaultFilterForGroup(group: GlassesGroup): StereoRenderer.AnaglyphType {
+        return getFiltersForGroup(group).first()
+    }
+
+    fun togglePlayPause() {
+        if (player.isPlaying) player.pause() else player.play()
+    }
+
+    fun seekForward() {
+        player.seekForward()
+    }
+
+    fun seekBack() {
+        player.seekBack()
+    }
+
     fun setInputType(inputType: StereoInputType) {
         // Проверяем, чтобы не вызывать лишних обновлений
         if (_inputType.value == inputType) return
@@ -160,9 +671,18 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             calculateFrameSize(inputType, it)
         }
     }
-    fun setOutputMode(outputMode: StereoOutputMode) { _outputMode.value = outputMode }
-    fun setAnaglyphType(anaglyphType: StereoRenderer.AnaglyphType) { _anaglyphType.value = anaglyphType }
-    fun toggleSwapEyes() { _swapEyes.value = !(_swapEyes.value ?: false) }
+
+    fun setOutputMode(outputMode: StereoOutputMode) {
+        _outputMode.value = outputMode
+    }
+
+    fun setAnaglyphType(anaglyphType: StereoRenderer.AnaglyphType) {
+        _anaglyphType.value = anaglyphType
+    }
+
+    fun toggleSwapEyes() {
+        _swapEyes.value = !(_swapEyes.value ?: false)
+    }
 
     override fun onCleared() {
         super.onCleared()

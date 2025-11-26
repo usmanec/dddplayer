@@ -8,10 +8,54 @@
     android:clickable="true"
     tools:context=".ui.PlayerFragment">
 
+    <!-- Слой видео (OpenGL) -->
     <top.rootu.dddplayer.renderer.StereoGLSurfaceView
         android:id="@+id/gl_surface_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
+
+    <!-- Слой субтитров (Одиночный) -->
+    <androidx.media3.ui.SubtitleView
+        android:id="@+id/subtitle_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/transparent"
+        android:visibility="visible"/>
+
+    <!-- Слой субтитров (Двойной - для Cardboard VR) -->
+    <LinearLayout
+        android:id="@+id/subtitle_split_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal"
+        android:weightSum="2"
+        android:visibility="gone"
+        android:baselineAligned="false">
+
+        <androidx.media3.ui.SubtitleView
+            android:id="@+id/subtitle_view_left"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@android:color/transparent" />
+
+        <androidx.media3.ui.SubtitleView
+            android:id="@+id/subtitle_view_right"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@android:color/transparent" />
+    </LinearLayout>
+
+    <!-- Сенсорная зона -->
+    <View
+        android:id="@+id/touch_zone_top"
+        android:layout_width="match_parent"
+        android:layout_height="100dp"
+        android:layout_gravity="top"
+        android:clickable="true"
+        android:focusable="false"
+        android:background="@android:color/transparent"/>
 
     <TextView
         android:id="@+id/fps_counter"
@@ -26,14 +70,17 @@
         android:textStyle="bold"
         tools:text="FPS: 60" />
 
-    <!-- Включаем нашу панель управления -->
+    <!-- OSD Панель настроек -->
+    <include layout="@layout/layout_top_settings_panel" />
+
+    <!-- Панель управления -->
     <include
         android:id="@+id/playback_controls"
         layout="@layout/playback_controls"
         android:visibility="gone"
         tools:visibility="visible"/>
-    
-    <!-- Индикатор буферизации по центру экрана -->
+
+    <!-- Индикатор буферизации (Одиночный) -->
     <ProgressBar
         android:id="@+id/buffering_indicator"
         android:layout_width="100dp"
@@ -41,4 +88,39 @@
         android:layout_gravity="center"
         android:visibility="gone"
         tools:visibility="visible"/>
+
+    <!-- Индикатор буферизации (Двойной - для Cardboard VR) -->
+    <LinearLayout
+        android:id="@+id/buffering_split_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal"
+        android:weightSum="2"
+        android:gravity="center"
+        android:visibility="gone"
+        android:baselineAligned="false">
+
+        <FrameLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1">
+            <ProgressBar
+                android:id="@+id/loader_left"
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:layout_gravity="center"/>
+        </FrameLayout>
+
+        <FrameLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1">
+            <ProgressBar
+                android:id="@+id/loader_right"
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:layout_gravity="center"/>
+        </FrameLayout>
+    </LinearLayout>
+
 </FrameLayout>
