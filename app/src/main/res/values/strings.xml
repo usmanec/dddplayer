@@ -8,4 +8,27 @@
     <string name="action_select_output_mode">Режим</string>
     <string name="action_select_anaglyph_type">Тип анаглифа</string>
     <string name="action_swap_eyes">L/R</string>
+
+    <!-- Настройки OSD -->
+    <string name="setting_video_type">Тип видео</string>
+    <string name="setting_output_format">Выходной формат</string>
+    <string name="setting_glasses_type">Тип очков</string>
+    <string name="setting_filter">Фильтр</string>
+    <string name="setting_swap_eyes">Смена глаз</string>
+    <string name="setting_depth">Параллакс</string>
+    <string name="setting_screen_separation">Разделение (IPD)</string>
+    <string name="setting_vr_distortion">Искажение линз</string>
+    <string name="setting_vr_zoom">Масштаб VR</string>
+
+    <string name="setting_audio_track">Аудиодорожка</string>
+    <string name="setting_subtitles">Субтитры</string>
+    <string name="track_off">Выкл.</string>
+    <string name="track_unknown">Неизвестно</string>
+
+    <string name="auto_detect_toast">Автоопределение: %1$s</string>
+
+    <!-- VR Config Dialog -->
+    <string name="vr_config_title">Настройка VR</string>
+    <string name="vr_config_success">Профиль Cardboard успешно применен!\n\nK1: %1$.3f\nK2: %2$.3f</string>
+    <string name="vr_config_error">Ошибка чтения профиля Cardboard.</string>
 </resources>

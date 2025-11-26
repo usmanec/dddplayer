@@ -29,46 +29,65 @@ class StereoRenderer(
 ) : GLSurfaceView.Renderer, SurfaceTexture.OnFrameAvailableListener {
 
     private val TAG = "StereoRenderer"
-
     private var program: Int = 0
+
+    // Handles
     private var positionHandle: Int = 0
     private var texCoordHandle: Int = 0
     private var textureHandle: Int = 0
     private var texMatrixHandle: Int = 0
+
+    // Матрицы анаглифа
     private var lRow1Handle: Int = 0
     private var lRow2Handle: Int = 0
     private var lRow3Handle: Int = 0
     private var rRow1Handle: Int = 0
     private var rRow2Handle: Int = 0
     private var rRow3Handle: Int = 0
+
+    // Параметры сцены
     private var inputTypeHandle: Int = 0
     private var outputModeHandle: Int = 0
     private var swapEyesHandle: Int = 0
     private var videoDimensionsHandle: Int = 0
     private var screenAspectRatioHandle: Int = 0
     private var singleFrameDimensionsHandle: Int = 0
+    private var depthHandle: Int = 0
+
+    // VR Handles
+    private var k1Handle: Int = 0
+    private var k2Handle: Int = 0
+    private var distortScaleHandle: Int = 0
+    private var screenSeparationHandle: Int = 0
 
     private val vertexBuffer: FloatBuffer
     private val texCoordBuffer: FloatBuffer
 
     @Volatile private var currentInputType: StereoInputType = StereoInputType.NONE
     @Volatile private var currentOutputMode: StereoOutputMode = StereoOutputMode.ANAGLYPH
-    @Volatile private var currentAnaglyphType: AnaglyphType = AnaglyphType.DUBOIS
+    @Volatile private var currentAnaglyphType: AnaglyphType = AnaglyphType.RC_DUBOIS
     @Volatile private var swapEyes: Boolean = false
     @Volatile private var videoWidth: Int = 1920
     @Volatile private var videoHeight: Int = 1080
     private var screenAspectRatio: Float = 16f / 9f
+
     @Volatile private var singleFrameWidth: Float = 1920f
     @Volatile private var singleFrameHeight: Float = 1080f
+
+    @Volatile private var rawDepth: Int = 0
+    @Volatile private var screenSeparation: Float = 0f
+    @Volatile private var currentDepth: Float = 0f
+
+    // VR параметры
+    @Volatile private var k1: Float = 0.34f
+    @Volatile private var k2: Float = 0.10f
+    @Volatile private var distortScale: Float = 1.2f
 
     private val textureId = IntArray(1)
     private var surfaceTexture: SurfaceTexture? = null
     private var videoSurface: Surface? = null
-
     private val texMatrix = FloatArray(16)
-    @Volatile
-    private var frameAvailable = false
-
+    @Volatile private var frameAvailable = false
     private var frameCount = 0
     private var lastTime: Long = 0
     private var currentFps = 0
@@ -110,6 +129,7 @@ class StereoRenderer(
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
         GLES20.glViewport(0, 0, width, height)
         screenAspectRatio = if (height > 0) width.toFloat() / height.toFloat() else 1f
+        glSurfaceView.requestRender()
     }
 
     override fun onDrawFrame(gl: GL10?) {
@@ -158,8 +178,11 @@ class StereoRenderer(
     private fun setupTexture() {
         GLES20.glGenTextures(1, textureId, 0)
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureId[0])
-        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST)
-        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST)
+
+        // ВАЖНО: Используем GL_LINEAR для качественного масштабирования (убирает пикселизацию)
+        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
+        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
+
         GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
         GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
     }
@@ -186,18 +209,26 @@ class StereoRenderer(
         texCoordHandle = GLES20.glGetAttribLocation(program, "a_texCoord")
         textureHandle = GLES20.glGetUniformLocation(program, "u_texture")
         texMatrixHandle = GLES20.glGetUniformLocation(program, "u_texMatrix")
+
         lRow1Handle = GLES20.glGetUniformLocation(program, "u_l_row1")
         lRow2Handle = GLES20.glGetUniformLocation(program, "u_l_row2")
         lRow3Handle = GLES20.glGetUniformLocation(program, "u_l_row3")
         rRow1Handle = GLES20.glGetUniformLocation(program, "u_r_row1")
         rRow2Handle = GLES20.glGetUniformLocation(program, "u_r_row2")
         rRow3Handle = GLES20.glGetUniformLocation(program, "u_r_row3")
+
         inputTypeHandle = GLES20.glGetUniformLocation(program, "u_inputType")
         outputModeHandle = GLES20.glGetUniformLocation(program, "u_outputMode")
         swapEyesHandle = GLES20.glGetUniformLocation(program, "u_swapEyes")
         videoDimensionsHandle = GLES20.glGetUniformLocation(program, "u_videoDimensions")
         screenAspectRatioHandle = GLES20.glGetUniformLocation(program, "u_screenAspectRatio")
         singleFrameDimensionsHandle = GLES20.glGetUniformLocation(program, "u_singleFrameDimensions")
+        depthHandle = GLES20.glGetUniformLocation(program, "u_depth")
+
+        k1Handle = GLES20.glGetUniformLocation(program, "u_k1")
+        k2Handle = GLES20.glGetUniformLocation(program, "u_k2")
+        distortScaleHandle = GLES20.glGetUniformLocation(program, "u_distortScale")
+        screenSeparationHandle = GLES20.glGetUniformLocation(program, "u_screenSeparation")
 
         GLES20.glDeleteShader(vertexShader)
         GLES20.glDeleteShader(fragmentShader)
@@ -218,17 +249,63 @@ class StereoRenderer(
         return shader
     }
 
-    fun setInputType(type: StereoInputType) { currentInputType = type }
-    fun setOutputMode(mode: StereoOutputMode) { currentOutputMode = mode }
-    fun setAnaglyphType(type: AnaglyphType) { currentAnaglyphType = type }
-    fun setSwapEyes(swap: Boolean) { swapEyes = swap }
+    fun setInputType(type: StereoInputType) {
+        currentInputType = type
+        glSurfaceView.requestRender()
+    }
+
+    fun setOutputMode(mode: StereoOutputMode) {
+        currentOutputMode = mode
+        glSurfaceView.requestRender()
+    }
+
+    fun setAnaglyphType(type: AnaglyphType) {
+        currentAnaglyphType = type
+        glSurfaceView.requestRender()
+    }
+
+    fun setSwapEyes(swap: Boolean) {
+        swapEyes = swap
+        glSurfaceView.requestRender()
+    }
+
     fun setVideoDimensions(width: Int, height: Int) {
         videoWidth = width
         videoHeight = height
+        glSurfaceView.requestRender()
     }
+
     fun setSingleFrameDimensions(width: Float, height: Float) {
         this.singleFrameWidth = width
         this.singleFrameHeight = height
+        updateDepthUniform()
+        glSurfaceView.requestRender()
+    }
+
+    fun setDepth(depth: Int) {
+        this.rawDepth = depth
+        updateDepthUniform()
+        glSurfaceView.requestRender()
+    }
+
+    fun setScreenSeparation(separation: Float) {
+        this.screenSeparation = separation
+        glSurfaceView.requestRender()
+    }
+
+    fun setDistortion(k1: Float, k2: Float, scale: Float) {
+        this.k1 = k1
+        this.k2 = k2
+        this.distortScale = scale
+        glSurfaceView.requestRender()
+    }
+
+    private fun updateDepthUniform() {
+        if (singleFrameWidth > 0) {
+            this.currentDepth = rawDepth.toFloat() / singleFrameWidth
+        } else {
+            this.currentDepth = 0f
+        }
     }
 
     private fun updateShaderUniforms() {
@@ -238,6 +315,12 @@ class StereoRenderer(
         GLES20.glUniform2f(videoDimensionsHandle, videoWidth.toFloat(), videoHeight.toFloat())
         GLES20.glUniform1f(screenAspectRatioHandle, screenAspectRatio)
         GLES20.glUniform2f(singleFrameDimensionsHandle, singleFrameWidth, singleFrameHeight)
+        GLES20.glUniform1f(depthHandle, currentDepth)
+
+        GLES20.glUniform1f(k1Handle, k1)
+        GLES20.glUniform1f(k2Handle, k2)
+        GLES20.glUniform1f(distortScaleHandle, distortScale)
+        GLES20.glUniform1f(screenSeparationHandle, screenSeparation)
 
         if (currentOutputMode == StereoOutputMode.ANAGLYPH) {
             val matrices = anaglyphModes[currentAnaglyphType]
@@ -277,7 +360,13 @@ class StereoRenderer(
         // Главное - освободить SurfaceTexture.
     }
 
-    enum class AnaglyphType { DUBOIS, RC_HALF_COLOR, RC_COLOR, RC_MONO, RC_OPTIMIZED, YB_HALF_COLOR, YB_COLOR, YB_MONO, RB_MONO }
+    enum class AnaglyphType {
+        RC_DUBOIS, RC_HALF_COLOR, RC_COLOR, RC_MONO, RC_OPTIMIZED,
+        YB_DUBOIS, YB_HALF_COLOR, YB_COLOR, YB_MONO,
+        GM_DUBOIS, GM_HALF_COLOR, GM_COLOR, GM_MONO,
+        RB_MONO
+    }
+
     data class AnaglyphMatrices(val l: FloatArray, val r: FloatArray)
 
     companion object {
@@ -307,9 +396,15 @@ class StereoRenderer(
             uniform vec2 u_videoDimensions;
             uniform vec2 u_singleFrameDimensions;
             uniform float u_screenAspectRatio;
+            uniform float u_depth;
 
             uniform vec3 u_l_row1; uniform vec3 u_l_row2; uniform vec3 u_l_row3;
             uniform vec3 u_r_row1; uniform vec3 u_r_row2; uniform vec3 u_r_row3;
+            
+            uniform float u_k1;
+            uniform float u_k2;
+            uniform float u_distortScale;
+            uniform float u_screenSeparation;
 
             const int INPUT_NONE = 0;
             const int INPUT_SBS = 1;
@@ -322,94 +417,137 @@ class StereoRenderer(
             const int OUTPUT_RIGHT_ONLY = 2;
             const int OUTPUT_CARDBOARD = 3;
 
+            vec2 distort(vec2 p) {
+                float r2 = p.x * p.x + p.y * p.y;
+                float f = 1.0 + u_k1 * r2 + u_k2 * r2 * r2;
+                return p * f;
+            }
+
             vec2 fitToScreen(vec2 tc, float videoAR, float screenAR) {
                 float arScale = videoAR / screenAR;
                 vec2 final_tc = tc;
                 if (arScale > 1.0) {
-                    final_tc.y = (tc.y - 0.5) / arScale + 0.5;
+                    final_tc.y = (tc.y - 0.5) * arScale + 0.5;
                 } else {
-                    final_tc.x = (tc.x - 0.5) * arScale + 0.5;
+                    final_tc.x = (tc.x - 0.5) / arScale + 0.5;
                 }
                 return final_tc;
             }
 
             void main() {
-                vec2 left_tc;
-                vec2 right_tc;
+                vec2 viewport_tc = v_texCoord;
+                float viewportAR = u_screenAspectRatio;
+                bool isRightEye = false;
 
-                if (u_inputType == INPUT_SBS) {
-                    left_tc = vec2(v_texCoord.x * 0.5, v_texCoord.y);
-                    right_tc = vec2(v_texCoord.x * 0.5 + 0.5, v_texCoord.y);
-                } else if (u_inputType == INPUT_TB) {
-                    left_tc = vec2(v_texCoord.x, v_texCoord.y * 0.5);
-                    right_tc = vec2(v_texCoord.x, v_texCoord.y * 0.5 + 0.5);
-                } else if (u_inputType == INPUT_INTERLACED) {
-                    left_tc = v_texCoord;
-                    right_tc = v_texCoord;
-                } else if (u_inputType == INPUT_TILED_1080P) {
-                    left_tc = v_texCoord * vec2(1280.0/1920.0, 720.0/1080.0);
-                    right_tc = v_texCoord;
-                } else { // INPUT_NONE
-                    left_tc = v_texCoord;
-                    right_tc = v_texCoord;
+                if (u_outputMode == OUTPUT_CARDBOARD) {
+                    viewportAR = u_screenAspectRatio / 2.0;
+                    vec2 lensCenter;
+                    
+                    if (v_texCoord.x >= 0.5) {
+                        isRightEye = true;
+                        lensCenter = vec2(0.75 + u_screenSeparation, 0.5);
+                    } else {
+                        isRightEye = false;
+                        lensCenter = vec2(0.25 - u_screenSeparation, 0.5);
+                    }
+
+                    vec2 p = (v_texCoord - lensCenter) * vec2(2.0, 1.0);
+                    p.x *= viewportAR;
+                    p /= u_distortScale;
+                    p = distort(p);
+                    p.x /= viewportAR;
+                    vec2 distorted_tc_local = p + vec2(0.5, 0.5);
+
+                    if (distorted_tc_local.x < 0.0 || distorted_tc_local.x > 1.0 || 
+                        distorted_tc_local.y < 0.0 || distorted_tc_local.y > 1.0) {
+                        gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+                        return;
+                    }
+                    viewport_tc = distorted_tc_local;
+
+                } else if (u_outputMode == OUTPUT_RIGHT_ONLY) {
+                     isRightEye = true;
                 }
 
                 float singleFrameAR = u_singleFrameDimensions.x / u_singleFrameDimensions.y;
+                vec2 content_tc = fitToScreen(viewport_tc, singleFrameAR, viewportAR);
 
-                left_tc = fitToScreen(left_tc, singleFrameAR, u_screenAspectRatio);
-                right_tc = fitToScreen(right_tc, singleFrameAR, u_screenAspectRatio);
-
-                if (left_tc.x < 0.0 || left_tc.x > 1.0 || left_tc.y < 0.0 || left_tc.y > 1.0) {
+                if (content_tc.x < 0.0 || content_tc.x > 1.0 || content_tc.y < 0.0 || content_tc.y > 1.0) {
                     gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
                     return;
                 }
 
-                if (u_swapEyes) {
-                    vec2 temp = left_tc; left_tc = right_tc; right_tc = temp;
-                }
+                vec2 content_tc_l = content_tc;
+                vec2 content_tc_r = content_tc;
+                
+                content_tc_l.x += u_depth;
+                content_tc_r.x -= u_depth;
 
-                vec3 left_color;
-                vec3 right_color;
+                vec2 tex_tc_l;
+                vec2 tex_tc_r;
 
-                if (u_inputType == INPUT_INTERLACED) {
-                    float is_odd_line = mod(gl_FragCoord.y, 2.0);
-                    if (is_odd_line > 0.5) {
-                        left_color = texture2D(u_texture, v_texCoord - vec2(0.0, 1.0/u_videoDimensions.y)).rgb;
-                        right_color = texture2D(u_texture, v_texCoord).rgb;
-                    } else {
-                        left_color = texture2D(u_texture, v_texCoord).rgb;
-                        right_color = texture2D(u_texture, v_texCoord + vec2(0.0, 1.0/u_videoDimensions.y)).rgb;
-                    }
+                if (u_inputType == INPUT_TB) {
+                    // С учетом переворота Y (1.0 - y) в Vertex Shader:
+                    // Текстура приходит "нормально" ориентированной.
+                    // Верхняя половина (0.5-1.0) - это Левый глаз.
+                    // Нижняя половина (0.0-0.5) - это Правый глаз.
+                    
+                    // Левый глаз: берем из верхней половины
+                    tex_tc_l = vec2(content_tc_l.x, content_tc_l.y * 0.5 + 0.5);
+                    // Правый глаз: берем из нижней половины
+                    tex_tc_r = vec2(content_tc_r.x, content_tc_r.y * 0.5);
+                } else if (u_inputType == INPUT_SBS) {
+                    tex_tc_l = vec2(content_tc_l.x * 0.5, content_tc_l.y);
+                    tex_tc_r = vec2(content_tc_r.x * 0.5 + 0.5, content_tc_r.y);
+                } else if (u_inputType == INPUT_INTERLACED) {
+                    tex_tc_l = content_tc_l;
+                    tex_tc_r = content_tc_r;
                 } else if (u_inputType == INPUT_TILED_1080P) {
-                    left_color = texture2D(u_texture, left_tc).rgb;
-                    if (v_texCoord.x < 0.5) {
-                        vec2 tc = vec2(1280.0/1920.0 + v_texCoord.x * (640.0/1920.0), v_texCoord.y * (720.0/1080.0));
-                        right_color = texture2D(u_texture, tc).rgb;
-                    } else {
-                        if (v_texCoord.y < 0.5) {
-                            vec2 tc = vec2((v_texCoord.x - 0.5) * (640.0/1920.0), 720.0/1080.0 + v_texCoord.y * (360.0/1080.0));
-                            right_color = texture2D(u_texture, tc).rgb;
-                        } else {
-                            vec2 tc = vec2(640.0/1920.0 + (v_texCoord.x - 0.5) * (640.0/1920.0), 720.0/1080.0 + (v_texCoord.y - 0.5) * (360.0/1080.0));
-                            right_color = texture2D(u_texture, tc).rgb;
-                        }
-                    }
-                } else {
-                    left_color = texture2D(u_texture, left_tc).rgb;
-                    right_color = texture2D(u_texture, right_tc).rgb;
+                    tex_tc_l = content_tc_l * vec2(1280.0/1920.0, 720.0/1080.0);
+                    tex_tc_r = tex_tc_l; 
+                } else { 
+                    tex_tc_l = content_tc_l;
+                    tex_tc_r = content_tc_r;
                 }
 
-                if (u_outputMode == OUTPUT_LEFT_ONLY || u_inputType == INPUT_NONE) {
-                    gl_FragColor = vec4(left_color, 1.0);
-                } else if (u_outputMode == OUTPUT_RIGHT_ONLY) {
-                    gl_FragColor = vec4(right_color, 1.0);
-                } else if (u_outputMode == OUTPUT_CARDBOARD) {
-                    if (v_texCoord.x < 0.5) {
-                        gl_FragColor = vec4(left_color, 1.0);
+                if (u_swapEyes) {
+                    vec2 temp = tex_tc_l; tex_tc_l = tex_tc_r; tex_tc_r = temp;
+                }
+
+                vec3 color;
+
+                if (u_outputMode == OUTPUT_CARDBOARD) {
+                    if (isRightEye) {
+                        color = texture2D(u_texture, tex_tc_r).rgb;
                     } else {
-                        gl_FragColor = vec4(right_color, 1.0);
+                        color = texture2D(u_texture, tex_tc_l).rgb;
                     }
-                } else { // OUTPUT_ANAGLYPH
+                    gl_FragColor = vec4(color, 1.0);
+                } else if (u_outputMode == OUTPUT_LEFT_ONLY) {
+                    color = texture2D(u_texture, tex_tc_l).rgb;
+                    gl_FragColor = vec4(color, 1.0);
+                } else if (u_outputMode == OUTPUT_RIGHT_ONLY) {
+                    color = texture2D(u_texture, tex_tc_r).rgb;
+                    gl_FragColor = vec4(color, 1.0);
+                } else { 
+                    // Анаглиф
+                    vec3 left_color;
+                    vec3 right_color;
+                    
+                    if (u_inputType == INPUT_INTERLACED) {
+                         float is_odd_line = mod(gl_FragCoord.y, 2.0);
+                         if (is_odd_line > 0.5) {
+                             left_color = texture2D(u_texture, tex_tc_l - vec2(0.0, 1.0/u_videoDimensions.y)).rgb;
+                             right_color = texture2D(u_texture, tex_tc_r).rgb;
+                         } else {
+                             left_color = texture2D(u_texture, tex_tc_l).rgb;
+                             right_color = texture2D(u_texture, tex_tc_r + vec2(0.0, 1.0/u_videoDimensions.y)).rgb;
+                         }
+                    } else {
+                        left_color = texture2D(u_texture, tex_tc_l).rgb;
+                        right_color = texture2D(u_texture, tex_tc_r).rgb;
+                    }
+
                     float r = dot(u_l_row1, left_color) + dot(u_r_row1, right_color);
                     float g = dot(u_l_row2, left_color) + dot(u_r_row2, right_color);
                     float b = dot(u_l_row3, left_color) + dot(u_r_row3, right_color);
@@ -418,9 +556,10 @@ class StereoRenderer(
             }
         """
         val anaglyphModes = mapOf(
-            AnaglyphType.DUBOIS to AnaglyphMatrices(
-                l = floatArrayOf(0.456f, 0.500f, 0.176f, -0.040f, -0.038f, -0.016f, -0.015f, -0.021f, -0.005f),
-                r = floatArrayOf(-0.043f, -0.088f, -0.002f, 0.378f, 0.734f, -0.018f, -0.072f, -0.013f, 1.226f)
+            // Red-Cyan Dubois (Optimized for monitors)
+            AnaglyphType.RC_DUBOIS to AnaglyphMatrices(
+                l = floatArrayOf(0.4154f, 0.4710f, 0.1669f, -0.0458f, -0.0484f, -0.0257f, -0.0547f, -0.0615f, 0.0128f),
+                r = floatArrayOf(-0.0109f, -0.0364f, -0.0060f, 0.3756f, 0.7333f, 0.0111f, -0.0651f, -0.1287f, 1.2971f)
             ),
             AnaglyphType.RC_HALF_COLOR to AnaglyphMatrices(
                 l = floatArrayOf(0.299f, 0.587f, 0.114f, 0f, 0f, 0f, 0f, 0f, 0f),
@@ -438,18 +577,43 @@ class StereoRenderer(
                 l = floatArrayOf(0f, 0.450f, 1.105f, 0f, 0f, 0f, 0f, 0f, 0f),
                 r = floatArrayOf(0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f)
             ),
+
+            // Yellow-Blue (Amber-Blue) Dubois
+            AnaglyphType.YB_DUBOIS to AnaglyphMatrices(
+                l = floatArrayOf(1.0615f, -0.0585f, -0.0159f, 0.1258f, 0.7697f, -0.0892f, -0.0458f, -0.0838f, -0.0020f),
+                r = floatArrayOf(-0.0223f, -0.0593f, -0.0088f, -0.0263f, -0.0348f, -0.0038f, 0.1874f, 0.3367f, 0.7649f)
+            ),
             AnaglyphType.YB_HALF_COLOR to AnaglyphMatrices(
-                l = floatArrayOf(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 1f),
-                r = floatArrayOf(0.299f, 0.587f, 0.114f, 0.299f, 0.587f, 0.114f, 0f, 0f, 0f)
+                l = floatArrayOf(1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f),
+                r = floatArrayOf(0f, 0f, 0f, 0f, 0f, 0f, 0.299f, 0.587f, 0.114f)
             ),
             AnaglyphType.YB_COLOR to AnaglyphMatrices(
-                l = floatArrayOf(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 1f),
-                r = floatArrayOf(1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f)
+                l = floatArrayOf(1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f),
+                r = floatArrayOf(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 1f)
             ),
             AnaglyphType.YB_MONO to AnaglyphMatrices(
-                l = floatArrayOf(0f, 0f, 0f, 0f, 0f, 0f, 0.299f, 0.587f, 0.114f),
-                r = floatArrayOf(0.299f, 0.587f, 0.114f, 0.299f, 0.587f, 0.114f, 0f, 0f, 0f)
+                l = floatArrayOf(0.299f, 0.587f, 0.114f, 0.299f, 0.587f, 0.114f, 0f, 0f, 0f),
+                r = floatArrayOf(0f, 0f, 0f, 0f, 0f, 0f, 0.299f, 0.587f, 0.114f)
             ),
+
+            // Green-Magenta Dubois
+            AnaglyphType.GM_DUBOIS to AnaglyphMatrices(
+                l = floatArrayOf(-0.062f, -0.158f, -0.039f, 0.284f, 0.668f, 0.143f, -0.015f, -0.027f, 0.021f),
+                r = floatArrayOf(0.529f, 0.705f, 0.024f, -0.016f, -0.015f, -0.065f, 0.009f, -0.075f, 0.937f)
+            ),
+            AnaglyphType.GM_COLOR to AnaglyphMatrices(
+                l = floatArrayOf(0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f),
+                r = floatArrayOf(1f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 1f)
+            ),
+            AnaglyphType.GM_HALF_COLOR to AnaglyphMatrices(
+                l = floatArrayOf(0f, 0f, 0f, 0.299f, 0.587f, 0.114f, 0f, 0f, 0f),
+                r = floatArrayOf(1f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 1f)
+            ),
+            AnaglyphType.GM_MONO to AnaglyphMatrices(
+                l = floatArrayOf(0f, 0f, 0f, 0.299f, 0.587f, 0.114f, 0f, 0f, 0f),
+                r = floatArrayOf(0.299f, 0.587f, 0.114f, 0f, 0f, 0f, 0.299f, 0.587f, 0.114f)
+            ),
+
             AnaglyphType.RB_MONO to AnaglyphMatrices(
                 l = floatArrayOf(0.299f, 0.587f, 0.114f, 0f, 0f, 0f, 0f, 0f, 0f),
                 r = floatArrayOf(0f, 0f, 0f, 0f, 0f, 0f, 0.299f, 0.587f, 0.114f)
