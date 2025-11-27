@@ -11,30 +11,36 @@ import java.util.regex.Pattern
 
 object StereoTypeDetector {
 
-    // Используем разделители, чтобы не ловить части других слов (например "sound" не должно ловиться как "ou")
-    private const val DELIMITERS = "[\\.\\-\\[\\(_ ]"
-    private const val END_DELIMITERS = "([ _|\\]\\)\\(\\.,]|$)"
+    // Универсальный разделитель:
+    // Точка, тире, подчеркивание, пробел, любые скобки (круглые, квадратные, фигурные)
+    private const val SEP = "[\\.\\-_ \\[\\]\\(\\)\\{\\}]"
+
+    // Граница начала: любой разделитель
+    private const val B_START = "$SEP"
+
+    // Граница конца: Либо конец строки ($), либо любой разделитель
+    private const val B_END = "($SEP|$)"
 
     // Горизонтальная (Side-by-Side)
-    // sbs, hsbs, half-sbs, lr, lrq, rl, rlq, side-by-side, горизонтальная
+    // sbs, hsbs, half-sbs, full-sbs, lr, lrq, rl, rlq, side-by-side, горизонтальная
     private val SBS_PATTERN = Pattern.compile(
-        "$DELIMITERS((half|h)?sbs|lrq?|rlq?|side-?by-?side|горизонтальная)$END_DELIMITERS"
+        "$B_START((half|h|full)?-?sbs|lrq?|rlq?|side-?by-?side|горизонтальная)$B_END"
     )
 
     // Вертикальная (Top-Bottom)
-    // ou, hou, half-ou, ab, abq, ba, over-under, top-bottom, вертикальная
+    // ou, hou, half-ou, tb, htb (Top-Bottom), ab, abq, ba, over-under, top-bottom, вертикальная
     private val TB_PATTERN = Pattern.compile(
-        "$DELIMITERS((half|h)?ou|abq?|ba|over-?under|top-?bottom|вертикальная)$END_DELIMITERS"
+        "$B_START((half|h)?-?ou|(half|h)?-?tb|abq?|ba|over-?under|top-?bottom|вертикальная)$B_END"
     )
 
     // Чересстрочная (Interlaced)
     private val INTERLACED_PATTERN = Pattern.compile(
-        "${DELIMITERS}interlace${END_DELIMITERS}"
+        "${B_START}interlace${B_END}"
     )
 
     // 3D(z) Tiled Format
     private val TILED_1080P = Pattern.compile(
-        "${DELIMITERS}3d(z)?[-_. ]?tiled[-_. ]?(format)?${END_DELIMITERS}"
+        "${B_START}3d(z)?[-_. ]?tiled[-_. ]?(format)?${B_END}"
     )
 
     /**
@@ -59,19 +65,19 @@ object StereoTypeDetector {
         val filename =
             uri?.lastPathSegment?.lowercase(Locale.getDefault()) ?: return StereoInputType.NONE
 
-        if (SBS_PATTERN.matcher(filename).matches()) {
+        if (SBS_PATTERN.matcher(filename).find()) {
             return StereoInputType.SIDE_BY_SIDE
         }
 
-        if (TB_PATTERN.matcher(filename).matches()) {
+        if (TB_PATTERN.matcher(filename).find()) {
             return StereoInputType.TOP_BOTTOM
         }
 
-        if (INTERLACED_PATTERN.matcher(filename).matches()) {
+        if (INTERLACED_PATTERN.matcher(filename).find()) {
             return StereoInputType.INTERLACED
         }
 
-        if (TILED_1080P.matcher(filename).matches()) {
+        if (TILED_1080P.matcher(filename).find()) {
             return StereoInputType.TILED_1080P
         }
 
