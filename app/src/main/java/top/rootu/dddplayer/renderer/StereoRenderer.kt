@@ -574,8 +574,8 @@ class StereoRenderer(
                 r = floatArrayOf(0f, 0f, 0f, 0.299f, 0.587f, 0.114f, 0.299f, 0.587f, 0.114f)
             ),
             AnaglyphType.RC_OPTIMIZED to AnaglyphMatrices(
-                l = floatArrayOf(0f, 0.450f, 1.105f, 0f, 0f, 0f, 0f, 0f, 0f),
-                r = floatArrayOf(0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f)
+                l = floatArrayOf(0.4122f, 0.5604f, 0.2008f, -0.0723f, -0.0409f, -0.0697f, -0.0004f, -0.0011f, 0.1662f),
+                r = floatArrayOf(-0.0211f, -0.1121f, -0.0402f, 0.3616f, 0.8075f, 0.0139f, 0.0021f, 0.0002f, 0.8330f)
             ),
 
             // Yellow-Blue (Amber-Blue) Dubois
