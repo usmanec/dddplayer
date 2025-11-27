@@ -1,6 +1,7 @@
 [versions]
 agp = "8.13.1"
 kotlin = "2.2.21"
+ksp = "2.2.21-2.0.4"
 coreKtx = "1.17.0"
 appcompat = "1.7.1"
 leanback = "1.2.0"
@@ -46,3 +47,4 @@ androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-co
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
