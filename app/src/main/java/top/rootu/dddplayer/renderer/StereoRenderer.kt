@@ -493,9 +493,9 @@ class StereoRenderer(
                     // Нижняя половина (0.0-0.5) - это Правый глаз.
                     
                     // Левый глаз: берем из верхней половины
-                    tex_tc_l = vec2(content_tc_l.x, content_tc_l.y * 0.5 + 0.5);
+                    tex_tc_l = vec2(content_tc_l.x, content_tc_l.y * 0.5);
                     // Правый глаз: берем из нижней половины
-                    tex_tc_r = vec2(content_tc_r.x, content_tc_r.y * 0.5);
+                    tex_tc_r = vec2(content_tc_r.x, content_tc_r.y * 0.5 + 0.5);
                 } else if (u_inputType == INPUT_SBS) {
                     tex_tc_l = vec2(content_tc_l.x * 0.5, content_tc_l.y);
                     tex_tc_r = vec2(content_tc_r.x * 0.5 + 0.5, content_tc_r.y);
