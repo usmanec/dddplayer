@@ -1,0 +1,179 @@
+package top.rootu.dddplayer.utils
+
+import android.graphics.Color
+import kotlin.math.abs
+import kotlin.math.pow
+
+object DuboisMath {
+
+    // Базисные матрицы
+    private val M_XYZ = arrayOf(
+        floatArrayOf(0.4124f, 0.3576f, 0.1805f),
+        floatArrayOf(0.2126f, 0.7152f, 0.0722f),
+        floatArrayOf(0.0193f, 0.1192f, 0.9505f)
+    )
+
+    private val M_LMS = arrayOf(
+        floatArrayOf(0.3811f, 0.5783f, 0.0402f),
+        floatArrayOf(0.1967f, 0.7244f, 0.0782f),
+        floatArrayOf(0.0241f, 0.1288f, 0.8444f)
+    )
+
+    data class DuboisParams(
+        val colorLeft: Int,
+        val colorRight: Int,
+        val leakL: Float, // 0.0 to 0.5 (0% - 50%)
+        val leakR: Float,
+        val useLms: Boolean
+    )
+
+    data class ResultMatrices(
+        val left: FloatArray,
+        val right: FloatArray,
+        val isValid: Boolean = true
+    )
+
+    fun calculate(params: DuboisParams): ResultMatrices {
+        val cL = colorToLinear(params.colorLeft)
+        val cR = colorToLinear(params.colorRight)
+
+        val mBasis = if (params.useLms) M_LMS else M_XYZ
+
+        // Моделирование фильтров с раздельной утечкой
+        val gray = floatArrayOf(0.299f, 0.587f, 0.114f)
+        val effL = FloatArray(3) { i -> cL[i] + cR[i] * params.leakL * gray[i] }
+        val effR = FloatArray(3) { i -> cR[i] + cL[i] * params.leakR * gray[i] }
+
+        // Составляем матрицу Q (6x3)
+        // Q = [ Basis * effL ]
+        //     [ Basis * effR ]
+        val Q = Array(6) { FloatArray(3) }
+        for (row in 0 until 3) {
+            Q[row][0] = mBasis[row][0] * effL[0]
+            Q[row][1] = mBasis[row][1] * effL[1]
+            Q[row][2] = mBasis[row][2] * effL[2]
+        }
+        for (row in 0 until 3) {
+            Q[row + 3][0] = mBasis[row][0] * effR[0]
+            Q[row + 3][1] = mBasis[row][1] * effR[1]
+            Q[row + 3][2] = mBasis[row][2] * effR[2]
+        }
+
+        // Least Squares: (Q^T * Q)^-1 * Q^T
+        val QT = transpose(Q) // 3x6
+        val QTQ = multiply(QT, Q) // 3x3
+
+        // Если инверсия не удалась, возвращаем цвета и помечаем как Invalid
+        val QTQ_inv = invert3x3(QTQ) ?: return ResultMatrices(
+            floatArrayOf(cL[0], 0f, 0f, 0f, cL[1], 0f, 0f, 0f, cL[2]),
+            floatArrayOf(cR[0], 0f, 0f, 0f, cR[1], 0f, 0f, 0f, cR[2]),
+            isValid = false
+        )
+
+        val M_pinv = multiply(QTQ_inv, QT) // 3x6
+
+        // Extract P_Left (3x3) and P_Right (3x3) from pseudo-inverse
+        val P_Left = Array(3) { i -> floatArrayOf(M_pinv[i][0], M_pinv[i][1], M_pinv[i][2]) }
+        val P_Right = Array(3) { i -> floatArrayOf(M_pinv[i][3], M_pinv[i][4], M_pinv[i][5]) }
+
+        // Final = P * Basis
+        val Final_L = multiply3x3(P_Left, mBasis)
+        val Final_R = multiply3x3(P_Right, mBasis)
+
+
+        // Normalize (White balance fix)
+        normalize(Final_L, Final_R)
+
+        return ResultMatrices(flatten(Final_L), flatten(Final_R), true)
+    }
+
+    private fun sRGBtoLinear(x: Float): Float {
+        return if (x <= 0.04045f) x / 12.92f else ((x + 0.055f) / 1.055f).pow(2.4f)
+    }
+
+    private fun colorToLinear(color: Int): FloatArray {
+        return floatArrayOf(
+            sRGBtoLinear(Color.red(color) / 255f),
+            sRGBtoLinear(Color.green(color) / 255f),
+            sRGBtoLinear(Color.blue(color) / 255f)
+        )
+    }
+
+    // --- Linear Algebra Utils ---
+
+    private fun transpose(m: Array<FloatArray>): Array<FloatArray> {
+        val rows = m.size
+        val cols = m[0].size
+        val res = Array(cols) { FloatArray(rows) }
+        for (i in 0 until rows) {
+            for (j in 0 until cols) {
+                res[j][i] = m[i][j]
+            }
+        }
+        return res
+    }
+
+    // Multiply (m x n) by (n x p) -> (m x p)
+    private fun multiply(A: Array<FloatArray>, B: Array<FloatArray>): Array<FloatArray> {
+        val m = A.size
+        val n = A[0].size
+        val p = B[0].size
+        val res = Array(m) { FloatArray(p) }
+        for (i in 0 until m) {
+            for (j in 0 until p) {
+                var sum = 0f
+                for (k in 0 until n) sum += A[i][k] * B[k][j]
+                res[i][j] = sum
+            }
+        }
+        return res
+    }
+
+    private fun multiply3x3(A: Array<FloatArray>, B: Array<FloatArray>): Array<FloatArray> {
+        return multiply(A, B)
+    }
+
+    private fun invert3x3(m: Array<FloatArray>): Array<FloatArray>? {
+        val det = m[0][0] * (m[1][1] * m[2][2] - m[2][1] * m[1][2]) -
+                m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) +
+                m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
+
+        if (abs(det) < 1e-9) return null
+        val invDet = 1.0f / det
+
+        val res = Array(3) { FloatArray(3) }
+        res[0][0] = (m[1][1] * m[2][2] - m[2][1] * m[1][2]) * invDet
+        res[0][1] = (m[0][2] * m[2][1] - m[0][1] * m[2][2]) * invDet
+        res[0][2] = (m[0][1] * m[1][2] - m[0][2] * m[1][1]) * invDet
+        res[1][0] = (m[1][2] * m[2][0] - m[1][0] * m[2][2]) * invDet
+        res[1][1] = (m[0][0] * m[2][2] - m[0][2] * m[2][0]) * invDet
+        res[1][2] = (m[1][0] * m[0][2] - m[0][0] * m[1][2]) * invDet
+        res[2][0] = (m[1][0] * m[2][1] - m[2][0] * m[1][1]) * invDet
+        res[2][1] = (m[2][0] * m[0][1] - m[0][0] * m[2][1]) * invDet
+        res[2][2] = (m[0][0] * m[1][1] - m[1][0] * m[0][1]) * invDet
+        return res
+    }
+
+    private fun normalize(mL: Array<FloatArray>, mR: Array<FloatArray>) {
+        for (row in 0 until 3) {
+            var sum = 0f
+            for (col in 0 until 3) sum += mL[row][col]
+            for (col in 0 until 3) sum += mR[row][col]
+            if (abs(sum) > 0.0001f) {
+                val scale = 1.0f / sum
+                for (col in 0 until 3) {
+                    mL[row][col] *= scale
+                    mR[row][col] *= scale
+                }
+            }
+        }
+    }
+
+    private fun flatten(m: Array<FloatArray>): FloatArray {
+        return floatArrayOf(
+            m[0][0], m[0][1], m[0][2],
+            m[1][0], m[1][1], m[1][2],
+            m[2][0], m[2][1], m[2][2]
+        )
+    }
+}

@@ -9,13 +9,46 @@
         <item name="android:layout_height">48dp</item>
         <item name="android:background">@drawable/player_control_background</item>
         <item name="android:scaleType">fitCenter</item>
-        <item name="android:padding">8dp</item>
+        <item name="android:padding">4dp</item>
         <item name="android:focusable">true</item>
     </style>
 
     <style name="PlayerSecondaryControlButton" parent="PlayerControlButton">
         <item name="android:layout_width">40dp</item>
         <item name="android:layout_height">40dp</item>
-        <item name="android:padding">6dp</item>
+        <item name="android:padding">3dp</item>
+    </style>
+
+    <style name="DarkMenuTextAppearance" parent="TextAppearance.AppCompat.Widget.PopupMenu.Large">
+        <item name="android:textColor">@color/selector_menu_item_text</item>
+        <item name="android:textSize">16sp</item>
+    </style>
+
+    <!-- Стиль самого виджета PopupMenu -->
+    <style name="DarkPopupMenu" parent="Widget.AppCompat.PopupMenu">
+        <!-- Общий фон плашки меню -->
+        <item name="android:popupBackground">@drawable/bg_player_panel</item>
+        <!-- Убираем наложение на кнопку -->
+        <item name="android:overlapAnchor">false</item>
+    </style>
+
+    <!-- ТЕМА, которую мы применяем в ContextThemeWrapper -->
+    <style name="DarkPopupContext" parent="Theme.AppCompat.Light">
+        <!-- Привязываем стиль виджета -->
+        <item name="android:popupMenuStyle">@style/DarkPopupMenu</item>
+        <item name="popupMenuStyle">@style/DarkPopupMenu</item>
+
+        <!-- ВАЖНО: Фон элемента меню (работает на большинстве версий) -->
+        <item name="android:itemBackground">@drawable/selector_menu_item_bg</item>
+
+        <!-- ВАЖНО: Селектор списка (для старых версий и D-Pad навигации) -->
+        <item name="android:listSelector">@drawable/selector_menu_item_bg</item>
+
+        <!-- Цвет текста (основной) -->
+        <item name="android:textColorPrimary">@color/selector_menu_item_text</item>
+
+        <!-- Принудительно задаем стиль текста для элементов -->
+        <item name="android:textAppearanceLargePopupMenu">@style/DarkMenuTextAppearance</item>
+        <item name="android:textAppearanceSmallPopupMenu">@style/DarkMenuTextAppearance</item>
     </style>
 </resources>

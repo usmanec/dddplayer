@@ -62,21 +62,45 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="top|end"
-        android:layout_margin="16dp"
-        android:background="#80000000"
+        android:layout_margin="10dp"
+        android:background="@drawable/bg_player_panel"
         android:padding="8dp"
         android:textColor="@android:color/white"
         android:textSize="16sp"
         android:textStyle="bold"
         tools:text="FPS: 60" />
 
-    <!-- OSD Панель настроек -->
-    <include layout="@layout/layout_top_settings_panel" />
+    <!-- Панель настроек -->
+    <include
+        android:id="@+id/top_settings_panel"
+        layout="@layout/layout_top_settings_panel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:layout_marginHorizontal="10dp"
+        android:layout_marginTop="10dp"
+        android:visibility="gone"
+        tools:visibility="visible"/>
 
-    <!-- Панель управления -->
+    <!-- Панель управления  верхняя (Инфо) -->
+    <include
+        android:id="@+id/top_info_panel"
+        layout="@layout/layout_top_info_panel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:layout_marginHorizontal="10dp"
+        android:layout_marginTop="10dp"
+        android:visibility="gone"
+        tools:visibility="visible"/>
+
+    <!-- Панель управления  нижняя (Элементы управления) -->
     <include
         android:id="@+id/playback_controls"
         layout="@layout/playback_controls"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
         android:visibility="gone"
         tools:visibility="visible"/>
 
