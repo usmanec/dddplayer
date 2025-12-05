@@ -5,12 +5,16 @@ import android.net.Uri
 data class MediaItem(
     val uri: Uri,
     val title: String? = null,
-    val isStereo: Boolean = false,
-    val stereoType: StereoType = StereoType.NONE
+    val filename: String? = null,
+    val headers: Map<String, String> = emptyMap(),
+    val subtitles: List<SubtitleItem> = emptyList(),
+    val startPositionMs: Long = 0,
+    val stereoType: StereoInputType = StereoInputType.NONE
 )
 
-enum class StereoType {
-    NONE,
-    SIDE_BY_SIDE, // Горизонтальная стереопара
-    TOP_BOTTOM    // Вертикальная стереопара
-}
+data class SubtitleItem(
+    val uri: Uri,
+    val name: String? = null,
+    val filename: String? = null,
+    val mimeType: String? = null
+)

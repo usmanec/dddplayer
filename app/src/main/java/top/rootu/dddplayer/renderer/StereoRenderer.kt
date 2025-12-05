@@ -63,31 +63,64 @@ class StereoRenderer(
     private val vertexBuffer: FloatBuffer
     private val texCoordBuffer: FloatBuffer
 
-    @Volatile private var currentInputType: StereoInputType = StereoInputType.NONE
-    @Volatile private var currentOutputMode: StereoOutputMode = StereoOutputMode.ANAGLYPH
-    @Volatile private var currentAnaglyphType: AnaglyphType = AnaglyphType.RC_DUBOIS
-    @Volatile private var swapEyes: Boolean = false
-    @Volatile private var videoWidth: Int = 1920
-    @Volatile private var videoHeight: Int = 1080
+    @Volatile
+    private var currentInputType: StereoInputType = StereoInputType.NONE
+
+    @Volatile
+    private var currentOutputMode: StereoOutputMode = StereoOutputMode.ANAGLYPH
+
+    @Volatile
+    private var currentAnaglyphType: AnaglyphType = AnaglyphType.RC_DUBOIS
+
+    @Volatile
+    private var swapEyes: Boolean = false
+
+    @Volatile
+    private var videoWidth: Int = 1920
+
+    @Volatile
+    private var videoHeight: Int = 1080
     private var screenAspectRatio: Float = 16f / 9f
 
-    @Volatile private var singleFrameWidth: Float = 1920f
-    @Volatile private var singleFrameHeight: Float = 1080f
+    @Volatile
+    private var singleFrameWidth: Float = 1920f
 
-    @Volatile private var rawDepth: Int = 0
-    @Volatile private var screenSeparation: Float = 0f
-    @Volatile private var currentDepth: Float = 0f
+    @Volatile
+    private var singleFrameHeight: Float = 1080f
+
+    @Volatile
+    private var rawDepth: Int = 0
+
+    @Volatile
+    private var screenSeparation: Float = 0f
+
+    @Volatile
+    private var currentDepth: Float = 0f
 
     // VR параметры
-    @Volatile private var k1: Float = 0.34f
-    @Volatile private var k2: Float = 0.10f
-    @Volatile private var distortScale: Float = 1.2f
+    @Volatile
+    private var k1: Float = 0.34f
+
+    @Volatile
+    private var k2: Float = 0.10f
+
+    @Volatile
+    private var distortScale: Float = 1.2f
+
+    // Текущие матрицы анаглифа (по умолчанию Identity/Red-Cyan placeholder)
+    @Volatile
+    private var matrixL: FloatArray = floatArrayOf(1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f)
+
+    @Volatile
+    private var matrixR: FloatArray = floatArrayOf(1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f)
 
     private val textureId = IntArray(1)
     private var surfaceTexture: SurfaceTexture? = null
     private var videoSurface: Surface? = null
     private val texMatrix = FloatArray(16)
-    @Volatile private var frameAvailable = false
+
+    @Volatile
+    private var frameAvailable = false
     private var frameCount = 0
     private var lastTime: Long = 0
     private var currentFps = 0
@@ -95,8 +128,8 @@ class StereoRenderer(
     private val vertices = floatArrayOf(
         -1.0f, -1.0f,
         1.0f, -1.0f,
-        -1.0f,  1.0f,
-        1.0f,  1.0f
+        -1.0f, 1.0f,
+        1.0f, 1.0f
     )
 
     private val texCoords = floatArrayOf(
@@ -107,9 +140,12 @@ class StereoRenderer(
     )
 
     init {
-        vertexBuffer = ByteBuffer.allocateDirect(vertices.size * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
+        vertexBuffer = ByteBuffer.allocateDirect(vertices.size * 4).order(ByteOrder.nativeOrder())
+            .asFloatBuffer()
         vertexBuffer.put(vertices).position(0)
-        texCoordBuffer = ByteBuffer.allocateDirect(texCoords.size * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
+        texCoordBuffer =
+            ByteBuffer.allocateDirect(texCoords.size * 4).order(ByteOrder.nativeOrder())
+                .asFloatBuffer()
         texCoordBuffer.put(texCoords).position(0)
     }
 
@@ -178,13 +214,26 @@ class StereoRenderer(
     private fun setupTexture() {
         GLES20.glGenTextures(1, textureId, 0)
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureId[0])
-
-        // ВАЖНО: Используем GL_LINEAR для качественного масштабирования (убирает пикселизацию)
-        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
-        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
-
-        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
-        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
+        GLES20.glTexParameteri(
+            GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
+            GLES20.GL_TEXTURE_MIN_FILTER,
+            GLES20.GL_LINEAR
+        )
+        GLES20.glTexParameteri(
+            GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
+            GLES20.GL_TEXTURE_MAG_FILTER,
+            GLES20.GL_LINEAR
+        )
+        GLES20.glTexParameteri(
+            GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
+            GLES20.GL_TEXTURE_WRAP_S,
+            GLES20.GL_CLAMP_TO_EDGE
+        )
+        GLES20.glTexParameteri(
+            GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
+            GLES20.GL_TEXTURE_WRAP_T,
+            GLES20.GL_CLAMP_TO_EDGE
+        )
     }
 
     private fun setupShaders() {
@@ -222,7 +271,8 @@ class StereoRenderer(
         swapEyesHandle = GLES20.glGetUniformLocation(program, "u_swapEyes")
         videoDimensionsHandle = GLES20.glGetUniformLocation(program, "u_videoDimensions")
         screenAspectRatioHandle = GLES20.glGetUniformLocation(program, "u_screenAspectRatio")
-        singleFrameDimensionsHandle = GLES20.glGetUniformLocation(program, "u_singleFrameDimensions")
+        singleFrameDimensionsHandle =
+            GLES20.glGetUniformLocation(program, "u_singleFrameDimensions")
         depthHandle = GLES20.glGetUniformLocation(program, "u_depth")
 
         k1Handle = GLES20.glGetUniformLocation(program, "u_k1")
@@ -261,6 +311,12 @@ class StereoRenderer(
 
     fun setAnaglyphType(type: AnaglyphType) {
         currentAnaglyphType = type
+        glSurfaceView.requestRender()
+    }
+
+    fun setAnaglyphMatrices(l: FloatArray, r: FloatArray) {
+        this.matrixL = l
+        this.matrixR = r
         glSurfaceView.requestRender()
     }
 
@@ -323,15 +379,13 @@ class StereoRenderer(
         GLES20.glUniform1f(screenSeparationHandle, screenSeparation)
 
         if (currentOutputMode == StereoOutputMode.ANAGLYPH) {
-            val matrices = anaglyphModes[currentAnaglyphType]
-            if (matrices != null) {
-                GLES20.glUniform3f(lRow1Handle, matrices.l[0], matrices.l[1], matrices.l[2])
-                GLES20.glUniform3f(lRow2Handle, matrices.l[3], matrices.l[4], matrices.l[5])
-                GLES20.glUniform3f(lRow3Handle, matrices.l[6], matrices.l[7], matrices.l[8])
-                GLES20.glUniform3f(rRow1Handle, matrices.r[0], matrices.r[1], matrices.r[2])
-                GLES20.glUniform3f(rRow2Handle, matrices.r[3], matrices.r[4], matrices.r[5])
-                GLES20.glUniform3f(rRow3Handle, matrices.r[6], matrices.r[7], matrices.r[8])
-            }
+            // Используем матрицы, переданные через setAnaglyphMatrices
+            GLES20.glUniform3f(lRow1Handle, matrixL[0], matrixL[1], matrixL[2])
+            GLES20.glUniform3f(lRow2Handle, matrixL[3], matrixL[4], matrixL[5])
+            GLES20.glUniform3f(lRow3Handle, matrixL[6], matrixL[7], matrixL[8])
+            GLES20.glUniform3f(rRow1Handle, matrixR[0], matrixR[1], matrixR[2])
+            GLES20.glUniform3f(rRow2Handle, matrixR[3], matrixR[4], matrixR[5])
+            GLES20.glUniform3f(rRow3Handle, matrixR[6], matrixR[7], matrixR[8])
         }
     }
 
@@ -361,13 +415,16 @@ class StereoRenderer(
     }
 
     enum class AnaglyphType {
-        RC_DUBOIS, RC_HALF_COLOR, RC_COLOR, RC_MONO, RC_OPTIMIZED,
-        YB_DUBOIS, YB_HALF_COLOR, YB_COLOR, YB_MONO,
-        GM_DUBOIS, GM_HALF_COLOR, GM_COLOR, GM_MONO,
+        // Red-Cyan
+        RC_DUBOIS, RC_HALF_COLOR, RC_COLOR, RC_MONO, RC_OPTIMIZED, RC_CUSTOM,
+
+        // Yellow-Blue
+        YB_DUBOIS, YB_HALF_COLOR, YB_COLOR, YB_MONO, YB_CUSTOM,
+
+        // Green-Magenta
+        GM_DUBOIS, GM_HALF_COLOR, GM_COLOR, GM_MONO, GM_CUSTOM,
         RB_MONO
     }
-
-    data class AnaglyphMatrices(val l: FloatArray, val r: FloatArray)
 
     companion object {
         private const val VERTEX_SHADER_CODE = """
@@ -555,69 +612,5 @@ class StereoRenderer(
                 }
             }
         """
-        val anaglyphModes = mapOf(
-            // Red-Cyan Dubois (Optimized for monitors)
-            AnaglyphType.RC_DUBOIS to AnaglyphMatrices(
-                l = floatArrayOf(0.4154f, 0.4710f, 0.1669f, -0.0458f, -0.0484f, -0.0257f, -0.0547f, -0.0615f, 0.0128f),
-                r = floatArrayOf(-0.0109f, -0.0364f, -0.0060f, 0.3756f, 0.7333f, 0.0111f, -0.0651f, -0.1287f, 1.2971f)
-            ),
-            AnaglyphType.RC_HALF_COLOR to AnaglyphMatrices(
-                l = floatArrayOf(0.299f, 0.587f, 0.114f, 0f, 0f, 0f, 0f, 0f, 0f),
-                r = floatArrayOf(0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f)
-            ),
-            AnaglyphType.RC_COLOR to AnaglyphMatrices(
-                l = floatArrayOf(1f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f),
-                r = floatArrayOf(0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f)
-            ),
-            AnaglyphType.RC_MONO to AnaglyphMatrices(
-                l = floatArrayOf(0.299f, 0.587f, 0.114f, 0f, 0f, 0f, 0f, 0f, 0f),
-                r = floatArrayOf(0f, 0f, 0f, 0.299f, 0.587f, 0.114f, 0.299f, 0.587f, 0.114f)
-            ),
-            AnaglyphType.RC_OPTIMIZED to AnaglyphMatrices(
-                l = floatArrayOf(0.4122f, 0.5604f, 0.2008f, -0.0723f, -0.0409f, -0.0697f, -0.0004f, -0.0011f, 0.1662f),
-                r = floatArrayOf(-0.0211f, -0.1121f, -0.0402f, 0.3616f, 0.8075f, 0.0139f, 0.0021f, 0.0002f, 0.8330f)
-            ),
-
-            // Yellow-Blue (Amber-Blue) Dubois
-            AnaglyphType.YB_DUBOIS to AnaglyphMatrices(
-                l = floatArrayOf(1.0615f, -0.0585f, -0.0159f, 0.1258f, 0.7697f, -0.0892f, -0.0458f, -0.0838f, -0.0020f),
-                r = floatArrayOf(-0.0223f, -0.0593f, -0.0088f, -0.0263f, -0.0348f, -0.0038f, 0.1874f, 0.3367f, 0.7649f)
-            ),
-            AnaglyphType.YB_HALF_COLOR to AnaglyphMatrices(
-                l = floatArrayOf(1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f),
-                r = floatArrayOf(0f, 0f, 0f, 0f, 0f, 0f, 0.299f, 0.587f, 0.114f)
-            ),
-            AnaglyphType.YB_COLOR to AnaglyphMatrices(
-                l = floatArrayOf(1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f),
-                r = floatArrayOf(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 1f)
-            ),
-            AnaglyphType.YB_MONO to AnaglyphMatrices(
-                l = floatArrayOf(0.299f, 0.587f, 0.114f, 0.299f, 0.587f, 0.114f, 0f, 0f, 0f),
-                r = floatArrayOf(0f, 0f, 0f, 0f, 0f, 0f, 0.299f, 0.587f, 0.114f)
-            ),
-
-            // Green-Magenta Dubois
-            AnaglyphType.GM_DUBOIS to AnaglyphMatrices(
-                l = floatArrayOf(-0.062f, -0.158f, -0.039f, 0.284f, 0.668f, 0.143f, -0.015f, -0.027f, 0.021f),
-                r = floatArrayOf(0.529f, 0.705f, 0.024f, -0.016f, -0.015f, -0.065f, 0.009f, -0.075f, 0.937f)
-            ),
-            AnaglyphType.GM_COLOR to AnaglyphMatrices(
-                l = floatArrayOf(0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f),
-                r = floatArrayOf(1f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 1f)
-            ),
-            AnaglyphType.GM_HALF_COLOR to AnaglyphMatrices(
-                l = floatArrayOf(0f, 0f, 0f, 0.299f, 0.587f, 0.114f, 0f, 0f, 0f),
-                r = floatArrayOf(1f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 1f)
-            ),
-            AnaglyphType.GM_MONO to AnaglyphMatrices(
-                l = floatArrayOf(0f, 0f, 0f, 0.299f, 0.587f, 0.114f, 0f, 0f, 0f),
-                r = floatArrayOf(0.299f, 0.587f, 0.114f, 0f, 0f, 0f, 0.299f, 0.587f, 0.114f)
-            ),
-
-            AnaglyphType.RB_MONO to AnaglyphMatrices(
-                l = floatArrayOf(0.299f, 0.587f, 0.114f, 0f, 0f, 0f, 0f, 0f, 0f),
-                r = floatArrayOf(0f, 0f, 0f, 0f, 0f, 0f, 0.299f, 0.587f, 0.114f)
-            )
-        )
     }
 }

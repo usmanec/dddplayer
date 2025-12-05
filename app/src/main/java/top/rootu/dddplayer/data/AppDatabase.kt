@@ -21,7 +21,7 @@ interface VideoSettingsDao {
     suspend fun deleteOldSettings(timestamp: Long)
 }
 
-@Database(entities = [VideoSettings::class], version = 1)
+@Database(entities = [VideoSettings::class], version = 1, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun videoSettingsDao(): VideoSettingsDao
 
@@ -34,7 +34,9 @@ abstract class AppDatabase : RoomDatabase() {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java, "ddd_player_db"
-                ).build().also { instance = it }
+                )
+                    .fallbackToDestructiveMigration(false)
+                    .build().also { instance = it }
             }
         }
     }
