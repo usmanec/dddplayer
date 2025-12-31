@@ -26,9 +26,8 @@
             android:layout_height="match_parent"
             android:adjustViewBounds="true"
             android:scaleType="fitCenter"
-            android:src="@drawable/ic_input_mode_auto"
+            android:src="@drawable/tv_banner"
             app:tint="@android:color/white"
-            tools:src="@tools:sample/avatars"
             />
     </androidx.cardview.widget.CardView>
 
@@ -91,7 +90,7 @@
             android:layout_marginEnd="8dp"
             android:src="@drawable/ic_output_mode_3d_off"
             app:tint="@android:color/white"
-            tools:visibility="visible" />
+            tools:visibility="gone" />
 
         <ImageView
             android:id="@+id/icon_swap_eyes"
@@ -100,7 +99,7 @@
             android:layout_marginEnd="16dp"
             android:src="@drawable/ic_swap_horiz"
             app:tint="@android:color/white"
-            tools:visibility="visible" />
+            tools:visibility="gone" />
 
         <!-- Разрешение (value size) -->
         <TextView

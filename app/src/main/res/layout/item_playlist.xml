@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/selector_menu_item_bg"
+    android:padding="8dp"
+    android:focusable="true"
+    android:clickable="true">
+
+    <!-- Постер / Заглушка (16:9) -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/item_poster_card"
+        android:layout_width="120dp"
+        android:layout_height="67.5dp"
+        app:cardCornerRadius="4dp"
+        app:cardBackgroundColor="#333333"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <ImageView
+            android:id="@+id/item_poster"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            tools:src="@tools:sample/backgrounds/scenic" />
+
+        <!-- Текст заглушки (номер), если постера нет -->
+        <TextView
+            android:id="@+id/item_poster_placeholder"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:textColor="#88FFFFFF"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            tools:text="1" />
+    </androidx.cardview.widget.CardView>
+
+    <!-- Заголовок -->
+    <TextView
+        android:id="@+id/item_title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="8dp"
+        android:textColor="@android:color/white"
+        android:textSize="16sp"
+        android:maxLines="2"
+        android:ellipsize="end"
+        app:layout_constraintStart_toEndOf="@id/item_poster_card"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/item_poster_card"
+        app:layout_constraintBottom_toTopOf="@+id/item_progress"
+        app:layout_constraintVertical_chainStyle="packed"
+        tools:text="1. Big Buck Bunny" />
+
+    <!-- Прогресс бар -->
+    <ProgressBar
+        android:id="@+id/item_progress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="0dp"
+        android:layout_height="4dp"
+        android:layout_marginTop="4dp"
+        android:progressDrawable="@drawable/progress_playlist_item"
+        android:max="100"
+        app:layout_constraintStart_toStartOf="@id/item_title"
+        app:layout_constraintEnd_toEndOf="@id/item_title"
+        app:layout_constraintTop_toBottomOf="@id/item_title"
+        app:layout_constraintBottom_toBottomOf="@id/item_poster_card"
+        tools:progress="45" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

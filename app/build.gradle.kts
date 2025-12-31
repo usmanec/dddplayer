@@ -63,6 +63,9 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     ksp(libs.androidx.room.compiler)
 
+    // Для загрузки изображений
+    implementation(libs.coil)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

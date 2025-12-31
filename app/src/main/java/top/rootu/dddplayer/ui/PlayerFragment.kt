@@ -1,192 +1,82 @@
 package top.rootu.dddplayer.ui
 
 import android.graphics.Color
-import android.graphics.Paint
-import android.net.Uri
 import android.opengl.GLSurfaceView
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.view.ContextThemeWrapper
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageButton
 import android.widget.PopupMenu
-import android.widget.ProgressBar
-import android.widget.SeekBar
-import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
-import androidx.core.net.toUri
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.ui.SubtitleView
 import top.rootu.dddplayer.R
-import top.rootu.dddplayer.model.StereoOutputMode
+import top.rootu.dddplayer.model.StereoInputType
 import top.rootu.dddplayer.renderer.OnFpsUpdatedListener
 import top.rootu.dddplayer.renderer.OnSurfaceReadyListener
 import top.rootu.dddplayer.renderer.StereoGLSurfaceView
 import top.rootu.dddplayer.renderer.StereoRenderer
+import top.rootu.dddplayer.ui.controller.PlayerInputHandler
+import top.rootu.dddplayer.ui.controller.PlayerTimerController
+import top.rootu.dddplayer.ui.controller.PlayerUiController
 import top.rootu.dddplayer.viewmodel.PlayerViewModel
 import top.rootu.dddplayer.viewmodel.SettingType
-import java.util.Locale
 import java.util.Calendar
+import java.util.Locale
 
 @UnstableApi
 class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener {
 
     private val viewModel: PlayerViewModel by activityViewModels()
-    private lateinit var glSurfaceView: StereoGLSurfaceView
     private var stereoRenderer: StereoRenderer? = null
 
-    // --- UI State ---
-    private var isPanelExpanded = false
-    private val hideControlsHandler = Handler(Looper.getMainLooper())
-    private val hideControlsRunnable = Runnable { hideControls() }
-    private var isUserSeeking = false
+    // Контроллеры
+    private lateinit var ui: PlayerUiController
+    private lateinit var inputHandler: PlayerInputHandler
+    private lateinit var timerController: PlayerTimerController
 
-    private val settingsHideHandler = Handler(Looper.getMainLooper())
-    private val settingsHideRunnable = Runnable {
-        if (viewModel.isSettingsPanelVisible.value == true) {
-            viewModel.closeSettingsPanel(true)
-            // Возвращаем фокус на контейнер
-            rootContainer.requestFocus()
-        }
-    }
+    // Храним ссылку на GL Surface
+    private var glSurface: Surface? = null
 
-    // Clock Handler
-    private val clockHandler = Handler(Looper.getMainLooper())
-    private val clockRunnable = object : Runnable {
-        override fun run() {
-            updateClock()
-            clockHandler.postDelayed(this, 10000) // Update every 10 sec
-        }
-    }
-
-    // --- Views ---
-    private lateinit var rootContainer: View
-    private lateinit var touchZoneTop: View
-
-    // Субтитры
-    private lateinit var subtitleView: SubtitleView
-    private lateinit var subtitleSplitContainer: View
-    private lateinit var subtitleViewLeft: SubtitleView
-    private lateinit var subtitleViewRight: SubtitleView
-
-    // Panels
-    private lateinit var controlsView: View
-    private lateinit var topInfoPanel: View
-    private lateinit var topSettingsPanel: View
-
-    // Info Panel Views
-    private lateinit var videoTitleTextView: TextView
-    private lateinit var textClock: TextView
-    private lateinit var iconInputMode: android.widget.ImageView
-    private lateinit var iconOutputMode: android.widget.ImageView
-    private lateinit var iconSwapEyes: android.widget.ImageView
-    private lateinit var badgeResolution: TextView
-    private lateinit var badgeAudio: TextView
-    private lateinit var badgeSubtitle: TextView
-
-    // Controls Views
-    private lateinit var playPauseButton: ImageButton
-    private lateinit var rewindButton: ImageButton
-    private lateinit var ffwdButton: ImageButton
-    private lateinit var prevButton: ImageButton
-    private lateinit var nextButton: ImageButton
-    private lateinit var seekBar: SeekBar
-    private lateinit var timeCurrentTextView: TextView
-    private lateinit var timeDurationTextView: TextView
-
-    private lateinit var buttonQuality: TextView
-    private lateinit var buttonPlaylist: ImageButton
-    private lateinit var buttonSettings: ImageButton
-
-    // Other
-    private lateinit var fpsCounterTextView: TextView
-    private lateinit var bufferingIndicator: ProgressBar
-    private lateinit var bufferingSplitContainer: View
-    private lateinit var loaderLeft: ProgressBar
-    private lateinit var loaderRight: ProgressBar
-
-    // Settings Panel Views
-    private lateinit var titleContainer: View
-    private lateinit var settingTitle: TextView
-    private lateinit var settingValue: TextView
-    private lateinit var btnSettingsPrev: View
-    private lateinit var btnSettingsNext: View
-
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View {
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         val view = inflater.inflate(R.layout.player_fragment, container, false)
-        bindViews(view)
-        glSurfaceView.setEGLContextClientVersion(2)
-        stereoRenderer = StereoRenderer(glSurfaceView, this, this)
-        glSurfaceView.setRenderer(stereoRenderer)
-        glSurfaceView.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
+
+        ui = PlayerUiController(view)
+
+        timerController = PlayerTimerController(
+            onHideControls = { ui.hideControls() },
+            onHideSettings = {
+                if (viewModel.isSettingsPanelVisible.value == true) {
+                    viewModel.closeSettingsPanel(true)
+                    view.findViewById<View>(R.id.root_container)?.requestFocus()
+                }
+            },
+            clockView = ui.textClock
+        )
+
+        inputHandler = PlayerInputHandler(
+            viewModel, ui,
+            onShowControls = { ui.showControls(); timerController.resetControlsTimer() },
+            onHideControls = { ui.hideControls() },
+            onResetHideTimer = { timerController.resetControlsTimer() },
+            onShowPlaylist = { showPlaylist() }
+        )
+
+        // Настройка GL Surface
+        ui.glSurfaceView.setEGLContextClientVersion(2)
+        ui.glSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 0)
+
+        stereoRenderer = StereoRenderer(ui.glSurfaceView, this, this)
+        ui.glSurfaceView.setRenderer(stereoRenderer)
+        ui.glSurfaceView.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
+
         return view
-    }
-
-    private fun bindViews(view: View) {
-        rootContainer = view.findViewById(R.id.root_container)
-        touchZoneTop = view.findViewById(R.id.touch_zone_top)
-
-        subtitleView = view.findViewById(R.id.subtitle_view)
-        subtitleSplitContainer = view.findViewById(R.id.subtitle_split_container)
-        subtitleViewLeft = view.findViewById(R.id.subtitle_view_left)
-        subtitleViewRight = view.findViewById(R.id.subtitle_view_right)
-
-        glSurfaceView = view.findViewById(R.id.gl_surface_view)
-        fpsCounterTextView = view.findViewById(R.id.fps_counter)
-
-        bufferingIndicator = view.findViewById(R.id.buffering_indicator)
-        bufferingSplitContainer = view.findViewById(R.id.buffering_split_container)
-        loaderLeft = view.findViewById(R.id.loader_left)
-        loaderRight = view.findViewById(R.id.loader_right)
-
-        // Panels
-        controlsView = view.findViewById(R.id.playback_controls)
-        topInfoPanel = view.findViewById(R.id.top_info_panel)
-        topSettingsPanel = view.findViewById(R.id.top_settings_panel)
-
-        // Info Panel
-        videoTitleTextView = topInfoPanel.findViewById(R.id.video_title)
-        textClock = topInfoPanel.findViewById(R.id.text_clock)
-        iconInputMode = topInfoPanel.findViewById(R.id.icon_input_mode)
-        iconOutputMode = topInfoPanel.findViewById(R.id.icon_output_mode)
-        iconSwapEyes = topInfoPanel.findViewById(R.id.icon_swap_eyes)
-        badgeResolution = topInfoPanel.findViewById(R.id.badge_resolution)
-        badgeAudio = topInfoPanel.findViewById(R.id.badge_audio)
-        badgeSubtitle = topInfoPanel.findViewById(R.id.badge_subtitle)
-
-        // Controls
-        playPauseButton = controlsView.findViewById(R.id.button_play_pause)
-        rewindButton = controlsView.findViewById(R.id.button_rewind)
-        ffwdButton = controlsView.findViewById(R.id.button_ffwd)
-        prevButton = controlsView.findViewById(R.id.button_prev)
-        nextButton = controlsView.findViewById(R.id.button_next)
-        seekBar = controlsView.findViewById(R.id.seek_bar)
-        timeCurrentTextView = controlsView.findViewById(R.id.time_current)
-        timeDurationTextView = controlsView.findViewById(R.id.time_duration)
-
-        buttonQuality = controlsView.findViewById(R.id.button_quality)
-        buttonPlaylist = controlsView.findViewById(R.id.button_playlist)
-        buttonSettings = controlsView.findViewById(R.id.button_settings)
-
-        // Settings Panel
-        titleContainer = topSettingsPanel.findViewById(R.id.title_container)
-        settingTitle = topSettingsPanel.findViewById(R.id.setting_title)
-        settingValue = topSettingsPanel.findViewById(R.id.setting_value)
-        btnSettingsPrev = topSettingsPanel.findViewById(R.id.btn_settings_prev)
-        btnSettingsNext = topSettingsPanel.findViewById(R.id.btn_settings_next)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -195,362 +85,177 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         setupControls()
         observeViewModel()
         setupBackPressedHandler()
-
-        clockHandler.post(clockRunnable)
+        timerController.startClock()
     }
 
     fun handleKeyEvent(event: KeyEvent): Boolean {
-        if (event.action != KeyEvent.ACTION_DOWN) return false
-
-        // 1. Навигация в настройках
-        if (viewModel.isSettingsPanelVisible.value == true) {
-            resetSettingsHideTimer()
-            when (event.keyCode) {
-                KeyEvent.KEYCODE_DPAD_UP -> {
-                    viewModel.onMenuUp()
-                    return true
-                }
-
-                KeyEvent.KEYCODE_DPAD_DOWN -> {
-                    viewModel.onMenuDown()
-                    return true
-                }
-
-                KeyEvent.KEYCODE_DPAD_LEFT -> {
-                    viewModel.onMenuLeft()
-                    return true
-                }
-
-                KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                    viewModel.onMenuRight()
-                    return true
-                }
-
-                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                    viewModel.closeSettingsPanel(save = true)
-                    rootContainer.requestFocus()
-                    return true
-                }
-
-                KeyEvent.KEYCODE_BACK -> {
-                    viewModel.closeSettingsPanel(save = false)
-                    rootContainer.requestFocus()
-                    return true
-                }
-            }
-            return true
+        if (viewModel.isSettingsPanelVisible.value == true) timerController.resetSettingsTimer()
+        val handled = inputHandler.handleKeyEvent(event, activity?.currentFocus)
+        if (handled && viewModel.isUserInteracting) {
+            view?.postDelayed({ viewModel.isUserInteracting = false }, 500)
         }
-
-        // 2. Навигация в плеере
-        if (controlsView.isVisible) resetHideTimer()
-        val currentFocus = activity?.currentFocus
-
-        when (event.keyCode) {
-            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                if (!controlsView.isVisible) {
-                    showControls()
-                    return true
-                }
-            }
-
-            KeyEvent.KEYCODE_DPAD_DOWN -> {
-                if (!controlsView.isVisible) {
-                    showControls()
-                    return true
-                }
-                // Если фокус на кнопках управления, нажатие вниз открывает плейлист
-                if (currentFocus?.id in listOf(
-                        R.id.button_play_pause,
-                        R.id.button_rewind,
-                        R.id.button_ffwd,
-                        R.id.button_prev,
-                        R.id.button_next
-                    )
-                ) {
-                    showPlaylist()
-                    return true
-                }
-            }
-
-            KeyEvent.KEYCODE_DPAD_UP -> {
-                if (controlsView.isVisible && currentFocus?.id == R.id.seek_bar) {
-                    hideControls()
-                    return true
-                } else if (!controlsView.isVisible) {
-                    // Если панели скрыты, вверх открывает настройки
-                    viewModel.openSettingsPanel()
-                    return true
-                }
-            }
-
-            KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                if (!controlsView.isVisible) {
-                    showControls(focusOnSeekBar = true)
-                    return false
-                }
-
-                // Если фокус на SeekBar, делаем быструю перемотку (0.5% от длины)
-                if (currentFocus?.id == R.id.seek_bar) {
-                    val duration = viewModel.duration.value ?: 0L
-                    if (duration > 0) {
-                        val step = duration / 200 // 0.5% шаг
-                        val current = seekBar.progress.toLong()
-                        val target = if (event.keyCode == KeyEvent.KEYCODE_DPAD_LEFT)
-                            (current - step).coerceAtLeast(0)
-                        else
-                            (current + step).coerceAtMost(duration)
-
-                        // Мгновенно обновляем UI и плеер
-                        viewModel.isUserInteracting = true
-                        seekBar.progress = target.toInt()
-                        timeCurrentTextView.text = formatTime(target)
-                        viewModel.seekTo(target)
-
-                        // Сбрасываем флаг через небольшую задержку
-                        hideControlsHandler.postDelayed(
-                            { viewModel.isUserInteracting = false },
-                            500
-                        )
-                    }
-                    resetHideTimer()
-                    return true
-                }
-
-                // Если фокус на кнопках, возвращаем false (стандартная навигация)
-                return false
-            }
-
-            KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
-                viewModel.togglePlayPause()
-                showControls()
-                return true
-            }
-
-            KeyEvent.KEYCODE_MEDIA_NEXT -> {
-                viewModel.nextTrack()
-                showControls()
-                return true
-            }
-
-            KeyEvent.KEYCODE_MEDIA_PREVIOUS -> {
-                viewModel.prevTrack()
-                showControls()
-                return true
-            }
-        }
-        return false
+        return handled
     }
 
     private fun setupControls() {
-        // Settings Panel
-        btnSettingsPrev.setOnClickListener { viewModel.onMenuLeft(); resetSettingsHideTimer() }
-        btnSettingsNext.setOnClickListener { viewModel.onMenuRight(); resetSettingsHideTimer() }
-        titleContainer.setOnClickListener { viewModel.onMenuDown(); resetSettingsHideTimer() }
-        topSettingsPanel.setOnClickListener { resetSettingsHideTimer() }
+        // Навигация в настройках
+        ui.btnSettingsPrev.setOnClickListener { viewModel.onMenuLeft(); timerController.resetSettingsTimer() }
+        ui.btnSettingsNext.setOnClickListener { viewModel.onMenuRight(); timerController.resetSettingsTimer() }
+        ui.titleContainer.setOnClickListener { viewModel.onMenuDown(); timerController.resetSettingsTimer() }
+        ui.topSettingsPanel.setOnClickListener { timerController.resetSettingsTimer() }
 
-        // Touch Zones
-        touchZoneTop.setOnClickListener { if (viewModel.isSettingsPanelVisible.value != true) viewModel.openSettingsPanel() }
-        rootContainer.setOnClickListener {
+        // Основные клики
+        ui.touchZoneTop.setOnClickListener { if (viewModel.isSettingsPanelVisible.value != true) viewModel.openSettingsPanel() }
+        view?.findViewById<View>(R.id.root_container)?.setOnClickListener {
             if (viewModel.isSettingsPanelVisible.value == true) {
                 viewModel.closeSettingsPanel(save = true)
-                rootContainer.requestFocus()
-            } else if (controlsView.isVisible) hideControls() else showControls()
+                it.requestFocus()
+            } else if (ui.controlsView.isVisible) ui.hideControls() else ui.showControls()
         }
-        controlsView.setOnClickListener { resetHideTimer() }
+        ui.controlsView.setOnClickListener { timerController.resetControlsTimer() }
 
-        // Playback Controls
-        playPauseButton.setOnClickListener { viewModel.togglePlayPause() }
-        rewindButton.setOnClickListener { viewModel.seekBack() }
-        ffwdButton.setOnClickListener { viewModel.seekForward() }
-        prevButton.setOnClickListener { viewModel.prevTrack() }
-        nextButton.setOnClickListener { viewModel.nextTrack() }
+        // Кнопки плеера
+        ui.playPauseButton.setOnClickListener { viewModel.togglePlayPause() }
+        ui.rewindButton.setOnClickListener { viewModel.seekBack() }
+        ui.ffwdButton.setOnClickListener { viewModel.seekForward() }
+        ui.prevButton.setOnClickListener { viewModel.prevTrack() }
+        ui.nextButton.setOnClickListener { viewModel.nextTrack() }
 
-        // Right Controls
-        buttonSettings.setOnClickListener {
-            hideControls()
-            viewModel.openSettingsPanel()
-        }
-        buttonPlaylist.setOnClickListener { showPlaylistToast() }
-        buttonQuality.setOnClickListener { showQualityPopup() }
+        ui.buttonSettings.setOnClickListener { ui.hideControls(); viewModel.openSettingsPanel() }
+        ui.buttonPlaylist.setOnClickListener { showPlaylist() }
+        ui.buttonQuality.setOnClickListener { showQualityPopup() }
 
         // SeekBar
-        seekBar.setOnKeyListener { _, keyCode, event ->
-            // Этот код может не вызываться на TV, если handleKeyEvent перехватит раньше
-            return@setOnKeyListener false
-        }
-
-        seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                if (fromUser) timeCurrentTextView.text = formatTime(progress.toLong())
+        ui.seekBar.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) ui.timeCurrentTextView.text = ui.formatTime(progress.toLong())
             }
-
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {
-                isUserSeeking = true
+            override fun onStartTrackingTouch(seekBar: android.widget.SeekBar?) {
                 viewModel.isUserInteracting = true
-                hideControlsHandler.removeCallbacks(hideControlsRunnable)
+                timerController.stopControlsTimer()
             }
-
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {
-                seekBar?.progress?.let { viewModel.player.seekTo(it.toLong()) }
-                isUserSeeking = false
+            override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {
+                seekBar?.progress?.let { viewModel.seekTo(it.toLong()) }
                 viewModel.isUserInteracting = false
-                resetHideTimer()
+                timerController.resetControlsTimer()
             }
         })
     }
 
     private fun observeViewModel() {
         viewModel.isPlaying.observe(viewLifecycleOwner) { isPlaying ->
-            val iconRes = if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow
-            playPauseButton.setImageResource(iconRes)
+            ui.playPauseButton.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow)
         }
         viewModel.duration.observe(viewLifecycleOwner) { duration ->
-            seekBar.max = duration.toInt()
-            timeDurationTextView.text = formatTime(duration)
+            ui.seekBar.max = duration.toInt()
+            ui.timeDurationTextView.text = ui.formatTime(duration)
         }
         viewModel.currentPosition.observe(viewLifecycleOwner) { position ->
-            if (!isUserSeeking && !viewModel.isUserInteracting) {
-                seekBar.progress = position.toInt()
-                timeCurrentTextView.text = formatTime(position)
+            if (!viewModel.isUserInteracting) {
+                ui.seekBar.progress = position.toInt()
+                ui.timeCurrentTextView.text = ui.formatTime(position)
             }
         }
         viewModel.videoTitle.observe(viewLifecycleOwner) { title ->
-            videoTitleTextView.text = title
+            ui.videoTitleTextView.text = title
+            // Обновляем постер из метаданных плеера
+            val posterUri = viewModel.player.mediaMetadata.artworkUri
+            ui.loadPoster(posterUri)
         }
 
-        viewModel.hasPrevious.observe(viewLifecycleOwner) { hasPrev ->
-            prevButton.alpha = if (hasPrev) 1.0f else 0.3f
-            prevButton.isEnabled = hasPrev
+        viewModel.hasPrevious.observe(viewLifecycleOwner) {
+            ui.prevButton.alpha = if (it) 1.0f else 0.3f; ui.prevButton.isEnabled = it
         }
-        viewModel.hasNext.observe(viewLifecycleOwner) { hasNext ->
-            nextButton.alpha = if (hasNext) 1.0f else 0.3f
-            nextButton.isEnabled = hasNext
+        viewModel.hasNext.observe(viewLifecycleOwner) {
+            ui.nextButton.alpha = if (it) 1.0f else 0.3f; ui.nextButton.isEnabled = it
+        }
+        viewModel.playlistSize.observe(viewLifecycleOwner) { ui.buttonPlaylist.isVisible = it > 1 }
+        viewModel.currentQualityName.observe(viewLifecycleOwner) { ui.buttonQuality.text = it }
+
+        viewModel.videoResolution.observe(viewLifecycleOwner) { ui.badgeResolution.text = it }
+        viewModel.videoAspectRatio.observe(viewLifecycleOwner) { ui.setAspectRatio(it) }
+        viewModel.currentAudioName.observe(viewLifecycleOwner) { ui.badgeAudio.text = it }
+        viewModel.currentSubtitleName.observe(viewLifecycleOwner) { ui.badgeSubtitle.text = it }
+
+        viewModel.isBuffering.observe(viewLifecycleOwner) {
+            ui.updateBufferingState(it, viewModel.outputMode.value)
         }
 
-        // Playlist Button Visibility
-        viewModel.playlistSize.observe(viewLifecycleOwner) { size ->
-            buttonPlaylist.isVisible = size > 1
-        }
-
-        // Quality Button Text
-        viewModel.currentQualityName.observe(viewLifecycleOwner) { name ->
-            buttonQuality.text = name
-        }
-
-        // Info Panel Badges
-        viewModel.videoResolution.observe(viewLifecycleOwner) { res -> badgeResolution.text = res }
-        viewModel.currentAudioName.observe(viewLifecycleOwner) { name -> badgeAudio.text = name }
-        viewModel.currentSubtitleName.observe(viewLifecycleOwner) { name ->
-            badgeSubtitle.text = name
-        }
-
-        viewModel.isBuffering.observe(viewLifecycleOwner) { isBuffering ->
-            val mode = viewModel.outputMode.value
-            if (isBuffering) {
-                if (mode == StereoOutputMode.CARDBOARD_VR) {
-                    bufferingIndicator.isVisible = false
-                    bufferingSplitContainer.isVisible = true
-                } else {
-                    bufferingIndicator.isVisible = true
-                    bufferingSplitContainer.isVisible = false
-                }
+        // Переключение поверхностей (HDR Fix)
+        viewModel.inputType.observe(viewLifecycleOwner) { type ->
+            val isStereo = type != StereoInputType.NONE
+            ui.setSurfaceMode(isStereo)
+            if (isStereo) {
+                ui.glSurfaceView.onResume()
+                stereoRenderer?.setInputType(type)
+                if (glSurface != null) viewModel.player.setVideoSurface(glSurface)
             } else {
-                bufferingIndicator.isVisible = false
-                bufferingSplitContainer.isVisible = false
+                ui.glSurfaceView.onPause()
+                viewModel.player.setVideoSurfaceView(ui.standardSurfaceView)
             }
+            ui.updateStereoLayout(viewModel.outputMode.value, viewModel.screenSeparation.value ?: 0f)
+            ui.updateInputModeIcon(type, viewModel.swapEyes.value ?: false)
         }
 
+        // Обновление рендерера
         viewModel.swapEyes.observe(viewLifecycleOwner) { swap ->
             stereoRenderer?.setSwapEyes(swap)
-            iconSwapEyes.alpha = if (swap) 1.0f else 0.3f
-        }
-        viewModel.inputType.observe(viewLifecycleOwner) { type ->
-            stereoRenderer?.setInputType(type)
-            // todo Update icon based on type (simplified logic)
-            // iconInputMode.setImageResource(...)
+            ui.iconSwapEyes.alpha = if (swap) 1.0f else 0.3f
+            ui.updateInputModeIcon(viewModel.inputType.value ?: StereoInputType.NONE, swap)
         }
         viewModel.outputMode.observe(viewLifecycleOwner) { mode ->
             stereoRenderer?.setOutputMode(mode)
-            if (mode == StereoOutputMode.CARDBOARD_VR) {
-                subtitleView.isVisible = false
-                subtitleSplitContainer.isVisible = true
-                if (viewModel.isBuffering.value == true) {
-                    bufferingIndicator.isVisible = false
-                    bufferingSplitContainer.isVisible = true
-                }
-            } else {
-                subtitleView.isVisible = true
-                subtitleSplitContainer.isVisible = false
-                if (viewModel.isBuffering.value == true) {
-                    bufferingIndicator.isVisible = true
-                    bufferingSplitContainer.isVisible = false
-                }
-            }
+            ui.updateStereoLayout(mode, viewModel.screenSeparation.value ?: 0f)
         }
-        viewModel.anaglyphType.observe(viewLifecycleOwner) { type ->
-            stereoRenderer?.setAnaglyphType(type)
-        }
-        viewModel.singleFrameSize.observe(viewLifecycleOwner) { (width, height) ->
-            stereoRenderer?.setSingleFrameDimensions(width, height)
-        }
-        viewModel.depth.observe(viewLifecycleOwner) { d -> stereoRenderer?.setDepth(d) }
-
-        viewModel.screenSeparation.observe(viewLifecycleOwner) { sep ->
-            stereoRenderer?.setScreenSeparation(sep)
-
-            // sep - это доля от ширины экрана (например 0.05 = 5%)
-            val screenWidth = resources.displayMetrics.widthPixels
-            val shiftPx = sep * screenWidth
-
-            // Сдвигаем UI элементы
-            subtitleViewLeft.translationX = -shiftPx
-            subtitleViewRight.translationX = shiftPx
-            loaderLeft.translationX = -shiftPx
-            loaderRight.translationX = shiftPx
+        viewModel.anaglyphType.observe(viewLifecycleOwner) { stereoRenderer?.setAnaglyphType(it) }
+        viewModel.singleFrameSize.observe(viewLifecycleOwner) { (w, h) -> stereoRenderer?.setSingleFrameDimensions(w, h) }
+        viewModel.depth.observe(viewLifecycleOwner) { stereoRenderer?.setDepth(it) }
+        viewModel.screenSeparation.observe(viewLifecycleOwner) {
+            stereoRenderer?.setScreenSeparation(it)
+            ui.updateStereoLayout(viewModel.outputMode.value, it)
         }
 
-        // VR Observers
-        viewModel.vrK1.observe(viewLifecycleOwner) { updateVrParams(); updateSettingsText() }
+        // VR параметры
+        viewModel.vrK1.observe(viewLifecycleOwner) { updateVrParams() }
         viewModel.vrK2.observe(viewLifecycleOwner) { updateVrParams() }
-        viewModel.vrScale.observe(viewLifecycleOwner) { updateVrParams(); updateSettingsText() }
+        viewModel.vrScale.observe(viewLifecycleOwner) { updateVrParams() }
 
-        viewModel.currentMatrices.observe(viewLifecycleOwner) { (l, r) ->
-            stereoRenderer?.setAnaglyphMatrices(l, r)
-        }
-        viewModel.calculatedColorL.observe(viewLifecycleOwner) { updateSettingsText() }
-        viewModel.calculatedColorR.observe(viewLifecycleOwner) { updateSettingsText() }
-        viewModel.customHueOffsetL.observe(viewLifecycleOwner) { updateSettingsText() }
-        viewModel.customHueOffsetR.observe(viewLifecycleOwner) { updateSettingsText() }
-        viewModel.customLeakL.observe(viewLifecycleOwner) { updateSettingsText() }
-        viewModel.customLeakR.observe(viewLifecycleOwner) { updateSettingsText() }
-        viewModel.customSpaceLms.observe(viewLifecycleOwner) { updateSettingsText() }
-        viewModel.isMatrixValid.observe(viewLifecycleOwner) { updateSettingsText() }
+        viewModel.currentMatrices.observe(viewLifecycleOwner) { (l, r) -> stereoRenderer?.setAnaglyphMatrices(l, r) }
 
+        // Панель настроек
         viewModel.isSettingsPanelVisible.observe(viewLifecycleOwner) { isVisible ->
-            topSettingsPanel.isVisible = isVisible
+            ui.topSettingsPanel.isVisible = isVisible
             if (isVisible) {
-                hideControls()
-                resetSettingsHideTimer()
+                ui.hideControls()
+                timerController.resetSettingsTimer()
                 updateSettingsText()
             } else {
-                settingsHideHandler.removeCallbacks(settingsHideRunnable)
+                timerController.stopSettingsTimer()
             }
         }
 
-        viewModel.currentSettingType.observe(viewLifecycleOwner) { updateSettingsText() }
-        viewModel.inputType.observe(viewLifecycleOwner) { updateSettingsText() }
-        viewModel.outputMode.observe(viewLifecycleOwner) { updateSettingsText() }
-        viewModel.anaglyphType.observe(viewLifecycleOwner) { updateSettingsText() }
-        viewModel.swapEyes.observe(viewLifecycleOwner) { updateSettingsText() }
-        viewModel.depth.observe(viewLifecycleOwner) { updateSettingsText() }
-        viewModel.screenSeparation.observe(viewLifecycleOwner) { updateSettingsText() }
-        viewModel.currentAudioName.observe(viewLifecycleOwner) { updateSettingsText() }
-        viewModel.currentSubtitleName.observe(viewLifecycleOwner) { updateSettingsText() }
+        // Обновление текста настроек
+        val updateTextObserver = { _: Any -> updateSettingsText() }
+        viewModel.currentSettingType.observe(viewLifecycleOwner, updateTextObserver)
+        viewModel.inputType.observe(viewLifecycleOwner, updateTextObserver)
+        viewModel.outputMode.observe(viewLifecycleOwner, updateTextObserver)
+        viewModel.anaglyphType.observe(viewLifecycleOwner, updateTextObserver)
+        viewModel.swapEyes.observe(viewLifecycleOwner, updateTextObserver)
+        viewModel.depth.observe(viewLifecycleOwner, updateTextObserver)
+        viewModel.screenSeparation.observe(viewLifecycleOwner, updateTextObserver)
+        viewModel.currentAudioName.observe(viewLifecycleOwner, updateTextObserver)
+        viewModel.currentSubtitleName.observe(viewLifecycleOwner, updateTextObserver)
+        viewModel.customHueOffsetL.observe(viewLifecycleOwner, updateTextObserver)
+        viewModel.customHueOffsetR.observe(viewLifecycleOwner, updateTextObserver)
+        viewModel.customLeakL.observe(viewLifecycleOwner, updateTextObserver)
+        viewModel.customLeakR.observe(viewLifecycleOwner, updateTextObserver)
+        viewModel.customSpaceLms.observe(viewLifecycleOwner, updateTextObserver)
+        viewModel.isMatrixValid.observe(viewLifecycleOwner, updateTextObserver)
 
         viewModel.cues.observe(viewLifecycleOwner) { cues ->
-            subtitleView.setCues(cues)
-            subtitleViewLeft.setCues(cues)
-            subtitleViewRight.setCues(cues)
+            ui.subtitleView.setCues(cues)
+            ui.subtitleViewLeft.setCues(cues)
+            ui.subtitleViewRight.setCues(cues)
         }
 
         viewModel.toastMessage.observe(viewLifecycleOwner) { msg ->
@@ -562,116 +267,55 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
     }
 
     private fun updateVrParams() {
-        val k1 = viewModel.vrK1.value ?: 0.34f
-        val k2 = viewModel.vrK2.value ?: 0.10f
-        val scale = viewModel.vrScale.value ?: 1.2f
-        stereoRenderer?.setDistortion(k1, k2, scale)
+        stereoRenderer?.setDistortion(
+            viewModel.vrK1.value ?: 0.34f,
+            viewModel.vrK2.value ?: 0.10f,
+            viewModel.vrScale.value ?: 1.2f
+        )
+        updateSettingsText()
     }
 
     private fun updateSettingsText() {
         if (viewModel.isSettingsPanelVisible.value != true) return
         val type = viewModel.currentSettingType.value ?: return
-        resetSettingsHideTimer()
 
-        settingValue.setTextColor(Color.WHITE)
-        settingValue.paintFlags = settingValue.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
-
-        val isMatrixInvalid = viewModel.isMatrixValid.value == false
-
-        when (type) {
-            SettingType.VIDEO_TYPE -> {
-                settingTitle.text = getString(R.string.setting_video_type)
-                settingValue.text = viewModel.inputType.value?.name?.replace("_", " ")
-            }
-
-            SettingType.OUTPUT_FORMAT -> {
-                settingTitle.text = getString(R.string.setting_output_format)
-                settingValue.text = viewModel.outputMode.value?.name?.replace("_", " ")
-            }
-
-            SettingType.GLASSES_TYPE -> {
-                settingTitle.text = getString(R.string.setting_glasses_type)
-                settingValue.text = getGlassesGroupName(viewModel.anaglyphType.value!!)
-            }
-
+        val valueStr = when(type) {
+            SettingType.VIDEO_TYPE -> viewModel.inputType.value?.name?.replace("_", " ") ?: ""
+            SettingType.OUTPUT_FORMAT -> viewModel.outputMode.value?.name?.replace("_", " ") ?: ""
+            SettingType.GLASSES_TYPE -> getGlassesGroupName(viewModel.anaglyphType.value!!)
             SettingType.FILTER_MODE -> {
-                settingTitle.text = getString(R.string.setting_filter)
                 val name = viewModel.anaglyphType.value?.name ?: ""
-                settingValue.text = if (name.endsWith("_CUSTOM")) "Custom" else name
+                if (name.endsWith("_CUSTOM")) "Custom" else name
             }
-
             SettingType.CUSTOM_HUE_L -> {
-                settingTitle.text = "Оттенок (Левый)"
                 val offset = viewModel.customHueOffsetL.value ?: 0
                 val color = viewModel.calculatedColorL.value ?: Color.WHITE
-                settingValue.text = "$offset (${String.format("#%06X", (0xFFFFFF and color))})"
-                settingValue.setTextColor(color)
-                if (isMatrixInvalid) settingValue.paintFlags =
-                    settingValue.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
+                "$offset (${String.format("#%06X", (0xFFFFFF and color))})"
             }
-
             SettingType.CUSTOM_HUE_R -> {
-                settingTitle.text = "Оттенок (Правый)"
                 val offset = viewModel.customHueOffsetR.value ?: 0
                 val color = viewModel.calculatedColorR.value ?: Color.WHITE
-                settingValue.text = "$offset (${String.format("#%06X", (0xFFFFFF and color))})"
-                settingValue.setTextColor(color)
-                if (isMatrixInvalid) settingValue.paintFlags =
-                    settingValue.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
+                "$offset (${String.format("#%06X", (0xFFFFFF and color))})"
             }
-
-            SettingType.CUSTOM_LEAK_L -> {
-                settingTitle.text = "Утечка (Левый)"
-                settingValue.text = "${(viewModel.customLeakL.value!! * 100).toInt()}%"
-            }
-
-            SettingType.CUSTOM_LEAK_R -> {
-                settingTitle.text = "Утечка (Правый)"
-                settingValue.text = "${(viewModel.customLeakR.value!! * 100).toInt()}%"
-            }
-
-            SettingType.CUSTOM_SPACE -> {
-                settingTitle.text = "Пространство"
-                settingValue.text = if (viewModel.customSpaceLms.value == true) "LMS" else "XYZ"
-            }
-
-            SettingType.SWAP_EYES -> {
-                settingTitle.text = getString(R.string.setting_swap_eyes)
-                settingValue.text = if (viewModel.swapEyes.value == true) "R - L" else "L - R"
-            }
-
-            SettingType.DEPTH_3D -> {
-                settingTitle.text = getString(R.string.setting_depth)
-                settingValue.text = viewModel.depth.value.toString()
-            }
-
-            SettingType.SCREEN_SEPARATION -> {
-                settingTitle.text = getString(R.string.setting_screen_separation)
-                // Показываем в условных единицах (x100 для красоты)
-                settingValue.text =
-                    String.format("%.1f", (viewModel.screenSeparation.value ?: 0f) * 100)
-            }
-
-            SettingType.VR_DISTORTION -> {
-                settingTitle.text = getString(R.string.setting_vr_distortion)
-                settingValue.text = String.format("%.2f", viewModel.vrK1.value)
-            }
-
-            SettingType.VR_ZOOM -> {
-                settingTitle.text = getString(R.string.setting_vr_zoom)
-                settingValue.text = String.format("%.2f", viewModel.vrScale.value)
-            }
-
-            SettingType.AUDIO_TRACK -> {
-                settingTitle.text = getString(R.string.setting_audio_track)
-                settingValue.text = viewModel.currentAudioName.value
-            }
-
-            SettingType.SUBTITLES -> {
-                settingTitle.text = getString(R.string.setting_subtitles)
-                settingValue.text = viewModel.currentSubtitleName.value
-            }
+            SettingType.CUSTOM_LEAK_L -> "${(viewModel.customLeakL.value!! * 100).toInt()}%"
+            SettingType.CUSTOM_LEAK_R -> "${(viewModel.customLeakR.value!! * 100).toInt()}%"
+            SettingType.CUSTOM_SPACE -> if (viewModel.customSpaceLms.value == true) "LMS" else "XYZ"
+            SettingType.SWAP_EYES -> if (viewModel.swapEyes.value == true) "R - L" else "L - R"
+            SettingType.DEPTH_3D -> viewModel.depth.value.toString()
+            SettingType.SCREEN_SEPARATION -> String.format("%.1f", (viewModel.screenSeparation.value ?: 0f) * 100)
+            SettingType.VR_DISTORTION -> String.format("%.2f", viewModel.vrK1.value)
+            SettingType.VR_ZOOM -> String.format("%.2f", viewModel.vrScale.value)
+            SettingType.AUDIO_TRACK -> viewModel.currentAudioName.value ?: ""
+            SettingType.SUBTITLES -> viewModel.currentSubtitleName.value ?: ""
         }
+
+        val color = when(type) {
+            SettingType.CUSTOM_HUE_L -> viewModel.calculatedColorL.value ?: Color.WHITE
+            SettingType.CUSTOM_HUE_R -> viewModel.calculatedColorR.value ?: Color.WHITE
+            else -> Color.WHITE
+        }
+
+        ui.updateSettingsText(type, valueStr, viewModel.isMatrixValid.value ?: true, color)
     }
 
     private fun getGlassesGroupName(type: StereoRenderer.AnaglyphType): String {
@@ -684,166 +328,95 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         }
     }
 
-    private fun showControls(focusOnSeekBar: Boolean = false) {
-        if (controlsView.isVisible) {
-            if (focusOnSeekBar) seekBar.requestFocus() else {
-                // Если фокус потерян или на контейнере, возвращаем на Play
-                if (activity?.currentFocus == null || activity?.currentFocus == rootContainer) {
-                    playPauseButton.requestFocus()
-                }
-            }
-            resetHideTimer()
+    private fun showPlaylist() {
+        val playlist = viewModel.currentPlaylist.value ?: emptyList()
+        if (playlist.isEmpty()) {
+            Toast.makeText(context, "Плейлист пуст", Toast.LENGTH_SHORT).show()
             return
         }
-        controlsView.visibility = View.VISIBLE
-        topInfoPanel.visibility = View.VISIBLE
 
-        if (focusOnSeekBar) seekBar.requestFocus() else playPauseButton.requestFocus()
-        resetHideTimer()
-    }
+        timerController.stopControlsTimer()
+        ui.hideControls()
 
-    private fun hideControls() {
-        if (!controlsView.isVisible) return
-        collapseControls()
-        controlsView.visibility = View.GONE
-        topInfoPanel.visibility = View.GONE
-        rootContainer.requestFocus()
-        hideControlsHandler.removeCallbacks(hideControlsRunnable)
-    }
-
-    private fun expandControls() {
-        if (isPanelExpanded) return
-        isPanelExpanded = true
-        // bottomControlsRow.visibility = View.VISIBLE // У нас теперь нет нижнего ряда в новом дизайне
-    }
-
-    private fun collapseControls() {
-        if (!isPanelExpanded) return
-        isPanelExpanded = false
-        // bottomControlsRow.visibility = View.GONE
-    }
-
-    private fun resetHideTimer() {
-        hideControlsHandler.removeCallbacks(hideControlsRunnable)
-        hideControlsHandler.postDelayed(hideControlsRunnable, 10000)
-    }
-
-    private fun resetSettingsHideTimer() {
-        settingsHideHandler.removeCallbacks(settingsHideRunnable)
-        settingsHideHandler.postDelayed(settingsHideRunnable, 60000)
-    }
-
-    private fun setupBackPressedHandler() {
-        requireActivity().onBackPressedDispatcher.addCallback(
-            viewLifecycleOwner,
-            object : OnBackPressedCallback(true) {
-                override fun handleOnBackPressed() {
-                    if (viewModel.isSettingsPanelVisible.value == true) {
-                        viewModel.closeSettingsPanel(save = false)
-                        rootContainer.requestFocus()
-                    } else if (controlsView.isVisible) {
-                        hideControls()
-                    } else {
-                        if (isEnabled) {
-                            isEnabled = false
-                            requireActivity().onBackPressedDispatcher.onBackPressed()
-                        }
-                    }
-                }
-            })
-    }
-
-    private fun formatTime(millis: Long): String {
-        val seconds = (millis / 1000) % 60
-        val minutes = (millis / (1000 * 60)) % 60
-        val hours = (millis / (1000 * 60 * 60))
-        return if (hours > 0) {
-            String.format(Locale.getDefault(), "%d:%02d:%02d", hours, minutes, seconds)
-        } else {
-            String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
-        }
-    }
-
-    private fun updateClock() {
-        val calendar = Calendar.getInstance()
-        val hour = calendar.get(Calendar.HOUR_OF_DAY)
-        val minute = calendar.get(Calendar.MINUTE)
-        textClock.text = String.format(Locale.getDefault(), "%02d:%02d", hour, minute)
-    }
-
-    private fun showPlaylist() {
-        // todo Заменить тост на плейлист
-        Toast.makeText(context, "Playlist (Coming Soon)", Toast.LENGTH_SHORT).show()
+        ui.showPlaylistDialog(
+            items = playlist,
+            currentIndex = viewModel.player.currentMediaItemIndex,
+            onItemSelected = { index ->
+                viewModel.seekTo(0)
+                viewModel.player.seekToDefaultPosition(index)
+            },
+            onDismiss = {
+                timerController.resetControlsTimer()
+            }
+        )
     }
 
     private fun showQualityPopup() {
         val options = viewModel.videoQualityOptions.value ?: return
         if (options.isEmpty()) return
+        timerController.stopControlsTimer()
 
-        // Останавливаем таймер скрытия панелей
-        hideControlsHandler.removeCallbacks(hideControlsRunnable)
-
-        // Используем ContextThemeWrapper для применения темного стиля
         val wrapper = ContextThemeWrapper(context, R.style.DarkPopupContext)
-        val popup = PopupMenu(wrapper, buttonQuality)
-
-        options.forEachIndexed { index, option ->
-            popup.menu.add(0, index, 0, option.name)
-        }
-
+        val popup = PopupMenu(wrapper, ui.buttonQuality)
+        options.forEachIndexed { index, option -> popup.menu.add(0, index, 0, option.name) }
         popup.setOnMenuItemClickListener { item ->
-            val selectedOption = options[item.itemId]
-            viewModel.setVideoQuality(selectedOption)
+            viewModel.setVideoQuality(options[item.itemId])
             true
         }
-
-        // Когда меню закрывается, перезапускаем таймер скрытия
-        popup.setOnDismissListener {
-            resetHideTimer()
-        }
-
+        popup.setOnDismissListener { timerController.resetControlsTimer() }
         popup.show()
     }
 
+    private fun setupBackPressedHandler() {
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (viewModel.isSettingsPanelVisible.value == true) {
+                    viewModel.closeSettingsPanel(save = false)
+                } else if (ui.controlsView.isVisible) {
+                    ui.hideControls()
+                } else {
+                    isEnabled = false
+                    requireActivity().onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
+    }
+
     override fun onSurfaceReady(surface: Surface) {
-        activity?.runOnUiThread { viewModel.player.setVideoSurface(surface) }
+        this.glSurface = surface
+        if (viewModel.inputType.value != StereoInputType.NONE) {
+            activity?.runOnUiThread { viewModel.player.setVideoSurface(surface) }
+        }
     }
 
     override fun onFpsUpdated(fps: Int) {
-        activity?.runOnUiThread { fpsCounterTextView.text = "FPS: $fps" }
+        activity?.runOnUiThread { ui.fpsCounterTextView.text = "FPS: $fps" }
     }
 
     override fun onResume() {
         super.onResume()
         viewModel.player.playWhenReady = true
-        glSurfaceView.onResume()
-        rootContainer.requestFocus()
+        if (viewModel.inputType.value != StereoInputType.NONE) {
+            ui.glSurfaceView.onResume()
+        }
     }
 
     override fun onPause() {
         super.onPause()
         viewModel.player.playWhenReady = false
-        glSurfaceView.onPause()
+        ui.glSurfaceView.onPause()
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
-        // Очищаем колбэки, чтобы избежать утечек и крашей
-        hideControlsHandler.removeCallbacksAndMessages(null)
-        settingsHideHandler.removeCallbacksAndMessages(null)
-        clockHandler.removeCallbacksAndMessages(null)
-
-        // Отвязываем поверхность от плеера
+        timerController.cleanup()
         viewModel.player.setVideoSurface(null)
-
-        // Освобождаем ресурсы рендерера
         stereoRenderer?.release()
         stereoRenderer = null
+        glSurface = null
     }
 
     companion object {
-        fun newInstance(): PlayerFragment {
-            return PlayerFragment()
-        }
+        fun newInstance() = PlayerFragment()
     }
 }

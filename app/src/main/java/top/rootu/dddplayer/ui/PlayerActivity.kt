@@ -2,6 +2,7 @@ package top.rootu.dddplayer.ui
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
@@ -37,6 +38,16 @@ class PlayerActivity : FragmentActivity() {
             window.attributes.layoutInDisplayCutoutMode =
                 WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
+
+        // --- HDR / WIDE COLOR GAMUT SUPPORT ---
+        // Сообщаем системе, что мы хотим использовать расширенный цветовой диапазон.
+        // Это заставит экран переключиться в режим HDR, если контент и дисплей это поддерживают.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Используем WIDE_COLOR_GAMUT, так как он покрывает большинство сценариев
+            // и меньше ломает UI, чем принудительный HDR.
+            window.colorMode = ActivityInfo.COLOR_MODE_WIDE_COLOR_GAMUT
+        }
+        // --------------------------------------
 
         setContentView(R.layout.player_activity)
 
