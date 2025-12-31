@@ -6,6 +6,7 @@ data class MediaItem(
     val uri: Uri,
     val title: String? = null,
     val filename: String? = null,
+    val posterUri: Uri? = null,
     val headers: Map<String, String> = emptyMap(),
     val subtitles: List<SubtitleItem> = emptyList(),
     val startPositionMs: Long = 0,

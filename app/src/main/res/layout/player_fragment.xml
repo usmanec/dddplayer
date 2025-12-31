@@ -1,18 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/root_container"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:focusable="true"
     android:clickable="true"
+    android:keepScreenOn="true"
+    android:background="@android:color/black"
     tools:context=".ui.PlayerFragment">
 
-    <!-- Слой видео (OpenGL) -->
+    <!-- 1. Контейнер для сохранения пропорций (для 2D/HDR) -->
+    <androidx.media3.ui.AspectRatioFrameLayout
+        android:id="@+id/aspect_ratio_frame"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_gravity="center"
+        app:resize_mode="fit">
+
+        <SurfaceView
+            android:id="@+id/surface_view_standard"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+    </androidx.media3.ui.AspectRatioFrameLayout>
+
+    <!-- 2. OpenGL SurfaceView для 3D/VR/Анаглифа -->
     <top.rootu.dddplayer.renderer.StereoGLSurfaceView
         android:id="@+id/gl_surface_view"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:visibility="gone"/>
 
     <!-- Слой субтитров (Одиночный) -->
     <androidx.media3.ui.SubtitleView

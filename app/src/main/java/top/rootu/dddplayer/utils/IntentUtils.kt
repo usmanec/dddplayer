@@ -4,9 +4,9 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.Parcelable
+import androidx.core.net.toUri
 import top.rootu.dddplayer.model.MediaItem
 import top.rootu.dddplayer.model.SubtitleItem
-import java.util.ArrayList
 
 object IntentUtils {
 
@@ -14,7 +14,7 @@ object IntentUtils {
         val dataUri = intent.data
         val extras = intent.extras ?: Bundle.EMPTY
 
-        // 1. Headers
+        // Headers
         val headersMap = mutableMapOf<String, String>()
         val headersArray = extras.getStringArray("headers")
         if (headersArray != null) {
@@ -23,15 +23,16 @@ object IntentUtils {
             }
         }
 
-        // 2. Single Video Data
+        // Single Video Data
         val singleTitle = extras.getString("title")
         val singleFilename = extras.getString("filename")
         val startPosition = extras.getInt("position", 0).toLong()
-
-        // 3. Single Video Subtitles
+        // Single poster
+        val singlePoster = extras.getString("poster")
+        // Single Video Subtitles
         val singleSubs = parseSubtitles(extras, "subs")
 
-        // 4. Playlist Data
+        // Playlist Data
         val videoListUris = getParcelableArrayCompat(extras, "video_list")
 
         if (videoListUris.isNullOrEmpty()) {
@@ -42,6 +43,7 @@ object IntentUtils {
                 uri = dataUri,
                 title = singleTitle ?: singleFilename ?: dataUri.lastPathSegment,
                 filename = singleFilename,
+                posterUri = singlePoster?.toUri(),
                 headers = headersMap,
                 subtitles = singleSubs,
                 startPositionMs = startPosition
@@ -51,9 +53,7 @@ object IntentUtils {
             // --- PLAYLIST MODE ---
             val names = extras.getStringArray("video_list.name")
             val filenames = extras.getStringArray("video_list.filename")
-
-            // Custom extension for playlist subtitles: ArrayList<Bundle>
-            // Bundle keys: "uris" (Parcelable[]), "names" (String[])
+            val posters = extras.getStringArray("video_list.poster") // Playlist posters
             val playlistSubsBundles = extras.getParcelableArrayList<Bundle>("video_list.subtitles")
 
             val playlist = mutableListOf<MediaItem>()
@@ -62,34 +62,27 @@ object IntentUtils {
             for (i in videoListUris.indices) {
                 val uri = videoListUris[i] as Uri
 
-                // Determine title
                 var title = names?.getOrNull(i)
                 if (title == null) title = filenames?.getOrNull(i)
                 if (title == null) title = uri.lastPathSegment
 
-                // Determine subtitles for this specific item
                 val itemSubs = if (playlistSubsBundles != null && i < playlistSubsBundles.size) {
-                    val bundle = playlistSubsBundles[i]
-                    parseSubtitles(bundle, "uris", "names")
+                    parseSubtitles(playlistSubsBundles[i], "uris", "names")
                 } else if (dataUri != null && uri == dataUri) {
-                    // If this is the "main" intent URI, attach the main "subs" extras to it
                     singleSubs
                 } else {
                     emptyList()
                 }
 
-                // Determine start position
                 val pos = if (dataUri != null && uri == dataUri) startPosition else 0L
-
-                if (dataUri != null && uri == dataUri) {
-                    startIndex = i
-                }
+                if (dataUri != null && uri == dataUri) startIndex = i
 
                 playlist.add(
                     MediaItem(
                         uri = uri,
                         title = title,
                         filename = filenames?.getOrNull(i),
+                        posterUri = posters?.getOrNull(i)?.toUri(),
                         headers = headersMap,
                         subtitles = itemSubs,
                         startPositionMs = pos

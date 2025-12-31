@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Icon Colors -->
+    <color name="icon_background">#202020</color>
+    <color name="icon_foreground">#fefefe</color>
+</resources>
