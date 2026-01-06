@@ -1,10 +1,22 @@
-# DDD Video Player
+<div align="center">
+  <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.webp" width="128" height="128" alt="DDD Player Logo"/>
+  <h1>DDD Video Player</h1>
 
-![Logo](app/src/main/ic_launcher-playstore.png)
+  <p>
+    <a href="LICENSE">
+      <img src="https://img.shields.io/badge/License-GPLv3-blue.svg?style=flat-square" alt="License GPL v3"/>
+    </a>
+    <a href="README.md">
+      <img src="https://img.shields.io/badge/Lang-English-red.svg?style=flat-square" alt="Read in English"/>
+    </a>
+  </p>
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-
-**[🇬🇧 Read in English](README.md)**
+  <p>
+    <b>Продвинутый 3D и HDR видеоплеер для Android TV и телефонов</b>
+    <br>
+    <i>Поддерживает Android 6.0 (API 23) и выше.</i>
+  </p>
+</div>
 
 ---
 
