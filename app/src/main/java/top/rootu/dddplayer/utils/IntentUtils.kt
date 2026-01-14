@@ -16,7 +16,7 @@ object IntentUtils {
 
         // Headers
         val headersMap = mutableMapOf<String, String>()
-        val headersArray = extras.getStringArray("headers")
+        val headersArray = getSmartStringArray(extras, "headers")
         if (headersArray != null) {
             for (i in 0 until headersArray.size - 1 step 2) {
                 headersMap[headersArray[i]] = headersArray[i + 1]
@@ -51,20 +51,22 @@ object IntentUtils {
             return Pair(listOf(item), 0)
         } else {
             // --- PLAYLIST MODE ---
-            val names = extras.getStringArray("video_list.name")
-            val filenames = extras.getStringArray("video_list.filename")
-            val posters = extras.getStringArray("video_list.poster") // Playlist posters
+            // Используем "умный" метод извлечения массивов
+            val names = getSmartStringArray(extras, "video_list.name")
+            val filenames = getSmartStringArray(extras, "video_list.filename")
+            val posters = getSmartStringArray(extras, "video_list.poster")
+
             val playlistSubsBundles = extras.getParcelableArrayList<Bundle>("video_list.subtitles")
 
             val playlist = mutableListOf<MediaItem>()
             var startIndex = 0
 
             for (i in videoListUris.indices) {
-                val uri = videoListUris[i] as Uri
+                val uri = (videoListUris[i] as? Uri) ?: (videoListUris[i] as? String)?.toUri() ?: continue
 
                 var title = names?.getOrNull(i)
-                if (title == null) title = filenames?.getOrNull(i)
-                if (title == null) title = uri.lastPathSegment
+                if (title.isNullOrEmpty()) title = filenames?.getOrNull(i)
+                if (title.isNullOrEmpty()) title = uri.lastPathSegment
 
                 val itemSubs = if (playlistSubsBundles != null && i < playlistSubsBundles.size) {
                     parseSubtitles(playlistSubsBundles[i], "uris", "names")
@@ -82,7 +84,7 @@ object IntentUtils {
                         uri = uri,
                         title = title,
                         filename = filenames?.getOrNull(i),
-                        posterUri = posters?.getOrNull(i)?.toUri(),
+                        posterUri = posters?.getOrNull(i)?.takeIf { it.isNotEmpty() }?.toUri(),
                         headers = headersMap,
                         subtitles = itemSubs,
                         startPositionMs = pos
@@ -93,31 +95,62 @@ object IntentUtils {
         }
     }
 
-    private fun parseSubtitles(
-        bundle: Bundle,
-        keyUri: String,
-        keyName: String = "$keyUri.name"
-    ): List<SubtitleItem> {
+    /**
+     * Пытается извлечь массив строк любым доступным способом.
+     * Поддерживает: String[], ArrayList<String>, CharSequence[]
+     */
+    private fun getSmartStringArray(bundle: Bundle, key: String): Array<String>? {
+        // 1. Попытка получить как String[]
+        val strArray = bundle.getStringArray(key)
+        if (strArray != null) return strArray
+
+        // 2. Попытка получить как ArrayList<String>
+        val strList = bundle.getStringArrayList(key)
+        if (strList != null) return strList.toTypedArray()
+
+        // 3. Попытка получить как CharSequence[] (иногда бывает такое)
+        val charSeqArray = bundle.getCharSequenceArray(key)
+        if (charSeqArray != null) {
+            return charSeqArray.map { it.toString() }.toTypedArray()
+        }
+
+        // 4. Попытка получить как ArrayList<CharSequence>
+        val charSeqList = bundle.getCharSequenceArrayList(key)
+        if (charSeqList != null) {
+            return charSeqList.map { it.toString() }.toTypedArray()
+        }
+
+        return null
+    }
+
+    private fun parseSubtitles(bundle: Bundle, keyUri: String, keyName: String = "$keyUri.name"): List<SubtitleItem> {
         val uris = getParcelableArrayCompat(bundle, keyUri) ?: return emptyList()
-        val names = bundle.getStringArray(keyName)
-        val filenames = bundle.getStringArray("$keyUri.filename")
+        val names = getSmartStringArray(bundle, keyName) // Тоже используем умный метод
+        val filenames = getSmartStringArray(bundle, "$keyUri.filename")
 
         val list = mutableListOf<SubtitleItem>()
         for (i in uris.indices) {
-            val uri = uris[i] as Uri
-            list.add(
-                SubtitleItem(
-                    uri = uri,
-                    name = names?.getOrNull(i),
-                    filename = filenames?.getOrNull(i)
-                )
-            )
+            val uri = (uris[i] as? Uri) ?: (uris[i] as? String)?.toUri() ?: continue
+            list.add(SubtitleItem(uri, names?.getOrNull(i), filenames?.getOrNull(i)))
         }
         return list
     }
 
     @Suppress("DEPRECATION")
     private fun getParcelableArrayCompat(bundle: Bundle, key: String): Array<Parcelable>? {
-        return bundle.getParcelableArray(key)
+        // Некоторые приложения передают список URI как ArrayList<Parcelable> или ArrayList<String>
+        val array = bundle.getParcelableArray(key)
+        if (array != null) return array
+
+        val list = bundle.getParcelableArrayList<Parcelable>(key)
+        if (list != null) return list.toTypedArray()
+
+        // Fallback для строк (если передали ссылки строками)
+        val stringList = bundle.getStringArrayList(key)
+        if (stringList != null) {
+            return stringList.map { it.toUri() }.toTypedArray()
+        }
+
+        return null
     }
 }

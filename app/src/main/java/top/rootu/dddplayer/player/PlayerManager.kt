@@ -9,7 +9,7 @@ import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.Renderer
@@ -18,27 +18,60 @@ import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.extractor.DefaultExtractorsFactory
+import androidx.media3.extractor.mp4.Mp4Extractor
+import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
+import androidx.media3.extractor.ts.TsExtractor
+import okhttp3.OkHttpClient
 import top.rootu.dddplayer.model.MediaItem
 import top.rootu.dddplayer.viewmodel.TrackOption
 import top.rootu.dddplayer.viewmodel.VideoQualityOption
 import java.util.ArrayList
+import java.util.Locale
 import androidx.media3.common.MediaItem as Media3MediaItem
 
 @UnstableApi
-class PlayerManager(context: Context, private val listener: Player.Listener) {
+class PlayerManager(private val context: Context, private val listener: Player.Listener) {
 
-    private val httpDataSourceFactory = DefaultHttpDataSource.Factory()
-        .setAllowCrossProtocolRedirects(true)
+    // 1. OkHttp для сети (как обсуждали ранее)
+    private val okHttpClient = OkHttpClient.Builder()
+        .followRedirects(true)
+        .followSslRedirects(true)
+        .build()
+
+    private val httpDataSourceFactory = OkHttpDataSource.Factory(okHttpClient)
         .setUserAgent("DDDPlayer/1.0")
 
-    // 1. Определяем атрибуты аудио ЗАРАНЕЕ.
-    // CONTENT_TYPE_MOVIE - ключевой флаг для Android TV, чтобы разрешить Passthrough (AC3/DTS).
+    // 2. ExtractorsFactory (Из Just Player: фикс для DTS в TS контейнерах)
+    private val extractorsFactory = DefaultExtractorsFactory()
+        // Фикс для DTS в .ts файлах
+        .setTsExtractorFlags(DefaultTsPayloadReaderFactory.FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS)
+        .setTsExtractorTimestampSearchBytes(1500 * TsExtractor.TS_PACKET_SIZE)
+        // Включаем чтение расширенных метаданных для MP4
+        // Это часто заставляет парсер читать 'udta' и 'hdlr' атомы более подробно.
+        .setMp4ExtractorFlags(Mp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES)
+        // Разрешаем поиск в файлах с постоянным битрейтом (ускоряет старт)
+        .setConstantBitrateSeekingEnabled(true)
+
+    // 3. TrackSelector (Автовыбор языка системы)
+    private val trackSelector = DefaultTrackSelector(context).apply {
+        parameters = buildUponParameters()
+            // Предпочитать язык системы для аудио и субтитров
+            .setPreferredAudioLanguage(Locale.getDefault().language)
+            .setPreferredTextLanguage(Locale.getDefault().language)
+            // Разрешить туннелирование (важно для Android TV 4K HDR)
+            .setTunnelingEnabled(true)
+            .build()
+    }
+
+    // 4. AudioAttributes (Для Passthrough)
     private val audioAttributes = AudioAttributes.Builder()
         .setUsage(C.USAGE_MEDIA)
         .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
         .build()
 
-    // Настраиваем RenderersFactory
+    // 5. RenderersFactory (С поддержкой FFmpeg и Passthrough)
     private val renderersFactory = object : DefaultRenderersFactory(context) {
         override fun buildAudioRenderers(
             context: Context,
@@ -50,16 +83,13 @@ class PlayerManager(context: Context, private val listener: Player.Listener) {
             eventListener: AudioRendererEventListener,
             out: ArrayList<Renderer>
         ) {
-            // 2. Создаем AudioSink.
-            // Мы передаем 'context' в конструктор Builder'а.
-            // Благодаря этому Sink сам внутри вызовет AudioCapabilities.getCapabilities(...)
-            // с учетом текущего подключения (HDMI/Optical) и наших AudioAttributes.
+            // Создаем AudioSink с поддержкой Passthrough
             val customSink = DefaultAudioSink.Builder(context)
                 .setEnableFloatOutput(false) // Важно: Passthrough часто не работает с Float выходом
                 .setEnableAudioTrackPlaybackParams(true)
                 .build()
 
-            // 3. Передаем наш настроенный Sink
+            // Передаем наш настроенный Sink
             super.buildAudioRenderers(
                 context,
                 extensionRendererMode,
@@ -71,13 +101,19 @@ class PlayerManager(context: Context, private val listener: Player.Listener) {
                 out
             )
         }
+    }.apply {
+        // Включаем FFmpeg расширение (если есть в libs)
+        setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
     }
 
     val exoPlayer: ExoPlayer = ExoPlayer.Builder(context, renderersFactory)
-        .setMediaSourceFactory(DefaultMediaSourceFactory(httpDataSourceFactory))
-        .setAudioAttributes(audioAttributes, true) // true = управлять аудиофокусом
+        .setMediaSourceFactory(DefaultMediaSourceFactory(context, extractorsFactory)
+        .setDataSourceFactory(httpDataSourceFactory)) // Используем OkHttp
+        .setTrackSelector(trackSelector) // Подключаем селектор треков
+        .setAudioAttributes(audioAttributes, true)
         .setSeekBackIncrementMs(15000)
         .setSeekForwardIncrementMs(15000)
+        .setHandleAudioBecomingNoisy(true) // Пауза при отключении наушников
         .build()
 
     init {
@@ -98,9 +134,15 @@ class PlayerManager(context: Context, private val listener: Player.Listener) {
                     .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
                     .build()
             }
+
+            val metadata = MediaMetadata.Builder()
+                .setTitle(item.title)
+                .setArtworkUri(item.posterUri)
+                .build()
+
             Media3MediaItem.Builder()
                 .setUri(item.uri)
-                .setMediaMetadata(MediaMetadata.Builder().setTitle(item.title).build())
+                .setMediaMetadata(metadata)
                 .setSubtitleConfigurations(subConfigs)
                 .build()
         }
