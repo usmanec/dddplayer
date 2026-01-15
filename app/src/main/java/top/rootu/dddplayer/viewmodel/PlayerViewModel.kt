@@ -173,6 +173,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private var currentUri: String? = null
     private var lastVideoSize: VideoSize? = null
     var isUserInteracting = false
+    private val _playbackEnded = MutableLiveData<Boolean>()
+    val playbackEnded: LiveData<Boolean> = _playbackEnded
 
     private val handler = Handler(Looper.getMainLooper())
 
@@ -206,6 +208,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 _isBuffering.value = (playbackState == Player.STATE_BUFFERING)
                 if (playbackState == Player.STATE_READY) {
                     _duration.value = player.duration
+                }
+
+                // STATE_ENDED срабатывает, когда закончился текущий трек ИЛИ весь плейлист,
+                // если repeatMode == OFF. По умолчанию в ExoPlayer плейлист проигрывается до конца.
+                if (playbackState == Player.STATE_ENDED) {
+                    _playbackEnded.value = true
                 }
             }
 

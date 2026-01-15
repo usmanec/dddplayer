@@ -25,6 +25,7 @@ class PlayerActivity : FragmentActivity() {
     private var playerFragment: PlayerFragment? = null
     private val viewModel: PlayerViewModel by viewModels()
     private var shouldReturnResult = false
+    private var isCompleted = false
 
     @OptIn(UnstableApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,6 +54,13 @@ class PlayerActivity : FragmentActivity() {
 
         // Скрываем системные панели
         hideSystemUI()
+
+        viewModel.playbackEnded.observe(this) { ended ->
+            if (ended && shouldReturnResult) {
+                isCompleted = true
+                finish() // Закрываем активити
+            }
+        }
 
         if (savedInstanceState == null) {
             handleIntent(intent)
@@ -128,10 +136,19 @@ class PlayerActivity : FragmentActivity() {
     override fun finish() {
         if (shouldReturnResult) {
             val resultIntent = Intent("top.rootu.dddplayer.intent.result.VIEW")
+
+            // Возвращаем URI текущего видео (полезно, если это был плейлист)
             resultIntent.data = viewModel.player.currentMediaItem?.localConfiguration?.uri
-            resultIntent.putExtra("position", viewModel.player.currentPosition)
-            resultIntent.putExtra("duration", viewModel.player.duration)
-            resultIntent.putExtra("end_by", "user") // Simplified
+
+            val duration = viewModel.player.duration
+            val position = if (isCompleted) duration else viewModel.player.currentPosition
+
+            resultIntent.putExtra("position", position)
+            resultIntent.putExtra("duration", duration)
+
+            // Сообщаем, закончилось ли видео само ("completion") или закрыл юзер ("user")
+            resultIntent.putExtra("end_by", if (isCompleted) "completion" else "user")
+
             setResult(RESULT_OK, resultIntent)
         }
         super.finish()
