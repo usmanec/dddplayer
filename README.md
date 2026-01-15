@@ -74,7 +74,7 @@ startActivity(intent)
 | :--- | :--- | :--- |
 | `title` | String | Video title displayed in the UI. |
 | `filename` | String | Fallback filename if title is missing. |
-| `poster` | String | URL to the poster image. |
+| `thumbnail` | String | URL to the thumbnail image. |
 | `position` | Int/Long | Start position in milliseconds. |
 | `headers` | String[] | HTTP headers as array: `["Key1", "Val1", "Key2", "Val2"]`. |
 | `return_result`| Boolean | If true, returns playback position to calling app on finish. |

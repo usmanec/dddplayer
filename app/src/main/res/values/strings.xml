@@ -31,4 +31,6 @@
     <string name="vr_config_title">Настройка VR</string>
     <string name="vr_config_success">Профиль Cardboard успешно применен!\n\nK1: %1$.3f\nK2: %2$.3f</string>
     <string name="vr_config_error">Ошибка чтения профиля Cardboard.</string>
+
+    <string name="time_ends_at">Конец в %s</string>
 </resources>

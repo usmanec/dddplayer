@@ -128,7 +128,10 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         // SeekBar
         ui.seekBar.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
-                if (fromUser) ui.timeCurrentTextView.text = ui.formatTime(progress.toLong())
+                if (fromUser) {
+                    val duration = seekBar?.max?.toLong() ?: 0L
+                    ui.updateTimeLabels(progress.toLong(), duration)
+                }
             }
             override fun onStartTrackingTouch(seekBar: android.widget.SeekBar?) {
                 viewModel.isUserInteracting = true
@@ -148,12 +151,16 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         }
         viewModel.duration.observe(viewLifecycleOwner) { duration ->
             ui.seekBar.max = duration.toInt()
-            ui.timeDurationTextView.text = ui.formatTime(duration)
+            // Обновляем метки при изменении длительности
+            val current = viewModel.currentPosition.value ?: 0L
+            ui.updateTimeLabels(current, duration)
         }
         viewModel.currentPosition.observe(viewLifecycleOwner) { position ->
             if (!viewModel.isUserInteracting) {
                 ui.seekBar.progress = position.toInt()
-                ui.timeCurrentTextView.text = ui.formatTime(position)
+                // Обновляем метки при ходе воспроизведения
+                val duration = viewModel.duration.value ?: 0L
+                ui.updateTimeLabels(position, duration)
             }
         }
         viewModel.videoTitle.observe(viewLifecycleOwner) { title ->

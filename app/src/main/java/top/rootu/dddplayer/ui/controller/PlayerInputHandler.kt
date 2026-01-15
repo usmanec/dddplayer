@@ -114,6 +114,8 @@ class PlayerInputHandler(
     private fun handleSeekBarSeek(keyCode: Int) {
         val duration = viewModel.duration.value ?: 0L
         if (duration > 0) {
+            viewModel.isUserInteracting = true
+
             val step = duration / 200
             val current = ui.seekBar.progress.toLong()
             val target = if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT)
@@ -121,7 +123,6 @@ class PlayerInputHandler(
             else
                 (current + step).coerceAtMost(duration)
 
-            viewModel.isUserInteracting = true
             ui.seekBar.progress = target.toInt()
             ui.timeCurrentTextView.text = ui.formatTime(target)
             viewModel.seekTo(target)

@@ -99,12 +99,12 @@ intent.putExtra("subs.name", subNames)
 #### Поддержка плейлистов
 Для передачи плейлиста используйте extra `video_list` (ParcelableArray of URIs) вместе с параллельными массивами метаданных.
 
-| Ключ | Тип | Описание |
-| :--- | :--- | :--- |
-| `video_list` | Parcelable[] (Uri) | **Обязательно.** Список ссылок на видео. |
-| `video_list.name` | String[] | Список названий. |
-| `video_list.filename` | String[] | Список имен файлов. |
-| `video_list.poster` | String[] | Список ссылок на постеры. |
+| Ключ | Тип | Описание                                         |
+| :--- | :--- |:-------------------------------------------------|
+| `video_list` | Parcelable[] (Uri) | **Обязательно.** Список ссылок на видео.         |
+| `video_list.name` | String[] | Список названий.                                 |
+| `video_list.filename` | String[] | Список имен файлов.                              |
+| `video_list.thumbnail` | String[] | Список ссылок на превью.                         |
 | `video_list.subtitles` | ArrayList&lt;Bundle&gt; | Список субтитров для каждого элемента плейлиста. |
 
 **Структура субтитров в плейлисте:**

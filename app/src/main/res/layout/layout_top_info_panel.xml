@@ -7,8 +7,7 @@
     android:background="@drawable/bg_player_panel"
     android:padding="12dp">
 
-    <!-- Баннер / Постер -->
-    <!-- Используем CardView для скругления углов картинки -->
+    <!-- Постер -->
     <androidx.cardview.widget.CardView
         android:id="@+id/poster_card"
         android:layout_width="wrap_content"
@@ -28,10 +27,41 @@
             android:scaleType="fitCenter"
             android:src="@drawable/tv_banner"
             app:tint="@android:color/white"
-            />
+            tools:src="@tools:sample/avatars" />
     </androidx.cardview.widget.CardView>
 
+    <!-- Правый блок времени (Часы + Конец в...) -->
+    <LinearLayout
+        android:id="@+id/time_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="end"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <TextView
+            android:id="@+id/text_clock"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@android:color/white"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            tools:text="19:36" />
+
+        <TextView
+            android:id="@+id/text_ends_at"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#BBFFFFFF"
+            android:textSize="12sp"
+            android:layout_marginTop="2dp"
+            tools:text="Конец в 21:45" />
+    </LinearLayout>
+
     <!-- Заголовок видео -->
+    <!-- Привязан слева к постеру, справа к блоку времени -->
     <TextView
         android:id="@+id/video_title"
         android:layout_width="0dp"
@@ -43,25 +73,13 @@
         android:textColor="@android:color/white"
         android:textSize="18sp"
         android:textStyle="bold"
-        app:layout_constraintTop_toTopOf="@id/poster_card"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toEndOf="@id/poster_card"
-        app:layout_constraintEnd_toStartOf="@+id/text_clock"
+        app:layout_constraintEnd_toStartOf="@+id/time_container"
         tools:text="Зверополис 2 (2025) – Русский трейлер" />
 
-    <!-- Часы -->
-    <TextView
-        android:id="@+id/text_clock"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textColor="@android:color/white"
-        android:textSize="18sp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@id/video_title"
-        app:layout_constraintBottom_toBottomOf="@id/video_title"
-        tools:text="19:36" />
-
-    <!-- Нижний ряд инфо-панели (Иконки и Байджи) -->
-    <!-- Привязываем верх к низу заголовка, а низ к низу карточки постера для выравнивания -->
+    <!-- Нижний ряд инфо-панели (Бейджи) -->
+    <!-- Тоже ограничен справа блоком времени -->
     <LinearLayout
         android:id="@+id/info_badges_container"
         android:layout_width="0dp"
@@ -69,19 +87,18 @@
         android:orientation="horizontal"
         android:gravity="center_vertical"
         app:layout_constraintTop_toBottomOf="@id/video_title"
-        app:layout_constraintBottom_toBottomOf="@id/poster_card"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="@id/video_title"
-        app:layout_constraintEnd_toEndOf="parent">
+        app:layout_constraintEnd_toStartOf="@+id/time_container"
+        android:layout_marginEnd="16dp">
 
-        <!-- Иконки режимов (Input/Output/Swap) -->
         <ImageView
             android:id="@+id/icon_input_mode"
             android:layout_width="20dp"
             android:layout_height="20dp"
             android:layout_marginEnd="8dp"
             android:src="@drawable/ic_input_mode_mono"
-            app:tint="@android:color/white"
-            tools:visibility="visible" />
+            app:tint="@android:color/white" />
 
         <ImageView
             android:id="@+id/icon_output_mode"
@@ -89,8 +106,7 @@
             android:layout_height="20dp"
             android:layout_marginEnd="8dp"
             android:src="@drawable/ic_output_mode_3d_off"
-            app:tint="@android:color/white"
-            tools:visibility="gone" />
+            app:tint="@android:color/white" />
 
         <ImageView
             android:id="@+id/icon_swap_eyes"
@@ -98,10 +114,8 @@
             android:layout_height="20dp"
             android:layout_marginEnd="16dp"
             android:src="@drawable/ic_swap_horiz"
-            app:tint="@android:color/white"
-            tools:visibility="gone" />
+            app:tint="@android:color/white" />
 
-        <!-- Разрешение (value size) -->
         <TextView
             android:id="@+id/badge_resolution"
             android:layout_width="wrap_content"
@@ -112,9 +126,8 @@
             android:textColor="@android:color/white"
             android:textSize="12sp"
             android:layout_marginEnd="10dp"
-            tools:text="1920x1080" />
+            tools:text="1080p" />
 
-        <!-- Аудио дорожка -->
         <TextView
             android:id="@+id/badge_audio"
             android:layout_width="wrap_content"
@@ -125,9 +138,10 @@
             android:textColor="@android:color/white"
             android:textSize="12sp"
             android:layout_marginEnd="10dp"
-            tools:text="AC3 5.1 - Rus" />
+            android:maxLines="1"
+            android:ellipsize="end"
+            tools:text="AC3 5.1" />
 
-        <!-- Субтитры -->
         <TextView
             android:id="@+id/badge_subtitle"
             android:layout_width="wrap_content"
@@ -139,7 +153,7 @@
             android:textSize="12sp"
             android:maxLines="1"
             android:ellipsize="end"
-            tools:text="Rus (Forced)" />
+            tools:text="Rus" />
 
     </LinearLayout>
 

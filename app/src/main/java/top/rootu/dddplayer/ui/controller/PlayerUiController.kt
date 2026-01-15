@@ -26,6 +26,8 @@ import top.rootu.dddplayer.model.StereoOutputMode
 import top.rootu.dddplayer.renderer.StereoGLSurfaceView
 import top.rootu.dddplayer.ui.adapter.PlaylistAdapter
 import top.rootu.dddplayer.viewmodel.SettingType
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 class PlayerUiController(private val rootView: View) {
@@ -58,6 +60,7 @@ class PlayerUiController(private val rootView: View) {
     val videoTitleTextView: TextView = topInfoPanel.findViewById(R.id.video_title)
     val videoPoster: ImageView = topInfoPanel.findViewById(R.id.video_poster)
     val textClock: TextView = topInfoPanel.findViewById(R.id.text_clock)
+    val textEndsAt: TextView = topInfoPanel.findViewById(R.id.text_ends_at)
     val iconInputMode: ImageView = topInfoPanel.findViewById(R.id.icon_input_mode)
     val iconSwapEyes: android.widget.ImageView = topInfoPanel.findViewById(R.id.icon_swap_eyes)
     val badgeResolution: TextView = topInfoPanel.findViewById(R.id.badge_resolution)
@@ -87,6 +90,36 @@ class PlayerUiController(private val rootView: View) {
     // Playlist Dialog
     private var playlistDialog: Dialog? = null
     private var playlistAdapter: PlaylistAdapter? = null
+
+    private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+
+    /**
+     * Обновляет текстовые метки времени.
+     * @param currentMs Текущая позиция в мс
+     * @param durationMs Общая длительность в мс
+     */
+    fun updateTimeLabels(currentMs: Long, durationMs: Long) {
+        // 1. Левая метка: "00:10:23" (Текущее)
+        timeCurrentTextView.text = formatTime(currentMs)
+
+        if (durationMs > 0) {
+            val remainingMs = (durationMs - currentMs).coerceAtLeast(0)
+
+            // 2. Правая метка: "- 01:44:37" (Осталось)
+            timeDurationTextView.text = "- ${formatTime(remainingMs)}"
+
+            // 3. Верхняя метка: "Конец в 23:15" (Реальное время)
+            val endTimeMs = System.currentTimeMillis() + remainingMs
+            val endTimeStr = timeFormat.format(Date(endTimeMs))
+
+            textEndsAt.text = rootView.context.getString(R.string.time_ends_at, endTimeStr)
+            textEndsAt.isVisible = true
+        } else {
+            // Если длительность неизвестна (стрим)
+            timeDurationTextView.text = "--:--"
+            textEndsAt.isVisible = false
+        }
+    }
 
     fun setSurfaceMode(isStereo: Boolean) {
         if (isStereo) {
