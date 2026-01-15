@@ -196,9 +196,17 @@ class PlayerUiController(private val rootView: View) {
         recycler?.post {
             recycler.scrollToPosition(currentIndex)
 
-            // запросить фокус на текущем элементе для TV (требует, чтобы ViewHolder был focusable)
-            val holder = recycler.findViewHolderForAdapterPosition(currentIndex)
-            holder?.itemView?.requestFocus()
+            // Ждем, пока скролл завершится и элемент появится, затем фокусируемся
+            recycler.postDelayed({
+                val holder = recycler.findViewHolderForAdapterPosition(currentIndex)
+                if (holder != null) {
+                    holder.itemView.requestFocus()
+                } else {
+                    // Если ViewHolder все еще null (например, список длинный и scrollToPosition не успел),
+                    // можно попробовать жесткий скролл или просто оставить как есть.
+                    // Но вроде как postDelayed(50-100ms) должно хватать.
+                }
+            }, 100)
         }
 
         playlistDialog?.show()
