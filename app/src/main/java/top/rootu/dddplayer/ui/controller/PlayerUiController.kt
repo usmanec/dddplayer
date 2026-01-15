@@ -120,11 +120,11 @@ class PlayerUiController(private val rootView: View) {
         if (uri != null) {
             videoPoster.load(uri) {
                 crossfade(true)
-                error(R.drawable.ic_input_mode_auto)
-                placeholder(R.drawable.ic_input_mode_auto)
+                error(R.drawable.tv_banner)
+                placeholder(R.drawable.tv_banner)
             }
         } else {
-            videoPoster.setImageResource(R.drawable.ic_input_mode_auto)
+            videoPoster.setImageResource(R.drawable.tv_banner)
         }
     }
 
@@ -157,8 +157,16 @@ class PlayerUiController(private val rootView: View) {
         playlistAdapter?.submitList(items)
         playlistAdapter?.setCurrentIndex(currentIndex)
 
+        // Скроллим к текущему элементу (ВСЕГДА, даже если диалог переиспользован)
         val recycler = playlistDialog?.findViewById<RecyclerView>(R.id.playlist_recycler)
-        recycler?.scrollToPosition(currentIndex)
+        // Используем post, чтобы скролл сработал после того, как RecyclerView обновит лейаут
+        recycler?.post {
+            recycler.scrollToPosition(currentIndex)
+
+            // запросить фокус на текущем элементе для TV (требует, чтобы ViewHolder был focusable)
+            val holder = recycler.findViewHolderForAdapterPosition(currentIndex)
+            holder?.itemView?.requestFocus()
+        }
 
         playlistDialog?.show()
     }

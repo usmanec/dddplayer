@@ -104,7 +104,7 @@ To pass a playlist, use the `video_list` extra (ParcelableArray of URIs) along w
 | `video_list` | Parcelable[] (Uri) | **Required.** List of video URLs. |
 | `video_list.name` | String[] | List of titles. |
 | `video_list.filename` | String[] | List of filenames. |
-| `video_list.poster` | String[] | List of poster URLs. |
+| `video_list.thumbnail` | String[] | List of thumbnail URLs. |
 | `video_list.subtitles` | ArrayList&lt;Bundle&gt; | List of subtitles for each video item. |
 
 **Playlist Subtitles Structure:**

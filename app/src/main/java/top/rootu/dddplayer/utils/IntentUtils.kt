@@ -28,7 +28,7 @@ object IntentUtils {
         val singleFilename = extras.getString("filename")
         val startPosition = extras.getInt("position", 0).toLong()
         // Single poster
-        val singlePoster = extras.getString("poster")
+        val singlePoster = extras.getString("thumbnail")
         // Single Video Subtitles
         val singleSubs = parseSubtitles(extras, "subs")
 
@@ -54,7 +54,7 @@ object IntentUtils {
             // Используем "умный" метод извлечения массивов
             val names = getSmartStringArray(extras, "video_list.name")
             val filenames = getSmartStringArray(extras, "video_list.filename")
-            val posters = getSmartStringArray(extras, "video_list.poster")
+            val posters = getSmartStringArray(extras, "video_list.thumbnail")
 
             val playlistSubsBundles = extras.getParcelableArrayList<Bundle>("video_list.subtitles")
 

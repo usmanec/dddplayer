@@ -285,18 +285,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             }
 
             override fun onTracksChanged(tracks: Tracks) {
-                val (audio, audioIdx) = TrackLogic.extractAudioTracks(tracks)
-                audioOptions = audio
-                currentAudioIndex = audioIdx
-                if (audioOptions.isNotEmpty()) _currentAudioName.postValue(audioOptions[currentAudioIndex].name)
-
-                val (subs, subIdx) = TrackLogic.extractSubtitleTracks(tracks, getApplication())
-                subtitleOptions = subs
-                currentSubtitleIndex = subIdx
-                _currentSubtitleName.postValue(subtitleOptions[currentSubtitleIndex].name)
-
-                _videoQualityOptions.postValue(TrackLogic.extractVideoTracks(tracks))
-                updateAvailableSettings()
+                updateTracksInfo(tracks)
             }
 
             override fun onCues(cueGroup: CueGroup) {
@@ -305,6 +294,32 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
 
         playerManager = PlayerManager(application, playerListener)
+        playerManager.onMetadataAvailable = {
+            // Метаданные распарсились! Обновляем список треков в UI.
+            // Делаем это в главном потоке.
+            handler.post {
+                val tracks = player.currentTracks
+                updateTracksInfo(tracks)
+            }
+        }
+    }
+
+    private fun updateTracksInfo(tracks: Tracks) {
+        // Получаем метаданные (могут быть пустыми, если еще не распарсились)
+        val metadata = playerManager.getTrackMetadata()
+
+        val (audio, audioIdx) = TrackLogic.extractAudioTracks(tracks, metadata)
+        audioOptions = audio
+        currentAudioIndex = audioIdx
+        if (audioOptions.isNotEmpty()) _currentAudioName.postValue(audioOptions[currentAudioIndex].name)
+
+        val (subs, subIdx) = TrackLogic.extractSubtitleTracks(tracks, getApplication(), metadata)
+        subtitleOptions = subs
+        currentSubtitleIndex = subIdx
+        _currentSubtitleName.postValue(subtitleOptions[currentSubtitleIndex].name)
+
+        _videoQualityOptions.postValue(TrackLogic.extractVideoTracks(tracks))
+        updateAvailableSettings() // Обновляем меню настроек
     }
 
     // --- Player Controls ---
