@@ -417,6 +417,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
     override fun onDestroyView() {
         super.onDestroyView()
         timerController.cleanup()
+        inputHandler.cleanup()
         viewModel.player.setVideoSurface(null)
         stereoRenderer?.release()
         stereoRenderer = null

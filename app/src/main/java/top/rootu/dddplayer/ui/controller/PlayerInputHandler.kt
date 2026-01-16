@@ -1,5 +1,7 @@
 package top.rootu.dddplayer.ui.controller
 
+import android.os.Handler
+import android.os.Looper
 import android.view.KeyEvent
 import android.view.View
 import androidx.core.view.isVisible
@@ -15,6 +17,14 @@ class PlayerInputHandler(
     private val onShowPlaylist: () -> Unit
 ) {
 
+    private var seekAccelerationCount = 0
+    private var lastSeekTime = 0L
+    private var lastKeyCode = 0
+    private val seekResetHandler = Handler(Looper.getMainLooper())
+    private val seekResetRunnable = Runnable {
+        seekAccelerationCount = 0
+        lastKeyCode = 0
+    }
     fun handleKeyEvent(event: KeyEvent, currentFocus: View?): Boolean {
         if (event.action != KeyEvent.ACTION_DOWN) return false
 
@@ -79,7 +89,8 @@ class PlayerInputHandler(
                     // Показываем контролы и фокусируемся на сикбаре
                     ui.showControls(focusOnSeekBar = true)
                     onResetHideTimer()
-                    return false // Возвращаем false, чтобы система обработала фокус
+                    // Поглощаем событие, чтобы не было прыжка при открытии панели
+                    return true
                 }
 
                 if (currentFocus?.id == R.id.seek_bar) {
@@ -113,22 +124,56 @@ class PlayerInputHandler(
 
     private fun handleSeekBarSeek(keyCode: Int) {
         val duration = viewModel.duration.value ?: 0L
-        if (duration > 0) {
-            viewModel.isUserInteracting = true
+        if (duration <= 0) return
 
-            val step = duration / 200
-            val current = ui.seekBar.progress.toLong()
-            val target = if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT)
-                (current - step).coerceAtLeast(0)
-            else
-                (current + step).coerceAtMost(duration)
+        val delayMillis = 500L // Считаем серию нажатий в пределах этого времени
+        val currentTime = System.currentTimeMillis()
 
-            ui.seekBar.progress = target.toInt()
-            ui.timeCurrentTextView.text = ui.formatTime(target)
-            viewModel.seekTo(target)
-
-            // Сброс флага взаимодействия происходит во фрагменте через Handler,
-            // здесь мы просто обновляем UI
+        if (lastKeyCode == keyCode && currentTime - lastSeekTime < delayMillis) {
+            seekAccelerationCount++
+        } else {
+            seekAccelerationCount = 0
         }
+        lastSeekTime = currentTime
+        lastKeyCode = keyCode
+
+        // Сброс счетчика при бездействии
+        seekResetHandler.removeCallbacks(seekResetRunnable)
+        seekResetHandler.postDelayed(seekResetRunnable, delayMillis)
+
+        // Базовый шаг: очень маленький, зависит от длины видео
+        // Для 2-часового фильма: (7200000 / 200 / 8) = 4500 мс (4.5 сек)
+        // Для 5-минутного ролика: (300000 / 200 / 8) = 187 мс -> coerce -> 250 мс
+        val baseStep = (duration / 200 / 8).coerceIn(250, 10000)
+
+        // Множитель ускорения
+        val multiplier = when {
+            seekAccelerationCount < 5 -> 1
+            seekAccelerationCount < 15 -> 2
+            seekAccelerationCount < 30 -> 4
+            seekAccelerationCount < 50 -> 8
+            else -> 16
+        }
+
+        // Итоговый шаг (Минимум 0.5 сек, максимум 60 сек)
+        val step = (baseStep * multiplier).coerceIn(500, 60000)
+
+        val currentPos = ui.seekBar.progress.toLong()
+        val target = if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT)
+            (currentPos - step).coerceAtLeast(0)
+        else
+            (currentPos + step).coerceAtMost(duration)
+
+        viewModel.isUserInteracting = true
+        ui.seekBar.progress = target.toInt()
+        ui.updateTimeLabels(target, duration)
+        viewModel.seekTo(target)
+
+        // Сброс флага взаимодействия происходит во фрагменте через Handler,
+        // здесь мы просто обновляем UI
+    }
+
+    fun cleanup() {
+        seekResetHandler.removeCallbacksAndMessages(null)
     }
 }
