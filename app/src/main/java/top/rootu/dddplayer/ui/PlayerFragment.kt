@@ -191,7 +191,6 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
                     viewModel.forceCheckUpdates()
                 }
             }
-            ui.buttonUpdate.isVisible = true // Всегда видна
         }
 
         viewModel.isCheckingUpdates.observe(viewLifecycleOwner) { checking ->
