@@ -92,9 +92,6 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
     fun handleKeyEvent(event: KeyEvent): Boolean {
         if (viewModel.isSettingsPanelVisible.value == true) timerController.resetSettingsTimer()
         val handled = inputHandler.handleKeyEvent(event, activity?.currentFocus)
-        if (handled && viewModel.isUserInteracting) {
-            view?.postDelayed({ viewModel.isUserInteracting = false }, 500)
-        }
         return handled
     }
 

@@ -60,7 +60,7 @@ class UpdateManager(private val context: Context) {
 
                         return@withContext UpdateInfo(
                             version = tagName,
-                            description = latest.optString("body", "").ifBlank { "Список изменений не предоставлен." },
+                            description = latest.optString("body", "").ifEmpty { "Список изменений не предоставлен." },
                             downloadUrl = downloadUrl,
                             size = size
                         )

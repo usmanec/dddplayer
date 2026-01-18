@@ -104,6 +104,10 @@ class PlayerUiController(private val rootView: View) {
     val buttonUpdate: TextView = controlsView.findViewById(R.id.button_update)
     private var updateDialog: Dialog? = null
 
+    val seekOverlay: View = rootView.findViewById(R.id.seek_overlay)
+    val seekDeltaText: TextView = rootView.findViewById(R.id.seek_delta)
+    val seekTargetText: TextView = rootView.findViewById(R.id.seek_target_time)
+
     private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 
     init {
@@ -114,6 +118,26 @@ class PlayerUiController(private val rootView: View) {
         optionsRecycler.isFocusableInTouchMode = false
     }
 
+    fun showSeekOverlay(deltaMs: Long, targetTimeMs: Long) {
+        seekOverlay.isVisible = true
+
+        val sign = if (deltaMs > 0) "+" else "-"
+        val absDelta = Math.abs(deltaMs)
+
+        // Форматируем дельту (если < 1 мин, то просто секунды, иначе мин:сек)
+        val deltaStr = if (absDelta < 60000) {
+            "${absDelta / 1000}s"
+        } else {
+            formatTime(absDelta)
+        }
+
+        seekDeltaText.text = "$sign $deltaStr"
+        seekTargetText.text = formatTime(targetTimeMs)
+    }
+
+    fun hideSeekOverlay() {
+        seekOverlay.isVisible = false
+    }
     fun showUpdateDialog(
         info: UpdateInfo,
         onUpdateClick: () -> Unit,

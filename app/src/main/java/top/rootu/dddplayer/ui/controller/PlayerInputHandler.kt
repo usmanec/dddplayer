@@ -25,6 +25,25 @@ class PlayerInputHandler(
         seekAccelerationCount = 0
         lastKeyCode = 0
     }
+
+    private var pendingSeekPosition: Long = -1L
+    private var pendingSeekDelta: Long = 0L
+    private val performSeekHandler = Handler(Looper.getMainLooper())
+    private val performSeekRunnable = Runnable {
+        if (pendingSeekPosition != -1L) {
+            viewModel.seekTo(pendingSeekPosition)
+            ui.hideSeekOverlay()
+
+            // Сбрасываем состояние
+            pendingSeekPosition = -1L
+            pendingSeekDelta = 0L
+
+            performSeekHandler.removeCallbacksAndMessages(null) // Чистим старые отложенные сбросы
+
+            // Через небольшую задержку разрешаем обновление UI от плеера
+            performSeekHandler.postDelayed({ viewModel.isUserInteracting = false }, 500)
+        }
+    }
     fun handleKeyEvent(event: KeyEvent, currentFocus: View?): Boolean {
         if (event.action != KeyEvent.ACTION_DOWN) return false
 
@@ -127,6 +146,9 @@ class PlayerInputHandler(
         if (duration <= 0) return
 
         val delayMillis = 500L // Считаем серию нажатий в пределах этого времени
+
+        performSeekHandler.removeCallbacks(performSeekRunnable)
+
         val currentTime = System.currentTimeMillis()
 
         if (lastKeyCode == keyCode && currentTime - lastSeekTime < delayMillis) {
@@ -158,16 +180,32 @@ class PlayerInputHandler(
         // Итоговый шаг (Минимум 0.5 сек, максимум 60 сек)
         val step = (baseStep * multiplier).coerceIn(500, 60000)
 
-        val currentPos = ui.seekBar.progress.toLong()
-        val target = if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT)
-            (currentPos - step).coerceAtLeast(0)
-        else
-            (currentPos + step).coerceAtMost(duration)
+        // Определяем текущую базу для перемотки
+        // Если мы уже мотаем (pendingSeekPosition != -1), то мотаем оттуда.
+        // Если это первое нажатие, мотаем от текущей позиции плеера.
+        val startPos = if (pendingSeekPosition != -1L) pendingSeekPosition else ui.seekBar.progress.toLong()
 
+        val target = if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT)
+            (startPos - step).coerceAtLeast(0)
+        else
+            (startPos + step).coerceAtMost(duration)
+
+        // Обновляем состояние
+        pendingSeekPosition = target
+
+        // Считаем общую дельту от реальной позиции плеера (для оверлея)
+        val realPos = viewModel.player.currentPosition
+        pendingSeekDelta = target - realPos
+
+        // Обновляем UI (но не плеер!)
         viewModel.isUserInteracting = true
         ui.seekBar.progress = target.toInt()
         ui.updateTimeLabels(target, duration)
-        viewModel.seekTo(target)
+        ui.showSeekOverlay(pendingSeekDelta, target)
+
+        // Планируем выполнение seek через 500мс (как сброс ускорения)
+        // Если пользователь нажмет еще раз до этого времени, таймер сбросится
+        performSeekHandler.postDelayed(performSeekRunnable, delayMillis)
 
         // Сброс флага взаимодействия происходит во фрагменте через Handler,
         // здесь мы просто обновляем UI
@@ -175,5 +213,6 @@ class PlayerInputHandler(
 
     fun cleanup() {
         seekResetHandler.removeCallbacksAndMessages(null)
+        performSeekHandler.removeCallbacksAndMessages(null)
     }
 }
