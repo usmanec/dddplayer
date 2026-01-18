@@ -51,11 +51,18 @@ class PlayerManager(private val context: Context, private val listener: Player.L
         .setUserAgent("DDDPlayer/1.0")
 
     // 2. Обертка-перехватчик для чтения заголовков файла
-    private val parsingDataSourceFactory = ParsingDataSourceFactory(baseHttpFactory) { metadataMap ->
-        currentTrackInfo = metadataMap
-        // Уведомляем слушателей (ViewModel), что данные появились
-        onMetadataAvailable?.invoke()
-    }
+    private val parsingDataSourceFactory = ParsingDataSourceFactory(
+        upstreamFactory = baseHttpFactory,
+        onMetadataParsed = { metadataMap ->
+            currentTrackInfo = metadataMap
+            onMetadataAvailable?.invoke()
+        },
+        isMetadataParsed = {
+            // Проверяем, есть ли у нас уже данные.
+            // Если map не пустой, значит парсить не надо.
+            currentTrackInfo.isNotEmpty()
+        }
+    )
 
     // 3. ExtractorsFactory (Фикс для DTS в TS контейнерах)
     private val extractorsFactory = DefaultExtractorsFactory()

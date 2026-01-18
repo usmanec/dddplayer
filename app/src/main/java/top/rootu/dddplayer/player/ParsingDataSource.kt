@@ -23,7 +23,8 @@ private const val PARSE_BUFFER_SIZE = 32 * 1024 * 1024 // 32 MB
 @UnstableApi
 class ParsingDataSource(
     private val upstream: DataSource,
-    private val onMetadataParsed: (Map<Int, UnifiedMetadataReader.TrackInfo>) -> Unit
+    private val onMetadataParsed: (Map<Int, UnifiedMetadataReader.TrackInfo>) -> Unit,
+    private val isMetadataParsed: () -> Boolean
 ) : DataSource by upstream {
 
     private var teeDataSource: TeeDataSource? = null
@@ -91,7 +92,10 @@ class ParsingDataSource(
     }
 
     override fun open(dataSpec: DataSpec): Long {
-        if (dataSpec.position == 0L) {
+        // Запускаем парсинг ТОЛЬКО если:
+        // 1. Это начало файла (position == 0)
+        // 2. Метаданные ЕЩЕ НЕ были распарсены
+        if (dataSpec.position == 0L && !isMetadataParsed()) {
             teeDataSource = TeeDataSource(upstream, pipeSink)
             return teeDataSource!!.open(dataSpec)
         }
@@ -113,9 +117,10 @@ class ParsingDataSource(
 @UnstableApi
 class ParsingDataSourceFactory(
     private val upstreamFactory: DataSource.Factory,
-    private val onMetadataParsed: (Map<Int, UnifiedMetadataReader.TrackInfo>) -> Unit
+    private val onMetadataParsed: (Map<Int, UnifiedMetadataReader.TrackInfo>) -> Unit,
+    private val isMetadataParsed: () -> Boolean
 ) : DataSource.Factory {
     override fun createDataSource(): DataSource {
-        return ParsingDataSource(upstreamFactory.createDataSource(), onMetadataParsed)
+        return ParsingDataSource(upstreamFactory.createDataSource(), onMetadataParsed, isMetadataParsed)
     }
 }

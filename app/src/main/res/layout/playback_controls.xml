@@ -55,6 +55,36 @@
         app:layout_constraintEnd_toEndOf="parent"
         tools:text="00:01:55" />
 
+    <LinearLayout
+        android:id="@+id/left_controls"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:gravity="start|center_vertical"
+        android:orientation="horizontal"
+        app:layout_constraintBottom_toBottomOf="@id/center_controls"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@id/center_controls"
+        app:layout_constraintEnd_toStartOf="@id/center_controls">
+
+        <TextView
+            android:id="@+id/button_update"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:drawablePadding="8dp"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="6dp"
+            android:text="Обновление v1.0.1"
+            android:textColor="@color/selector_menu_item_text"
+            android:textStyle="bold"
+            android:background="@drawable/selector_menu_item_bg"
+            android:textSize="14sp"
+            android:visibility="gone"
+            app:drawableStartCompat="@drawable/ic_update"
+            android:focusable="true"
+            android:clickable="true"
+            tools:visibility="visible" />
+
+    </LinearLayout>
     <!-- 4. Центральный блок управления -->
     <!-- layout_height="wrap_content" и привязка к верху и низу центрирует его
          относительно элементов по бокам, если нужно, или просто под SeekBar -->

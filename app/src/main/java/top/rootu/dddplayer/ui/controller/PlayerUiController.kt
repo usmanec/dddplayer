@@ -14,16 +14,20 @@ import android.widget.ProgressBar
 import android.widget.SeekBar
 import android.widget.TextView
 import androidx.core.view.isVisible
+import androidx.media3.common.PlaybackException
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.SubtitleView
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.LinearSmoothScroller
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import top.rootu.dddplayer.R
+import top.rootu.dddplayer.logic.UpdateInfo
 import top.rootu.dddplayer.model.MediaItem
 import top.rootu.dddplayer.model.StereoInputType
 import top.rootu.dddplayer.model.StereoOutputMode
 import top.rootu.dddplayer.renderer.StereoGLSurfaceView
+import top.rootu.dddplayer.ui.adapter.OptionsAdapter
 import top.rootu.dddplayer.ui.adapter.PlaylistAdapter
 import top.rootu.dddplayer.viewmodel.SettingType
 import java.text.SimpleDateFormat
@@ -86,12 +90,159 @@ class PlayerUiController(private val rootView: View) {
     val settingValue: TextView = topSettingsPanel.findViewById(R.id.setting_value)
     val btnSettingsPrev: View = topSettingsPanel.findViewById(R.id.btn_settings_prev)
     val btnSettingsNext: View = topSettingsPanel.findViewById(R.id.btn_settings_next)
+    val optionsRecycler: RecyclerView = rootView.findViewById(R.id.options_recycler)
+    private val optionsAdapter = OptionsAdapter()
 
     // Playlist Dialog
     private var playlistDialog: Dialog? = null
     private var playlistAdapter: PlaylistAdapter? = null
 
+    val errorScreen: View = rootView.findViewById(R.id.error_screen)
+    val errorText: TextView = rootView.findViewById(R.id.error_text)
+    val errorDetails: TextView = rootView.findViewById(R.id.error_details)
+
+    val buttonUpdate: TextView = controlsView.findViewById(R.id.button_update)
+    private var updateDialog: Dialog? = null
+
     private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+
+    init {
+        // Настройка ленты
+        optionsRecycler.adapter = optionsAdapter
+        // Отключаем перехват фокуса, чтобы лента не воровала управление у кнопок
+        optionsRecycler.isFocusable = false
+        optionsRecycler.isFocusableInTouchMode = false
+    }
+
+    fun showUpdateDialog(
+        info: UpdateInfo,
+        onUpdateClick: () -> Unit,
+        onCancelClick: () -> Unit
+    ) {
+        val context = rootView.context
+        if (updateDialog == null) {
+            updateDialog = Dialog(context, android.R.style.Theme_Translucent_NoTitleBar)
+            updateDialog?.setContentView(R.layout.dialog_update)
+
+            updateDialog?.window?.apply {
+                setLayout(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                setGravity(Gravity.CENTER)
+                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            }
+        }
+
+        val title = updateDialog?.findViewById<TextView>(R.id.update_title)
+        val desc = updateDialog?.findViewById<TextView>(R.id.update_desc)
+        val btnUpdate = updateDialog?.findViewById<View>(R.id.btn_update)
+        val btnCancel = updateDialog?.findViewById<View>(R.id.btn_cancel)
+        val progress = updateDialog?.findViewById<ProgressBar>(R.id.update_progress)
+        val status = updateDialog?.findViewById<TextView>(R.id.update_status)
+
+        title?.text = "Обновление ${info.version}"
+        desc?.text = info.description
+
+        progress?.visibility = View.GONE
+        status?.visibility = View.GONE
+        btnUpdate?.visibility = View.VISIBLE
+        btnCancel?.visibility = View.VISIBLE
+
+        btnUpdate?.setOnClickListener {
+            onUpdateClick()
+            progress?.visibility = View.VISIBLE
+            status?.visibility = View.VISIBLE
+            btnUpdate.visibility = View.GONE
+            btnCancel?.visibility = View.GONE
+        }
+
+        btnCancel?.setOnClickListener {
+            updateDialog?.dismiss()
+            onCancelClick()
+        }
+
+        updateDialog?.show()
+    }
+
+    fun updateDownloadProgress(percent: Int) {
+        val progress = updateDialog?.findViewById<ProgressBar>(R.id.update_progress)
+        val status = updateDialog?.findViewById<TextView>(R.id.update_status)
+        progress?.progress = percent
+        status?.text = "Скачивание... $percent%"
+
+        if (percent == 100) {
+            updateDialog?.dismiss()
+        }
+    }
+
+    fun showFatalError(error: PlaybackException) {
+        errorText.text = "Ошибка воспроизведения"
+        errorDetails.text = formatErrorDetails(error)
+
+        errorScreen.isVisible = true
+        errorScreen.setBackgroundColor(Color.parseColor("#CC000000")) // Темный фон
+
+        bufferingIndicator.isVisible = false
+        bufferingSplitContainer.isVisible = false
+    }
+
+    fun showVideoErrorState(error: PlaybackException) {
+        errorText.text = "Ошибка видео декодера.\nВоспроизводится только звук."
+        errorDetails.text = formatErrorDetails(error)
+
+        errorScreen.isVisible = true
+        // Полупрозрачный фон, чтобы видеть постер (если есть)
+        errorScreen.setBackgroundColor(Color.parseColor("#80000000"))
+
+        bufferingIndicator.isVisible = false
+        bufferingSplitContainer.isVisible = false
+    }
+
+    fun hideError() {
+        errorScreen.isVisible = false
+    }
+
+    private fun formatErrorDetails(error: PlaybackException): String {
+        // Формируем строку: "Код ошибки (Число)\nСообщение"
+        return "${error.errorCodeName} (${error.errorCode})\n${error.message ?: ""}"
+    }
+
+    fun updateSettingsOptions(optionsData: Pair<List<String>, Int>?) {
+        if (optionsData != null && optionsData.first.size > 1) {
+            val (list, index) = optionsData
+
+            // 1. Устанавливаем паддинг (половина ширины экрана)
+            val screenWidth = rootView.resources.displayMetrics.widthPixels
+            val padding = screenWidth / 2
+            // Проверяем, изменился ли паддинг, чтобы не перерисовывать лишний раз
+            if (optionsRecycler.paddingLeft != padding) {
+                optionsRecycler.setPadding(padding, 0, padding, 0)
+            }
+
+            optionsRecycler.isVisible = true
+            optionsAdapter.submitList(list)
+            optionsAdapter.setSelection(index)
+
+            // 2. Скроллим
+            // Используем scrollToPosition для мгновенного прыжка при первом показе,
+            // и smoothScroll для анимации при смене.
+            // Но так как мы не знаем, "первый" это показ или нет, используем smoothScroll всегда,
+            // но с post, чтобы дать RecyclerView время на layout.
+            optionsRecycler.post {
+                val smoothScroller = object : LinearSmoothScroller(rootView.context) {
+                    override fun getHorizontalSnapPreference(): Int = SNAP_TO_ANY
+                    override fun calculateDtToFit(viewStart: Int, viewEnd: Int, boxStart: Int, boxEnd: Int, snapPreference: Int): Int {
+                        val boxCenter = boxStart + (boxEnd - boxStart) / 2
+                        val viewCenter = viewStart + (viewEnd - viewStart) / 2
+                        return boxCenter - viewCenter
+                    }
+                }
+                smoothScroller.targetPosition = index
+                optionsRecycler.layoutManager?.startSmoothScroll(smoothScroller)
+            }
+
+        } else {
+            optionsRecycler.isVisible = false
+        }
+    }
 
     /**
      * Обновляет текстовые метки времени.
@@ -146,6 +297,7 @@ class PlayerUiController(private val rootView: View) {
     fun hideControls() {
         controlsView.visibility = View.GONE
         topInfoPanel.visibility = View.GONE
+        optionsRecycler.visibility = View.GONE
         rootView.findViewById<View>(R.id.root_container).requestFocus()
     }
 

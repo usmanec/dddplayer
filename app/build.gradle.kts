@@ -53,6 +53,11 @@ android {
         vectorDrawables.useSupportLibrary = true
     }
 
+    buildFeatures {
+        buildConfig = true
+        viewBinding = false
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false

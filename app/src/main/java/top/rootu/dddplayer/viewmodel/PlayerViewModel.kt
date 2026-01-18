@@ -1,7 +1,6 @@
 package top.rootu.dddplayer.viewmodel
 
 import android.app.Application
-import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
 import androidx.lifecycle.AndroidViewModel
@@ -13,18 +12,23 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.text.Cue
 import androidx.media3.common.text.CueGroup
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.launch
+import top.rootu.dddplayer.BuildConfig
 import top.rootu.dddplayer.data.SettingsRepository
 import top.rootu.dddplayer.data.VideoSettings
 import top.rootu.dddplayer.logic.AnaglyphLogic
 import top.rootu.dddplayer.logic.SettingsMutator
 import top.rootu.dddplayer.logic.TrackLogic
+import top.rootu.dddplayer.logic.UpdateManager
+import top.rootu.dddplayer.logic.UpdateInfo
 import top.rootu.dddplayer.model.MediaItem
 import top.rootu.dddplayer.model.StereoInputType
 import top.rootu.dddplayer.model.StereoOutputMode
@@ -161,6 +165,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     val currentAudioName: LiveData<String> = _currentAudioName
     private val _currentSubtitleName = MutableLiveData<String>()
     val currentSubtitleName: LiveData<String> = _currentSubtitleName
+    private val _videoDisabledError = MutableLiveData<PlaybackException?>()
+    val videoDisabledError: LiveData<PlaybackException?> = _videoDisabledError
+    // Для фатальных ошибок (когда плеер остановился)
+    private val _fatalError = MutableLiveData<PlaybackException?>()
+    val fatalError: LiveData<PlaybackException?> = _fatalError
 
     // Internal
     private var audioOptions = listOf<TrackOption>()
@@ -181,6 +190,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     // Player Manager
     private val playerManager: PlayerManager
     val player: ExoPlayer get() = playerManager.exoPlayer
+
+    private val updateManager = UpdateManager(application)
+    private val _updateInfo = MutableLiveData<UpdateInfo?>()
+    val updateInfo: LiveData<UpdateInfo?> = _updateInfo
+    private val _downloadProgress = MutableLiveData<Int>()
+    val downloadProgress: LiveData<Int> = _downloadProgress
+    private val _isCheckingUpdates = MutableLiveData<Boolean>(false)
+    val isCheckingUpdates: LiveData<Boolean> = _isCheckingUpdates
 
     private val progressUpdater = object : Runnable {
         override fun run() {
@@ -218,8 +235,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                val errorMsg = "Ошибка воспроизведения:\n${error.errorCodeName}"
-                _toastMessage.postValue(errorMsg)
+                // Пытаемся восстановиться, отключив проблемный трек
+                if (tryRecoverFromError(error)) {
+                    return
+                }
+                _fatalError.postValue(error)
                 _isPlaying.postValue(false)
             }
 
@@ -310,6 +330,132 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 updateTracksInfo(tracks)
             }
         }
+
+        checkUpdates()
+    }
+
+    private fun checkUpdates() {
+        viewModelScope.launch {
+            val currentVersion = BuildConfig.VERSION_NAME
+
+            // Восстанавливаем сохраненное состояние
+            val savedJson = repository.getLastUpdateInfo()
+            if (savedJson != null) {
+                val savedInfo = updateManager.fromJson(savedJson)
+                if (savedInfo != null && updateManager.isNewer(savedInfo.version, currentVersion)) {
+                    _updateInfo.postValue(savedInfo)
+                }
+            }
+
+            // Проверяем необходимость сетевого запроса
+            val lastCheck = repository.getLastUpdateTime()
+            if (System.currentTimeMillis() - lastCheck < 86400000) {
+                return@launch
+            }
+
+            // Сетевой запрос
+            try {
+                val info = updateManager.checkForUpdates(currentVersion)
+                if (info != null) {
+                    _updateInfo.postValue(info)
+                    repository.saveUpdateInfo(updateManager.toJson(info))
+                } else {
+                    // Обновлений нет, очищаем кэш (чтобы кнопка пропала, если была)
+                    repository.saveUpdateInfo(null)
+                    _updateInfo.postValue(null)
+                }
+            } catch (e: Exception) {
+                // Ошибка сети - оставляем старое состояние
+            }
+        }
+    }
+
+    fun forceCheckUpdates() {
+        if (_isCheckingUpdates.value == true) return
+        _isCheckingUpdates.value = true
+
+        viewModelScope.launch {
+            try {
+                val pInfo = getApplication<Application>().packageManager.getPackageInfo(getApplication<Application>().packageName, 0)
+                val currentVersion = pInfo.versionName
+
+                // Принудительная проверка (игнорируем кэш времени)
+                val info = updateManager.checkForUpdates(currentVersion)
+
+                if (info != null) {
+                    _updateInfo.postValue(info)
+                    repository.saveUpdateInfo(updateManager.toJson(info))
+                    _toastMessage.postValue("Найдено обновление: ${info.version}")
+                } else {
+                    // Обновлений нет
+                    repository.saveUpdateInfo(null)
+                    _updateInfo.postValue(null)
+                    _toastMessage.postValue("У вас последняя версия")
+                }
+                repository.setLastUpdateTime(System.currentTimeMillis())
+
+            } catch (e: Exception) {
+                _toastMessage.postValue("Ошибка проверки обновлений")
+            } finally {
+                _isCheckingUpdates.postValue(false)
+            }
+        }
+    }
+
+    fun startUpdate() {
+        val info = _updateInfo.value ?: return
+        viewModelScope.launch {
+            val file = updateManager.downloadApk(info.downloadUrl) { progress ->
+                _downloadProgress.postValue(progress)
+            }
+            if (file != null) {
+                updateManager.installApk(file)
+            }
+        }
+    }
+
+    /**
+     * Пытается восстановить воспроизведение, отключив сбойный компонент.
+     * Возвращает true, если попытка восстановления запущена.
+     */
+    private fun tryRecoverFromError(error: PlaybackException): Boolean {
+        if (error !is ExoPlaybackException || error.type != ExoPlaybackException.TYPE_RENDERER) {
+            return false
+        }
+
+        val rendererIndex = error.rendererIndex
+        if (rendererIndex == C.INDEX_UNSET) return false
+        val trackType = player.getRendererType(rendererIndex)
+
+        val currentPos = player.currentPosition
+        val currentWindow = player.currentMediaItemIndex
+
+        if (trackType == C.TRACK_TYPE_VIDEO) {
+            // Ошибка видео -> Экран ошибки (полупрозрачный) + Тост
+            _videoDisabledError.postValue(error)
+            _toastMessage.postValue("Ошибка видео. Переключено в аудио-режим.")
+        } else if (trackType == C.TRACK_TYPE_AUDIO) {
+            if (audioOptions.size > 1) {
+                _toastMessage.postValue("Ошибка аудио. Звук отключен.\nПопробуйте другую дорожку.\n${error.errorCodeName}: ${error.message}")
+            } else {
+                _toastMessage.postValue("Ошибка аудио. Звук отключен.\n${error.errorCodeName}: ${error.message}")
+            }
+        }
+
+        // Отключаем тип трека
+        val parameters = player.trackSelectionParameters
+            .buildUpon()
+            .setTrackTypeDisabled(trackType, true)
+            .build()
+
+        player.trackSelectionParameters = parameters
+
+        // todo возможно надо...
+//        player.seekTo(currentWindow, currentPos)
+//        player.prepare()
+//        player.play()
+
+        return true
     }
 
     private fun updateTracksInfo(tracks: Tracks) {
@@ -546,7 +692,24 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     currentAudioIndex = (currentAudioIndex + direction + audioOptions.size) % audioOptions.size
                     val option = audioOptions[currentAudioIndex]
                     _currentAudioName.value = option.name
-                    playerManager.selectTrack(option, C.TRACK_TYPE_AUDIO)
+
+                    // Снимаем блокировку (если была ошибка) и выбираем трек
+                    val builder = player.trackSelectionParameters.buildUpon()
+                        .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false) // <-- Разрешаем аудио
+                        .setOverrideForType(
+                            TrackSelectionOverride(
+                                option.group!!.mediaTrackGroup,
+                                option.trackIndex
+                            )
+                        )
+
+                    player.trackSelectionParameters = builder.build()
+
+                    // ХАК: Т.к. имеются проблемы с переключением (возможно из-за проброса звука),
+                    // то принудительно передергиваем позицию на 16мс вперед (чуть меньше чем 60fps для одного кадра)
+                    // Это заставляет плеер сбросить буферы и пересинхронизироваться.
+                    val current = player.currentPosition
+                    player.seekTo(current + 16)
                 }
             }
             SettingType.SUBTITLES -> {
@@ -562,6 +725,61 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     // --- Helpers ---
+    /**
+     * Возвращает список доступных опций для текущей настройки.
+     * Возвращает null, если для настройки нет дискретного списка (например, ползунок).
+     */
+    fun getOptionsForCurrentSetting(): Pair<List<String>, Int>? {
+        return when (_currentSettingType.value) {
+            SettingType.VIDEO_TYPE -> {
+                val values = StereoInputType.values()
+                val list = values.map { it.name.replace("_", " ") }
+                Pair(list, _inputType.value!!.ordinal)
+            }
+            SettingType.OUTPUT_FORMAT -> {
+                val values = StereoOutputMode.values()
+                val list = values.map { it.name.replace("_", " ") }
+                Pair(list, _outputMode.value!!.ordinal)
+            }
+            SettingType.GLASSES_TYPE -> {
+                val currentGroup = AnaglyphLogic.getGlassesGroup(_anaglyphType.value!!)
+                val groups = GlassesGroup.values()
+                val list = groups.map {
+                    when(it) {
+                        GlassesGroup.RED_CYAN -> "Red - Cyan"
+                        GlassesGroup.YELLOW_BLUE -> "Yellow - Blue"
+                        GlassesGroup.GREEN_MAGENTA -> "Green - Magenta"
+                        GlassesGroup.RED_BLUE -> "Red - Blue"
+                    }
+                }
+                Pair(list, currentGroup.ordinal)
+            }
+            SettingType.FILTER_MODE -> {
+                val currentGroup = AnaglyphLogic.getGlassesGroup(_anaglyphType.value!!)
+                val filters = AnaglyphLogic.getFiltersForGroup(currentGroup)
+                val list = filters.map {
+                    if (it.name.endsWith("_CUSTOM")) "Custom" else it.name
+                }
+                val index = filters.indexOf(_anaglyphType.value!!)
+                Pair(list, index)
+            }
+            SettingType.AUDIO_TRACK -> {
+                if (audioOptions.isNotEmpty()) {
+                    val list = audioOptions.map { it.name }
+                    Pair(list, currentAudioIndex)
+                } else null
+            }
+            SettingType.SUBTITLES -> {
+                if (subtitleOptions.isNotEmpty()) {
+                    val list = subtitleOptions.map { it.name }
+                    Pair(list, currentSubtitleIndex)
+                } else null
+            }
+            // Для ползунков (Depth, Hue, VR) возвращаем null, лента будет скрыта
+            else -> null
+        }
+    }
+
     fun setInputType(inputType: StereoInputType) {
         if (_inputType.value == inputType) return
         _inputType.value = inputType

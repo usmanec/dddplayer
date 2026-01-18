@@ -16,6 +16,7 @@ import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.media3.common.util.UnstableApi
+import top.rootu.dddplayer.BuildConfig
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.model.StereoInputType
 import top.rootu.dddplayer.renderer.OnFpsUpdatedListener
@@ -147,8 +148,66 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
 
     private fun observeViewModel() {
         viewModel.isPlaying.observe(viewLifecycleOwner) { isPlaying ->
+            if (isPlaying) {
+                // Если мы играем, значит фатальной ошибки нет.
+                // Но ошибка видео может быть (тогда videoDisabledError не null).
+                if (viewModel.videoDisabledError.value == null) {
+                    ui.hideError()
+                }
+            }
             ui.playPauseButton.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow)
         }
+        // Фатальная ошибка (плеер стоп)
+        viewModel.fatalError.observe(viewLifecycleOwner) { error ->
+            if (error != null) {
+                ui.showFatalError(error)
+            }
+        }
+
+        // Ошибка видео (звук идет)
+        viewModel.videoDisabledError.observe(viewLifecycleOwner) { error ->
+            if (error != null) {
+                ui.showVideoErrorState(error)
+            } else {
+                // Если ошибка ушла (например, сменили видео), скрываем экран
+                // Но только если нет фатальной ошибки
+                if (viewModel.fatalError.value == null) {
+                    ui.hideError()
+                }
+            }
+        }
+
+        viewModel.updateInfo.observe(viewLifecycleOwner) { info ->
+            if (info != null) {
+                ui.buttonUpdate.text = "Обновить до ${info.version}"
+                ui.buttonUpdate.alpha = 1.0f
+                ui.buttonUpdate.setOnClickListener {
+                    ui.showUpdateDialog(info, { viewModel.startUpdate() }, {})
+                }
+            } else {
+                ui.buttonUpdate.text = "v${BuildConfig.VERSION_NAME}"
+                ui.buttonUpdate.alpha = 0.5f // Тусклая
+                ui.buttonUpdate.setOnClickListener {
+                    viewModel.forceCheckUpdates()
+                }
+            }
+            ui.buttonUpdate.isVisible = true // Всегда видна
+        }
+
+        viewModel.isCheckingUpdates.observe(viewLifecycleOwner) { checking ->
+            if (checking) {
+                ui.buttonUpdate.text = "Проверка..."
+                ui.buttonUpdate.isEnabled = false
+            } else {
+                ui.buttonUpdate.isEnabled = true
+                // Текст обновится через updateInfo observer
+            }
+        }
+
+        viewModel.downloadProgress.observe(viewLifecycleOwner) { progress ->
+            ui.updateDownloadProgress(progress)
+        }
+
         viewModel.duration.observe(viewLifecycleOwner) { duration ->
             ui.seekBar.max = duration.toInt()
             // Обновляем метки при изменении длительности
@@ -238,6 +297,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
                 updateSettingsText()
             } else {
                 timerController.stopSettingsTimer()
+                ui.optionsRecycler.isVisible = false
             }
         }
 
@@ -323,6 +383,10 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         }
 
         ui.updateSettingsText(type, valueStr, viewModel.isMatrixValid.value ?: true, color)
+
+        // список опций
+        val optionsData = viewModel.getOptionsForCurrentSetting()
+        ui.updateSettingsOptions(optionsData)
     }
 
     private fun getGlassesGroupName(type: StereoRenderer.AnaglyphType): String {

@@ -66,6 +66,62 @@
             android:background="@android:color/transparent" />
     </LinearLayout>
 
+    <!-- Экран ошибки -->
+    <LinearLayout
+        android:id="@+id/error_screen"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#CC000000"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <ImageView
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:src="@drawable/ic_error_outline"
+            app:tint="#FF5252" />
+
+        <TextView
+            android:id="@+id/error_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:gravity="center"
+            android:paddingHorizontal="32dp"
+            android:text="Ошибка воспроизведения"
+            android:textColor="@android:color/white"
+            android:textSize="18sp" />
+
+        <TextView
+            android:id="@+id/error_details"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:layout_marginHorizontal="48dp"
+
+            android:background="@drawable/bg_error_details"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="12dp"
+
+            android:gravity="center"
+            android:text="ExoPlaybackException: ERROR_CODE_DECODER_INIT_FAILED"
+            android:textColor="#BBFFFFFF"
+            android:textSize="13sp"
+            android:fontFamily="monospace"
+
+            android:maxWidth="600dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Нажмите НАЗАД для выхода"
+            android:textColor="#AAAAAA"
+            android:textSize="14sp" />
+    </LinearLayout>
+
     <!-- Сенсорная зона -->
     <View
         android:id="@+id/touch_zone_top"
@@ -100,6 +156,19 @@
         android:layout_marginTop="10dp"
         android:visibility="gone"
         tools:visibility="visible"/>
+
+    <!-- Лента опций (OSD) -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/options_recycler"
+        android:layout_width="match_parent"
+        android:layout_height="32dp"
+        android:layout_marginTop="90dp"
+        android:orientation="horizontal"
+        android:clipToPadding="false"
+        android:visibility="gone"
+        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+        tools:visibility="visible"
+        tools:listitem="@layout/item_setting_option" />
 
     <!-- Панель управления  верхняя (Инфо) -->
     <include
