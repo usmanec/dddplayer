@@ -22,7 +22,6 @@
         android:layout_marginTop="16dp"
         android:layout_marginBottom="16dp"
         android:background="@drawable/bg_error_details"
-        android:minHeight="100dp"
         android:maxHeight="300dp">
 
         <TextView
@@ -31,6 +30,7 @@
             android:layout_height="wrap_content"
             android:text="Список изменений..."
             android:textColor="#DDDDDD"
+            android:layout_margin="10dp"
             android:textSize="14sp"
             android:lineSpacingExtra="4dp"/>
     </ScrollView>

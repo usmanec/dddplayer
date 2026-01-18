@@ -345,11 +345,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 if (savedInfo != null && updateManager.isNewer(savedInfo.version, currentVersion)) {
                     _updateInfo.postValue(savedInfo)
                 }
+            } else {
+                _updateInfo.postValue(null)
             }
 
-            // Проверяем необходимость сетевого запроса
+            // Проверяем необходимость сетевого запроса каждые 3 часа
             val lastCheck = repository.getLastUpdateTime()
-            if (System.currentTimeMillis() - lastCheck < 86400000) {
+            if (System.currentTimeMillis() - lastCheck < 10800000) {
                 return@launch
             }
 
@@ -710,6 +712,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     // Это заставляет плеер сбросить буферы и пересинхронизироваться.
                     val current = player.currentPosition
                     player.seekTo(current + 16)
+
+                    // Если плеер был остановлен из-за ошибки, пробуем запустить
+                    if (player.playerError != null) {
+                        player.prepare()
+                        player.play()
+                    }
                 }
             }
             SettingType.SUBTITLES -> {
