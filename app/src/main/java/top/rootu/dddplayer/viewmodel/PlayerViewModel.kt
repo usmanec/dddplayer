@@ -337,6 +337,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private fun checkUpdates() {
         viewModelScope.launch {
             val currentVersion = BuildConfig.VERSION_NAME
+            var hasUpdate = false
 
             // Восстанавливаем сохраненное состояние
             val savedJson = repository.getLastUpdateInfo()
@@ -344,8 +345,16 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 val savedInfo = updateManager.fromJson(savedJson)
                 if (savedInfo != null && updateManager.isNewer(savedInfo.version, currentVersion)) {
                     _updateInfo.postValue(savedInfo)
+                    hasUpdate = true
+                } else {
+                    // Кэш устарел (мы обновились), чистим
+                    updateManager.deleteUpdateFile()
+                    repository.saveUpdateInfo(null)
                 }
-            } else {
+            }
+
+            // Если в кэше нет актуального обновления, постим null (чтобы показать текущую версию)
+            if (!hasUpdate) {
                 _updateInfo.postValue(null)
             }
 

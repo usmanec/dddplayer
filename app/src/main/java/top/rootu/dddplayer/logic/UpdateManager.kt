@@ -117,6 +117,13 @@ class UpdateManager(private val context: Context) {
         context.startActivity(intent)
     }
 
+    fun deleteUpdateFile() {
+        val file = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "update.apk")
+        if (file.exists()) {
+            file.delete()
+        }
+    }
+
     fun toJson(info: UpdateInfo): String {
         val json = JSONObject()
         json.put("version", info.version)
