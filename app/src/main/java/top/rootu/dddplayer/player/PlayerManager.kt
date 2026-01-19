@@ -19,6 +19,8 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
+import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.mp4.Mp4Extractor
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
@@ -30,6 +32,7 @@ import top.rootu.dddplayer.viewmodel.TrackOption
 import top.rootu.dddplayer.viewmodel.VideoQualityOption
 import java.util.ArrayList
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 import androidx.media3.common.MediaItem as Media3MediaItem
 
 @UnstableApi
@@ -43,8 +46,12 @@ class PlayerManager(private val context: Context, private val listener: Player.L
 
     // 1. OkHttp для сети
     private val okHttpClient = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS) // Время на установку соединения
+        .readTimeout(60, TimeUnit.SECONDS)    // Время ожидания пакета данных
+        .writeTimeout(30, TimeUnit.SECONDS)
         .followRedirects(true)
         .followSslRedirects(true)
+        .retryOnConnectionFailure(true) // Автоматически пробовать другой маршрут при сбое
         .build()
 
     private val baseHttpFactory = OkHttpDataSource.Factory(okHttpClient)
@@ -127,9 +134,27 @@ class PlayerManager(private val context: Context, private val listener: Player.L
         setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
     }
 
+    // Кастомная политика обработки ошибок
+    private val loadErrorHandlingPolicy = object : DefaultLoadErrorHandlingPolicy() {
+        override fun getRetryDelayMsFor(loadErrorInfo: LoadErrorHandlingPolicy.LoadErrorInfo): Long {
+            // Если ошибка - это Таймаут или потеря связи, пробуем больше раз
+            // Стандартная логика: min((errorCount - 1) * 1000, 5000)
+
+            // Вернём стандартную задержку, но разрешим больше попыток в getMinimumLoadableRetryCount
+            return super.getRetryDelayMsFor(loadErrorInfo)
+        }
+
+        override fun getMinimumLoadableRetryCount(dataType: Int): Int {
+            // Увеличиваем количество попыток до 5 (по умолчанию 3)
+            // плеер будет пытаться восстановить связь перед тем, как выкинуть фатальную ошибку.
+            return 5
+        }
+    }
     val exoPlayer: ExoPlayer = ExoPlayer.Builder(context, renderersFactory)
         .setMediaSourceFactory(DefaultMediaSourceFactory(context, extractorsFactory)
-        .setDataSourceFactory(parsingDataSourceFactory)) // Используем нашу обертку
+            .setDataSourceFactory(parsingDataSourceFactory)
+            .setLoadErrorHandlingPolicy(loadErrorHandlingPolicy)
+        ) // Используем наши обертки
         .setTrackSelector(trackSelector) // Подключаем селектор треков
         .setAudioAttributes(audioAttributes, true)
         .setSeekBackIncrementMs(15000)
