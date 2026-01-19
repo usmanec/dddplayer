@@ -172,6 +172,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     val fatalError: LiveData<PlaybackException?> = _fatalError
     private val _bufferedPercentage = MutableLiveData<Int>(0)
     val bufferedPercentage: LiveData<Int> = _bufferedPercentage
+    private val _bufferedPosition = MutableLiveData<Long>(0)
+    val bufferedPosition: LiveData<Long> = _bufferedPosition
 
     // Internal
     private var audioOptions = listOf<TrackOption>()
@@ -207,6 +209,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 if (!isUserInteracting) {
                     _currentPosition.value = player.currentPosition
                 }
+                _bufferedPosition.value = player.bufferedPosition
+
                 // Т.к. в ExoPlayer нет API позволяющего
                 // получить "наполненность буфера воспроизведения" (buffer health)
                 // вычислим его сами на основе косвенных данных
@@ -226,7 +230,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 val percent = ((bufferedDuration * 101) / targetBuffer).toInt().coerceIn(0, maxPercent)
                 _bufferedPercentage.value = percent
             }
-            handler.postDelayed(this, 100)
+            handler.postDelayed(this, 200)
         }
     }
 

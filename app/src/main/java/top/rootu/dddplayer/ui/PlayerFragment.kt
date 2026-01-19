@@ -250,6 +250,10 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
             }
         }
 
+        viewModel.bufferedPosition.observe(viewLifecycleOwner) { bufferedPos ->
+            ui.seekBar.secondaryProgress = bufferedPos.toInt()
+        }
+
         // Переключение поверхностей (HDR Fix)
         viewModel.inputType.observe(viewLifecycleOwner) { type ->
             val isStereo = type != StereoInputType.NONE
