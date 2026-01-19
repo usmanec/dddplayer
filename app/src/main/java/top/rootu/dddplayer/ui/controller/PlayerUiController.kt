@@ -52,6 +52,8 @@ class PlayerUiController(private val rootView: View) {
     // Buffering
     val bufferingIndicator: ProgressBar = rootView.findViewById(R.id.buffering_indicator)
     val bufferingSplitContainer: View = rootView.findViewById(R.id.buffering_split_container)
+    val bufferingContainer: View = rootView.findViewById(R.id.buffering_container)
+    val bufferingPercentage: TextView = rootView.findViewById(R.id.buffering_percentage)
     val loaderLeft: ProgressBar = rootView.findViewById(R.id.loader_left)
     val loaderRight: ProgressBar = rootView.findViewById(R.id.loader_right)
 
@@ -424,17 +426,18 @@ class PlayerUiController(private val rootView: View) {
         }
     }
 
-    fun updateBufferingState(isBuffering: Boolean, mode: StereoOutputMode?) {
+    fun updateBufferingState(isBuffering: Boolean, mode: StereoOutputMode?, percent: Int) {
         if (isBuffering) {
             if (mode == StereoOutputMode.CARDBOARD_VR && glSurfaceView.isVisible) {
-                bufferingIndicator.isVisible = false
+                bufferingContainer.isVisible = false
                 bufferingSplitContainer.isVisible = true
             } else {
-                bufferingIndicator.isVisible = true
+                bufferingContainer.isVisible = true
                 bufferingSplitContainer.isVisible = false
+                bufferingPercentage.text = "$percent%"
             }
         } else {
-            bufferingIndicator.isVisible = false
+            bufferingContainer.isVisible = false
             bufferingSplitContainer.isVisible = false
         }
     }

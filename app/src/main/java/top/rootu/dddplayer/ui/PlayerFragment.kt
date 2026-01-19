@@ -239,8 +239,15 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         viewModel.currentAudioName.observe(viewLifecycleOwner) { ui.badgeAudio.text = it }
         viewModel.currentSubtitleName.observe(viewLifecycleOwner) { ui.badgeSubtitle.text = it }
 
-        viewModel.isBuffering.observe(viewLifecycleOwner) {
-            ui.updateBufferingState(it, viewModel.outputMode.value)
+        viewModel.isBuffering.observe(viewLifecycleOwner) { isBuffering ->
+            val percent = viewModel.bufferedPercentage.value ?: 0
+            ui.updateBufferingState(isBuffering, viewModel.outputMode.value, percent)
+        }
+
+        viewModel.bufferedPercentage.observe(viewLifecycleOwner) { percent ->
+            if (viewModel.isBuffering.value == true) {
+                ui.updateBufferingState(true, viewModel.outputMode.value, percent)
+            }
         }
 
         // Переключение поверхностей (HDR Fix)

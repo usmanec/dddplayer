@@ -170,6 +170,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     // Для фатальных ошибок (когда плеер остановился)
     private val _fatalError = MutableLiveData<PlaybackException?>()
     val fatalError: LiveData<PlaybackException?> = _fatalError
+    private val _bufferedPercentage = MutableLiveData<Int>(0)
+    val bufferedPercentage: LiveData<Int> = _bufferedPercentage
 
     // Internal
     private var audioOptions = listOf<TrackOption>()
@@ -201,10 +203,30 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private val progressUpdater = object : Runnable {
         override fun run() {
-            if (player.isPlaying && !isUserInteracting) {
-                _currentPosition.value = player.currentPosition
+            if (player.isPlaying || player.isLoading) { // Обновляем и при загрузке
+                if (!isUserInteracting) {
+                    _currentPosition.value = player.currentPosition
+                }
+                // Т.к. в ExoPlayer нет API позволяющего
+                // получить "наполненность буфера воспроизведения" (buffer health)
+                // вычислим его сами на основе косвенных данных
+                val bufferedPosition = player.bufferedPosition
+                val currentPosition = player.currentPosition
+                val bufferedDuration = bufferedPosition - currentPosition
+
+                // Дефолтные значения ExoPlayer:
+                //    minBufferMs: 50 000 мс
+                //    maxBufferMs: 50 000 мс
+                //    bufferForPlaybackMs: 2 500 мс
+                //    bufferForPlaybackAfterRebufferMs: 5 000 мс
+                // Возьмем bufferForPlaybackAfterRebufferMs секунд за основу, а при привышении minBufferMs(maxBufferMs)
+                val targetBuffer = if (bufferedDuration > 6_000L) 50_000L else  5_000L
+                val maxPercent = if (targetBuffer == 5_000L) 99 else 100
+
+                val percent = ((bufferedDuration * 101) / targetBuffer).toInt().coerceIn(0, maxPercent)
+                _bufferedPercentage.value = percent
             }
-            handler.postDelayed(this, 500)
+            handler.postDelayed(this, 100)
         }
     }
 
@@ -214,24 +236,15 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         val playerListener = object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 _isPlaying.value = isPlaying
-                if (isPlaying) {
-                    handler.post(progressUpdater)
-                } else {
-                    handler.removeCallbacks(progressUpdater)
-                }
+                updateProgressUpdaterState()
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
                 _isBuffering.value = (playbackState == Player.STATE_BUFFERING)
-                if (playbackState == Player.STATE_READY) {
-                    _duration.value = player.duration
-                }
+                if (playbackState == Player.STATE_READY) _duration.value = player.duration
+                if (playbackState == Player.STATE_ENDED) _playbackEnded.value = true
 
-                // STATE_ENDED срабатывает, когда закончился текущий трек ИЛИ весь плейлист,
-                // если repeatMode == OFF. По умолчанию в ExoPlayer плейлист проигрывается до конца.
-                if (playbackState == Player.STATE_ENDED) {
-                    _playbackEnded.value = true
-                }
+                updateProgressUpdaterState()
             }
 
             override fun onPlayerError(error: PlaybackException) {
@@ -332,6 +345,19 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
 
         checkUpdates()
+    }
+
+    private fun updateProgressUpdaterState() {
+        val shouldRun = player.isPlaying || player.playbackState == Player.STATE_BUFFERING
+
+        if (shouldRun) {
+            // Чтобы не дублировать, сначала удаляем, потом постим (если еще не запущен)
+            // Но проще просто удалить и запустить заново, это дешево.
+            handler.removeCallbacks(progressUpdater)
+            handler.post(progressUpdater)
+        } else {
+            handler.removeCallbacks(progressUpdater)
+        }
     }
 
     private fun checkUpdates() {

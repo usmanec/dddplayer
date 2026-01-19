@@ -223,13 +223,44 @@
         tools:visibility="visible"/>
 
     <!-- Индикатор буферизации (Одиночный) -->
-    <ProgressBar
-        android:id="@+id/buffering_indicator"
-        android:layout_width="100dp"
-        android:layout_height="100dp"
+    <FrameLayout
+        android:id="@+id/buffering_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:visibility="gone"
-        tools:visibility="visible"/>
+        tools:visibility="visible">
+
+        <ProgressBar
+            android:id="@+id/buffering_indicator_back"
+            android:layout_width="102dp"
+            android:layout_height="102dp"
+            android:indeterminateTint="#30303030"
+            android:indeterminateDuration="1000"
+            android:indeterminate="true" />
+        <ProgressBar
+            android:id="@+id/buffering_indicator"
+            android:layout_width="100dp"
+            android:layout_height="100dp"
+            android:layout_margin="1dp"
+            android:indeterminateTint="#FFFFFF"
+            android:indeterminateDuration="1000"
+            android:indeterminate="true" />
+
+        <TextView
+            android:id="@+id/buffering_percentage"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:textColor="#FFFFFF"
+            android:shadowColor="#333333"
+            android:shadowDx="0"
+            android:shadowDy="0"
+            android:shadowRadius="2"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            tools:text="100%" />
+    </FrameLayout>
 
     <!-- Индикатор буферизации (Двойной - для Cardboard VR) -->
     <LinearLayout
@@ -250,7 +281,10 @@
                 android:id="@+id/loader_left"
                 android:layout_width="50dp"
                 android:layout_height="50dp"
-                android:layout_gravity="center"/>
+                android:layout_gravity="center"
+                android:indeterminateTint="#FFFFFFFF"
+                android:indeterminateDuration="1000"
+                android:indeterminate="true"/>
         </FrameLayout>
 
         <FrameLayout
@@ -261,7 +295,10 @@
                 android:id="@+id/loader_right"
                 android:layout_width="50dp"
                 android:layout_height="50dp"
-                android:layout_gravity="center"/>
+                android:layout_gravity="center"
+                android:indeterminateTint="#FFFFFFFF"
+                android:indeterminateDuration="1000"
+                android:indeterminate="true"/>
         </FrameLayout>
     </LinearLayout>
 
