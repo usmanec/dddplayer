@@ -222,7 +222,10 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
             ui.videoTitleTextView.text = title
             // Обновляем постер из метаданных плеера
             val posterUri = viewModel.player.mediaMetadata.artworkUri
-            ui.loadPoster(posterUri)
+            val index = viewModel.player.currentMediaItemIndex
+            val size = viewModel.player.mediaItemCount // Или viewModel.playlistSize.value
+
+            ui.loadPoster(posterUri, index, size)
         }
 
         viewModel.hasPrevious.observe(viewLifecycleOwner) {

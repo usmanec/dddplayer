@@ -65,6 +65,8 @@ class PlayerUiController(private val rootView: View) {
     // Info Panel
     val videoTitleTextView: TextView = topInfoPanel.findViewById(R.id.video_title)
     val videoPoster: ImageView = topInfoPanel.findViewById(R.id.video_poster)
+    val posterPlaceholderText: TextView = topInfoPanel.findViewById(R.id.poster_placeholder_text)
+    val posterNumberBadge: TextView = topInfoPanel.findViewById(R.id.poster_number_badge)
     val textClock: TextView = topInfoPanel.findViewById(R.id.text_clock)
     val textEndsAt: TextView = topInfoPanel.findViewById(R.id.text_ends_at)
     val iconInputMode: ImageView = topInfoPanel.findViewById(R.id.icon_input_mode)
@@ -327,15 +329,43 @@ class PlayerUiController(private val rootView: View) {
         rootView.findViewById<View>(R.id.root_container).requestFocus()
     }
 
-    fun loadPoster(uri: android.net.Uri?) {
+    fun loadPoster(uri: android.net.Uri?, playlistIndex: Int, playlistSize: Int) {
+        val isPlaylist = playlistSize > 1
+        val numberText = (playlistIndex + 1).toString()
+
+        posterNumberBadge.text = numberText
+        posterPlaceholderText.text = numberText
+
         if (uri != null) {
+            // Постер есть -> Грузим
+            videoPoster.isVisible = true
+            posterPlaceholderText.isVisible = false
+            // Если плейлист -> показываем бейдж
+            posterNumberBadge.isVisible = isPlaylist
+
             videoPoster.load(uri) {
                 crossfade(true)
-                error(R.drawable.tv_banner)
-                placeholder(R.drawable.tv_banner)
+                listener(onError = { _, _ -> handleNoPoster(isPlaylist)})
             }
         } else {
+            // Постера нет
+            handleNoPoster(isPlaylist)
+        }
+    }
+
+    private fun handleNoPoster(isPlaylist: Boolean) {
+        if (isPlaylist) {
+            // Плейлист без постера -> Заглушка с номером
+            videoPoster.isVisible = false
+            posterNumberBadge.isVisible = false
+            posterPlaceholderText.isVisible = true
+        } else {
+            // Одиночное видео без постера -> Дефолтная иконка (старая логика)
+            videoPoster.isVisible = true
             videoPoster.setImageResource(R.drawable.tv_banner)
+
+            posterNumberBadge.isVisible = false
+            posterPlaceholderText.isVisible = false
         }
     }
 
@@ -349,6 +379,7 @@ class PlayerUiController(private val rootView: View) {
         if (playlistDialog == null) {
             playlistDialog = Dialog(context, android.R.style.Theme_Translucent_NoTitleBar)
             playlistDialog?.setContentView(R.layout.dialog_playlist)
+            playlistDialog?.setCanceledOnTouchOutside(true)
             playlistDialog?.window?.apply {
                 setLayout(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT)
                 setGravity(Gravity.END)

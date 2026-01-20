@@ -39,10 +39,10 @@
         <item name="popupMenuStyle">@style/DarkPopupMenu</item>
 
         <!-- ВАЖНО: Фон элемента меню (работает на большинстве версий) -->
-        <item name="android:itemBackground">@drawable/selector_menu_item_bg</item>
+        <item name="android:itemBackground">@drawable/bg_selector_menu_item</item>
 
         <!-- ВАЖНО: Селектор списка (для старых версий и D-Pad навигации) -->
-        <item name="android:listSelector">@drawable/selector_menu_item_bg</item>
+        <item name="android:listSelector">@drawable/bg_selector_menu_item</item>
 
         <!-- Цвет текста (основной) -->
         <item name="android:textColorPrimary">@color/selector_menu_item_text</item>

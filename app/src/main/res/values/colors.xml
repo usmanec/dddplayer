@@ -1,6 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Icon Colors -->
-    <color name="icon_background">#202020</color>
-    <color name="icon_foreground">#fefefe</color>
+    <!-- === БАЗОВЫЕ ЦВЕТА === -->
+    <color name="black">#000000</color>
+    <color name="white">#FFFFFF</color>
+    <color name="tv_white">#EEEEEE</color>
+    <color name="transparent">@android:color/transparent</color>
+    <color name="error_red">#FF5252</color>
+
+    <!-- === ТЕКСТ === -->
+    <color name="text_primary">@color/tv_white</color>
+    <color name="text_secondary">#B3FFFFFF</color> <!-- ~70% -->
+    <color name="text_tertiary">#80FFFFFF</color>  <!-- ~50% -->
+    <color name="text_selected_black">#000000</color>
+
+    <!-- === ФОНЫ === -->
+    <color name="bg_scrim_overlay">#CC000000</color>
+    <color name="bg_panel_glass">#CC222222</color>
+    <color name="bg_inner_detail">#40000000</color>
+    <color name="bg_badge_dark">#B3000000</color>
+    <color name="bg_placeholder_card">#333333</color>
+    <color name="bg_app_icon">#202020</color>
+    <color name="fg_app_icon">#FEFEFE</color>
+
+    <!-- === ЭЛЕМЕНТЫ УПРАВЛЕНИЯ === -->
+    <color name="stroke_glass">#33FFFFFF</color>
+    <color name="control_state_focused">#CCFFFFFF</color>
+    <color name="control_state_pressed">#60FFFFFF</color>
+    <color name="control_halo">#50FFFFFF</color>
+    <color name="control_state_default">#10FFFFFF</color>
+    <color name="control_accent_focus">#30FFFFFF</color>
+
+    <!-- === ПРОГРЕСС === -->
+    <color name="progress_track">#20FFFFFF</color>
+    <color name="progress_secondary">#4DFFFFFF</color>
+    <color name="loader_track_bg">#30303030</color>
+
+    <!-- === ГРАДИЕНТЫ === -->
+    <color name="gradient_start">#E6000000</color>
+    <color name="gradient_center">#80000000</color>
+    <color name="gradient_end">#00000000</color>
 </resources>

@@ -4,18 +4,19 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@drawable/selector_menu_item_bg"
-    android:padding="8dp"
+    android:background="@drawable/bg_playlist_item"
+    android:paddingHorizontal="16dp"
+    android:paddingVertical="8dp"
     android:focusable="true"
     android:clickable="true">
 
     <!-- Постер / Заглушка (16:9) -->
     <androidx.cardview.widget.CardView
         android:id="@+id/item_poster_card"
-        android:layout_width="120dp"
-        android:layout_height="67.5dp"
+        android:layout_width="112dp"
+        android:layout_height="63dp"
         app:cardCornerRadius="4dp"
-        app:cardBackgroundColor="#333333"
+        app:cardBackgroundColor="@color/bg_placeholder_card"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent">
@@ -33,10 +34,26 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:gravity="center"
-            android:textColor="#88FFFFFF"
+            android:textColor="@color/text_tertiary"
             android:textSize="24sp"
             android:textStyle="bold"
-            tools:text="1" />
+            tools:text="10" />
+
+        <!-- Бейдж (Есть постер) - В углу, маленький -->
+        <TextView
+            android:id="@+id/item_number_badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|start"
+            android:background="@drawable/bg_playlist_number"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="1dp"
+            android:textColor="@color/tv_white"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            tools:text="10"
+            tools:visibility="visible"/>
     </androidx.cardview.widget.CardView>
 
     <!-- Заголовок -->
@@ -46,7 +63,7 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="12dp"
         android:layout_marginEnd="8dp"
-        android:textColor="@android:color/white"
+        android:textColor="@color/tv_white"
         android:textSize="16sp"
         android:maxLines="2"
         android:ellipsize="end"
@@ -55,7 +72,7 @@
         app:layout_constraintTop_toTopOf="@id/item_poster_card"
         app:layout_constraintBottom_toTopOf="@+id/item_progress"
         app:layout_constraintVertical_chainStyle="packed"
-        tools:text="1. Big Buck Bunny" />
+        tools:text="Big Buck Bunny" />
 
     <!-- Прогресс бар -->
     <ProgressBar

@@ -11,25 +11,34 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Доступно обновление"
-        android:textColor="@android:color/white"
+        android:textColor="@color/tv_white"
         android:textSize="20sp"
+        android:focusable="false"
         android:textStyle="bold" />
 
     <ScrollView
+        android:id="@+id/update_scroll"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
         android:layout_marginTop="16dp"
         android:layout_marginBottom="16dp"
         android:background="@drawable/bg_error_details"
+        android:focusable="false"
+        android:descendantFocusability="afterDescendants"
         android:maxHeight="300dp">
 
         <TextView
             android:id="@+id/update_desc"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:focusable="true"
+            android:clickable="true"
+            android:nextFocusDown="@id/btn_cancel"
+            android:nextFocusLeft="@id/btn_cancel"
+            android:nextFocusRight="@id/btn_update"
             android:text="Список изменений..."
-            android:textColor="#DDDDDD"
+            android:textColor="@color/text_secondary"
             android:layout_margin="10dp"
             android:textSize="14sp"
             android:lineSpacingExtra="4dp"/>
@@ -41,6 +50,7 @@
         android:layout_width="match_parent"
         android:layout_height="4dp"
         android:progressDrawable="@drawable/progress_update"
+        android:focusable="false"
         android:max="100"
         android:visibility="gone" />
 
@@ -51,8 +61,9 @@
         android:layout_gravity="center_horizontal"
         android:layout_marginTop="8dp"
         android:text="Скачивание..."
-        android:textColor="#AAAAAA"
+        android:textColor="@color/text_secondary"
         android:textSize="12sp"
+        android:focusable="false"
         android:visibility="gone"/>
 
     <LinearLayout
@@ -71,7 +82,10 @@
             android:paddingHorizontal="16dp"
             android:paddingVertical="10dp"
             android:text="ОТМЕНА"
-            android:textColor="#AAAAAA"
+            android:textColor="@color/text_secondary"
+            android:nextFocusUp="@+id/update_desc"
+            android:nextFocusRight="@+id/btn_update"
+            android:nextFocusDown="@+id/btn_update"
             android:textStyle="bold" />
 
         <TextView
@@ -83,9 +97,12 @@
             android:paddingHorizontal="24dp"
             android:paddingVertical="10dp"
             android:text="ОБНОВИТЬ"
-            android:textColor="@android:color/white"
+            android:textColor="@color/tv_white"
             android:textStyle="bold"
             android:focusable="true"
+            android:nextFocusUp="@+id/update_desc"
+            android:nextFocusLeft="@+id/btn_cancel"
+            android:nextFocusDown="@+id/btn_cancel"
             android:clickable="true"/>
     </LinearLayout>
 </LinearLayout>

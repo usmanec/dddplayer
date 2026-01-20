@@ -24,7 +24,7 @@
             android:layout_width="24dp"
             android:layout_height="24dp"
             android:src="@drawable/ic_settings_3d"
-            android:tint="#AAAAAA"
+            android:tint="@color/text_secondary"
             tools:ignore="ContentDescription" />
 
         <TextView
@@ -33,7 +33,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="12dp"
             android:textAllCaps="true"
-            android:textColor="#AAAAAA"
+            android:textColor="@color/text_secondary"
             android:textSize="16sp"
             android:textStyle="bold"
             tools:text="ТИП ВИДЕО" />
@@ -43,7 +43,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="4dp"
             android:text=":"
-            android:textColor="#AAAAAA"
+            android:textColor="@color/text_secondary"
             android:textSize="16sp"
             android:textStyle="bold" />
 
@@ -69,7 +69,7 @@
             android:padding="12dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_arrow_left"
-            android:tint="@android:color/white"
+            app:tint="@color/tv_white"
             tools:ignore="ContentDescription" />
 
         <TextView
@@ -79,7 +79,7 @@
             android:layout_marginHorizontal="8dp"
             android:ellipsize="end"
             android:maxLines="1"
-            android:textColor="@android:color/white"
+            android:textColor="@color/tv_white"
             android:textSize="18sp"
             android:textStyle="bold"
             tools:text="ГОРИЗОНТАЛЬНАЯ СТЕРЕОПАРА" />
@@ -92,7 +92,7 @@
             android:padding="12dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_arrow_right"
-            android:tint="@android:color/white"
+            app:tint="@color/tv_white"
             tools:ignore="ContentDescription" />
 
     </LinearLayout>
@@ -103,7 +103,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="▲▼ выбор • OK сохр • BACK отмена"
-        android:textColor="#888888"
+        android:textColor="@color/text_tertiary"
         android:textSize="12sp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"

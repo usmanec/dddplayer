@@ -1,16 +1,16 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android" android:height="24dp"  android:viewportHeight="100" android:viewportWidth="100" android:width="24dp">
     <path
-        android:strokeColor="#FFFFFF"
+        android:strokeColor="@color/tv_white"
         android:strokeWidth="8"
         android:pathData="M15,20 H85 A5,5 0 0 1 90,25 V75 A5,5 0 0 1 85,80 H15 A5,5 0 0 1 10,75 V25 A5,5 0 0 1 15,20 Z"/>
 
     <!-- Буква L -->
     <path
-        android:fillColor="#FFFFFF"
+        android:fillColor="@color/tv_white"
         android:pathData="M61,36 L67,36 L67,59 L75,59 L75,65 L61,65 L61,36 Z"/>
 
     <!-- Левая часть -->
     <path
-        android:fillColor="#FFFFFF"
+        android:fillColor="@color/tv_white"
         android:pathData="M16,26 H50 V74 H16 Z"/>
 </vector>

@@ -8,7 +8,7 @@
     android:focusable="true"
     android:clickable="true"
     android:keepScreenOn="true"
-    android:background="@android:color/black"
+    android:background="@color/black"
     tools:context=".ui.PlayerFragment">
 
     <!-- 1. Контейнер для сохранения пропорций (для 2D/HDR) -->
@@ -38,7 +38,7 @@
         android:id="@+id/subtitle_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@android:color/transparent"
+        android:background="@color/transparent"
         android:visibility="visible"/>
 
     <!-- Слой субтитров (Двойной - для Cardboard VR) -->
@@ -56,14 +56,14 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:background="@android:color/transparent" />
+            android:background="@color/transparent" />
 
         <androidx.media3.ui.SubtitleView
             android:id="@+id/subtitle_view_right"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:background="@android:color/transparent" />
+            android:background="@color/transparent" />
     </LinearLayout>
 
     <!-- Экран ошибки -->
@@ -71,7 +71,7 @@
         android:id="@+id/error_screen"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#CC000000"
+        android:background="@color/bg_scrim_overlay"
         android:gravity="center"
         android:orientation="vertical"
         android:visibility="gone"
@@ -81,7 +81,7 @@
             android:layout_width="64dp"
             android:layout_height="64dp"
             android:src="@drawable/ic_error_outline"
-            app:tint="#FF5252" />
+            app:tint="@color/error_red" />
 
         <TextView
             android:id="@+id/error_text"
@@ -91,7 +91,7 @@
             android:gravity="center"
             android:paddingHorizontal="32dp"
             android:text="Ошибка воспроизведения"
-            android:textColor="@android:color/white"
+            android:textColor="@color/tv_white"
             android:textSize="18sp" />
 
         <TextView
@@ -107,7 +107,7 @@
 
             android:gravity="center"
             android:text="ExoPlaybackException: ERROR_CODE_DECODER_INIT_FAILED"
-            android:textColor="#BBFFFFFF"
+            android:textColor="@color/text_secondary"
             android:textSize="13sp"
             android:fontFamily="monospace"
 
@@ -118,7 +118,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="Нажмите НАЗАД для выхода"
-            android:textColor="#AAAAAA"
+            android:textColor="@color/text_secondary"
             android:textSize="14sp" />
     </LinearLayout>
 
@@ -138,7 +138,7 @@
             android:id="@+id/seek_delta"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="@android:color/white"
+            android:textColor="@color/tv_white"
             android:textSize="24sp"
             android:textStyle="bold"
             tools:text="+ 1:30" />
@@ -147,7 +147,7 @@
             android:id="@+id/seek_target_time"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#AAAAAA"
+            android:textColor="@color/text_secondary"
             android:textSize="14sp"
             tools:text="00:15:45" />
     </LinearLayout>
@@ -160,7 +160,7 @@
         android:layout_gravity="top"
         android:clickable="true"
         android:focusable="false"
-        android:background="@android:color/transparent"/>
+        android:background="@color/transparent"/>
 
     <TextView
         android:id="@+id/fps_counter"
@@ -170,7 +170,7 @@
         android:layout_margin="16dp"
         android:background="@drawable/bg_player_panel"
         android:padding="8dp"
-        android:textColor="@android:color/white"
+        android:textColor="@color/tv_white"
         android:textSize="16sp"
         android:textStyle="bold"
         tools:text="FPS: 60" />
@@ -237,7 +237,7 @@
             android:id="@+id/buffering_indicator_back"
             android:layout_width="102dp"
             android:layout_height="102dp"
-            android:indeterminateTint="#30303030"
+            android:indeterminateTint="@color/loader_track_bg"
             android:indeterminateDuration="1000"
             android:indeterminate="true" />
         <ProgressBar
@@ -245,7 +245,7 @@
             android:layout_width="100dp"
             android:layout_height="100dp"
             android:layout_margin="1dp"
-            android:indeterminateTint="#FFFFFF"
+            android:indeterminateTint="@color/tv_white"
             android:indeterminateDuration="1000"
             android:indeterminate="true" />
 
@@ -254,8 +254,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
-            android:textColor="#FFFFFF"
-            android:shadowColor="#333333"
+            android:textColor="@color/tv_white"
+            android:shadowColor="@color/bg_placeholder_card"
             android:shadowDx="0"
             android:shadowDy="0"
             android:shadowRadius="2"
@@ -284,7 +284,7 @@
                 android:layout_width="50dp"
                 android:layout_height="50dp"
                 android:layout_gravity="center"
-                android:indeterminateTint="#FFFFFFFF"
+                android:indeterminateTint="@color/tv_white"
                 android:indeterminateDuration="1000"
                 android:indeterminate="true"/>
         </FrameLayout>
@@ -298,7 +298,7 @@
                 android:layout_width="50dp"
                 android:layout_height="50dp"
                 android:layout_gravity="center"
-                android:indeterminateTint="#FFFFFFFF"
+                android:indeterminateTint="@color/tv_white"
                 android:indeterminateDuration="1000"
                 android:indeterminate="true"/>
         </FrameLayout>

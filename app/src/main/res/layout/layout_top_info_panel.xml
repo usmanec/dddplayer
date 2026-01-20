@@ -12,9 +12,9 @@
         android:id="@+id/poster_card"
         android:layout_width="wrap_content"
         android:layout_height="54dp"
-        app:cardCornerRadius="6dp"
+        app:cardCornerRadius="4dp"
         app:cardElevation="0dp"
-        app:cardBackgroundColor="#33FFFFFF"
+        app:cardBackgroundColor="@color/bg_placeholder_card"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent">
@@ -26,8 +26,38 @@
             android:adjustViewBounds="true"
             android:scaleType="fitCenter"
             android:src="@drawable/tv_banner"
-            app:tint="@android:color/white"
-            tools:src="@tools:sample/avatars" />
+            app:tint="@color/tv_white"
+            tools:src="@tools:sample/backgrounds/scenic" />
+
+        <!-- Заглушка (Большой номер по центру) -->
+        <TextView
+            android:id="@+id/poster_placeholder_text"
+            android:minWidth="54dp"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:textColor="@color/text_tertiary"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            tools:visibility="visible"
+            tools:text="10" />
+
+        <!-- Бейдж (Маленький номер в углу) -->
+        <TextView
+            android:id="@+id/poster_number_badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|start"
+            android:background="@drawable/bg_playlist_number"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="1dp"
+            android:textColor="@color/tv_white"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            tools:text="10"
+            tools:visibility="visible"/>
     </androidx.cardview.widget.CardView>
 
     <!-- Правый блок времени (Часы + Конец в...) -->
@@ -45,7 +75,7 @@
             android:id="@+id/text_clock"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="@android:color/white"
+            android:textColor="@color/tv_white"
             android:textSize="18sp"
             android:textStyle="bold"
             tools:text="19:36" />
@@ -54,7 +84,7 @@
             android:id="@+id/text_ends_at"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#BBFFFFFF"
+            android:textColor="@color/text_secondary"
             android:textSize="12sp"
             android:layout_marginTop="2dp"
             tools:text="Конец в 21:45" />
@@ -70,7 +100,7 @@
         android:layout_marginEnd="16dp"
         android:ellipsize="end"
         android:maxLines="1"
-        android:textColor="@android:color/white"
+        android:textColor="@color/tv_white"
         android:textSize="18sp"
         android:textStyle="bold"
         app:layout_constraintTop_toTopOf="parent"
@@ -98,7 +128,7 @@
             android:layout_height="20dp"
             android:layout_marginEnd="8dp"
             android:src="@drawable/ic_input_mode_mono"
-            app:tint="@android:color/white" />
+            app:tint="@color/tv_white" />
 
         <ImageView
             android:id="@+id/icon_output_mode"
@@ -106,7 +136,7 @@
             android:layout_height="20dp"
             android:layout_marginEnd="8dp"
             android:src="@drawable/ic_output_mode_3d_off"
-            app:tint="@android:color/white" />
+            app:tint="@color/tv_white" />
 
         <ImageView
             android:id="@+id/icon_swap_eyes"
@@ -114,7 +144,7 @@
             android:layout_height="20dp"
             android:layout_marginEnd="16dp"
             android:src="@drawable/ic_swap_horiz"
-            app:tint="@android:color/white" />
+            app:tint="@color/tv_white" />
 
         <TextView
             android:id="@+id/badge_resolution"
@@ -123,7 +153,7 @@
             android:background="@drawable/bg_player_badge"
             android:paddingHorizontal="6dp"
             android:paddingVertical="2dp"
-            android:textColor="@android:color/white"
+            android:textColor="@color/tv_white"
             android:textSize="12sp"
             android:layout_marginEnd="10dp"
             tools:text="1080p" />
@@ -135,7 +165,7 @@
             android:background="@drawable/bg_player_badge"
             android:paddingHorizontal="6dp"
             android:paddingVertical="2dp"
-            android:textColor="@android:color/white"
+            android:textColor="@color/tv_white"
             android:textSize="12sp"
             android:layout_marginEnd="10dp"
             android:maxLines="1"
@@ -149,7 +179,7 @@
             android:background="@drawable/bg_player_badge"
             android:paddingHorizontal="6dp"
             android:paddingVertical="2dp"
-            android:textColor="@android:color/white"
+            android:textColor="@color/tv_white"
             android:textSize="12sp"
             android:maxLines="1"
             android:ellipsize="end"

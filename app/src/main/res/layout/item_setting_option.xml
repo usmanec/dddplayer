@@ -9,7 +9,7 @@
     android:textColor="@color/selector_option_text"
     android:textSize="14sp"
     android:gravity="center"
-    android:shadowColor="#000000"
+    android:shadowColor="@color/black"
     android:shadowDx="0"
     android:shadowDy="0"
     android:shadowRadius="4"

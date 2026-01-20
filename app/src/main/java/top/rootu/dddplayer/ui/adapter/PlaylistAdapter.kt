@@ -48,6 +48,7 @@ class PlaylistAdapter(
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val poster: ImageView = itemView.findViewById(R.id.item_poster)
         private val placeholder: TextView = itemView.findViewById(R.id.item_poster_placeholder)
+        private val numberBadge: TextView = itemView.findViewById(R.id.item_number_badge)
         private val title: TextView = itemView.findViewById(R.id.item_title)
         private val progress: ProgressBar = itemView.findViewById(R.id.item_progress)
 
@@ -56,40 +57,49 @@ class PlaylistAdapter(
         }
 
         fun bind(item: MediaItem, position: Int, isPlaying: Boolean) {
-            // 1. Заголовок: "1. Название"
+            // 1. Заголовок
             val displayTitle = item.title ?: item.filename ?: "Video ${position + 1}"
-            title.text = "${position + 1}. $displayTitle"
+            title.text = displayTitle
 
             // 2. Выделение текущего
             if (isPlaying) {
-                title.setTextColor(Color.parseColor("#FF202020")) // Акцентный цвет
-                itemView.setBackgroundResource(R.drawable.selector_menu_item_bg) // Можно сделать активный фон
+                title.setTextColor(Color.parseColor("#000000")) // Акцентный цвет
                 itemView.isSelected = true
             } else {
                 title.setTextColor(Color.WHITE)
                 itemView.isSelected = false
             }
 
-            // 3. Постер
+            // 3. Постер и Номер
+            val numberText = (position + 1).toString()
+
             if (item.posterUri != null) {
                 poster.isVisible = true
                 placeholder.isVisible = false
+
+                // Показываем бейдж в углу
+                numberBadge.text = numberText
+                numberBadge.isVisible = true
+
                 poster.load(item.posterUri) {
                     crossfade(true)
-                    transformations(RoundedCornersTransformation(8f))
-                    error(android.R.color.transparent) // Если ошибка, покажем placeholder
+                    transformations(RoundedCornersTransformation(4f))
+                    error(android.R.color.transparent)
                     listener(onError = { _, _ ->
+                        // Ошибка загрузки: скрываем постер и бейдж, показываем заглушку
                         poster.isVisible = false
+                        numberBadge.isVisible = false
                         placeholder.isVisible = true
                     })
                 }
             } else {
                 poster.isVisible = false
-                placeholder.isVisible = true
-            }
+                numberBadge.isVisible = false
 
-            // Номер в заглушке
-            placeholder.text = (position + 1).toString()
+                // Показываем заглушку по центру
+                placeholder.isVisible = true
+                placeholder.text = numberText
+            }
 
             // 4. Прогресс
             // В идеале прогресс нужно брать из БД.

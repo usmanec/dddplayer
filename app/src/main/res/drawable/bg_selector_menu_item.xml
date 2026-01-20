@@ -3,7 +3,7 @@
     <!-- Нажатие (Touch) -->
     <item android:state_pressed="true">
         <shape android:shape="rectangle">
-            <solid android:color="#70FFFFFF" />
+            <solid android:color="@color/text_tertiary" />
             <corners android:radius="16dp" />
         </shape>
     </item>
@@ -11,7 +11,7 @@
     <!-- Фокус (D-Pad / TV) -->
     <item android:state_focused="true">
         <shape android:shape="rectangle">
-            <solid android:color="#80FFFFFF" />
+            <solid android:color="@color/control_state_focused" />
             <corners android:radius="16dp" />
         </shape>
     </item>
@@ -19,11 +19,11 @@
     <!-- Выделение (Hover/Selected) -->
     <item android:state_selected="true">
         <shape android:shape="rectangle">
-            <solid android:color="#80FFFFFF" />
+            <solid android:color="@color/control_state_focused" />
             <corners android:radius="16dp" />
         </shape>
     </item>
 
     <!-- Обычное состояние (прозрачный) -->
-    <item android:drawable="@android:color/transparent" />
+    <item android:drawable="@color/transparent" />
 </selector>

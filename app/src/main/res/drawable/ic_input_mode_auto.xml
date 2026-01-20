@@ -1,13 +1,13 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android" android:height="24dp"  android:viewportHeight="100" android:viewportWidth="100" android:width="24dp">
     <!-- Рамка экрана -->
     <path
-        android:strokeColor="#FFFFFF"
+        android:strokeColor="@color/tv_white"
         android:strokeWidth="8"
         android:pathData="M15,20 H85 A5,5 0 0 1 90,25 V75 A5,5 0 0 1 85,80 H15 A5,5 0 0 1 10,75 V25 A5,5 0 0 1 15,20 Z"/>
 
     <!-- Заливка экрана с вырезанной буквой 'A' -->
     <path
-        android:fillColor="#FFFFFF"
+        android:fillColor="@color/tv_white"
         android:fillType="evenOdd"
         android:pathData="M16,26 H84 V50 H16 Z M42.1,66 L35,66 L50,34 L65,66 L57.9,66 L54.4,57.2 L45.6,57.2 L42.1,66 Z M47.2,52.2 L50,45.4 L52.8,52.2 L47.2,52.2 Z"/>
 </vector>
