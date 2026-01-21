@@ -597,6 +597,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         updateAnaglyphMatrix()
     }
 
+    private fun loadGlobalVrParams() {
+        _screenSeparation.postValue(repository.getGlobalFloat("global_screen_separation_pct", 0f))
+        _vrK1.postValue(repository.getGlobalFloat("vr_k1", 0.34f))
+        _vrK2.postValue(repository.getGlobalFloat("vr_k2", 0.10f))
+        _vrScale.postValue(repository.getGlobalFloat("vr_scale", 1.2f))
+    }
+
     private fun loadGlobalDefaults() {
         val outModeOrd = repository.getGlobalInt("def_output_mode", StereoOutputMode.ANAGLYPH.ordinal)
         _outputMode.postValue(StereoOutputMode.values()[outModeOrd])
@@ -605,10 +612,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         val type = StereoRenderer.AnaglyphType.values()[anaTypeOrd]
         _anaglyphType.postValue(type)
 
-        _screenSeparation.postValue(repository.getGlobalFloat("global_screen_separation_pct", 0f))
-        _vrK1.postValue(repository.getGlobalFloat("vr_k1", 0.34f))
-        _vrK2.postValue(repository.getGlobalFloat("vr_k2", 0.10f))
-        _vrScale.postValue(repository.getGlobalFloat("vr_scale", 1.2f))
+        // Загружаем VR параметры
+        loadGlobalVrParams()
 
         if (AnaglyphLogic.isCustomType(type)) loadCustomSettingsForCurrentType()
         updateAvailableSettings()
@@ -645,10 +650,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     fun closeSettingsPanel(save: Boolean) {
         if (save) saveCurrentSettings() else {
             backupSettings?.let { applySettings(it) }
-            _screenSeparation.postValue(repository.getGlobalFloat("global_screen_separation_pct", 0f))
-            _vrK1.postValue(repository.getGlobalFloat("vr_k1", 0.34f))
-            _vrK2.postValue(repository.getGlobalFloat("vr_k2", 0.10f))
-            _vrScale.postValue(repository.getGlobalFloat("vr_scale", 1.2f))
+            loadGlobalVrParams()
         }
         _isSettingsPanelVisible.value = false
     }
@@ -659,6 +661,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         _anaglyphType.postValue(s.anaglyphType)
         _swapEyes.postValue(s.swapEyes)
         _depth.postValue(s.depth)
+
+        loadGlobalVrParams()
+
         handler.post { lastVideoSize?.let { calculateFrameSize(s.inputType, it) } }
         if (AnaglyphLogic.isCustomType(s.anaglyphType)) loadCustomSettingsForCurrentType()
         updateAvailableSettings()
