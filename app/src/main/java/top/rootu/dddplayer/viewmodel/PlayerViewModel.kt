@@ -491,10 +491,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
         player.trackSelectionParameters = parameters
 
-        // todo возможно надо...
-//        player.seekTo(currentWindow, currentPos)
-//        player.prepare()
-//        player.play()
+        player.seekTo(currentWindow, currentPos)
+        player.prepare()
+        player.play()
 
         return true
     }
