@@ -22,6 +22,28 @@ class SettingsRepository(context: Context) {
         db.videoSettingsDao().deleteOldSettings(System.currentTimeMillis() - 2592000000L)
     }
 
+    // Global Player Preferences
+    fun getDecoderPriority(): Int = prefs.getInt("decoder_priority", 1) // 1 = EXTENSION_RENDERER_MODE_ON
+    fun setDecoderPriority(mode: Int) = prefs.edit().putInt("decoder_priority", mode).apply()
+
+    fun isTunnelingEnabled(): Boolean = prefs.getBoolean("tunneling_enabled", true)
+    fun setTunnelingEnabled(enabled: Boolean) = prefs.edit().putBoolean("tunneling_enabled", enabled).apply()
+
+    fun isAudioPassthroughEnabled(): Boolean = prefs.getBoolean("audio_passthrough", false) // По умолчанию выкл, т.к. может ломать громкость
+    fun setAudioPassthroughEnabled(enabled: Boolean) = prefs.edit().putBoolean("audio_passthrough", enabled).apply()
+
+    fun getPreferredAudioLang(): String = prefs.getString("pref_audio_lang", "") ?: "" // "" = System Default
+    fun setPreferredAudioLang(lang: String) = prefs.edit().putString("pref_audio_lang", lang).apply()
+
+    fun getPreferredSubLang(): String = prefs.getString("pref_sub_lang", "") ?: ""
+    fun setPreferredSubLang(lang: String) = prefs.edit().putString("pref_sub_lang", lang).apply()
+    /**
+     * Возвращает строку, зависящую от настроек, требующих пересоздания плеера
+     */
+    fun getHardSettingsSignature(): String {
+        return "${getDecoderPriority()}_${isAudioPassthroughEnabled()}"
+    }
+
     // Global Preferences Helpers
     fun getGlobalFloat(key: String, def: Float) = prefs.getFloat(key, def)
     fun putGlobalFloat(key: String, value: Float) = prefs.edit().putFloat(key, value).apply()

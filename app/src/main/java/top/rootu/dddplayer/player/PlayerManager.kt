@@ -26,6 +26,7 @@ import androidx.media3.extractor.mp4.Mp4Extractor
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import androidx.media3.extractor.ts.TsExtractor
 import okhttp3.OkHttpClient
+import top.rootu.dddplayer.data.SettingsRepository
 import top.rootu.dddplayer.logic.UnifiedMetadataReader
 import top.rootu.dddplayer.model.MediaItem
 import top.rootu.dddplayer.viewmodel.TrackOption
@@ -40,6 +41,7 @@ class PlayerManager(private val context: Context, private val listener: Player.L
 
     // Используем Application Context для предотвращения утечек Activity
     private val appContext = context.applicationContext
+    private val settingsRepo = SettingsRepository(appContext)
 
     // Хранилище метаданных (названия треков из MKV/MP4)
     private var currentTrackInfo: Map<Int, UnifiedMetadataReader.TrackInfo> = emptyMap()
@@ -87,12 +89,14 @@ class PlayerManager(private val context: Context, private val listener: Player.L
 
     // 4. TrackSelector (Автовыбор языка системы)
     private val trackSelector = DefaultTrackSelector(appContext).apply {
+        val audioLang = settingsRepo.getPreferredAudioLang().ifEmpty { Locale.getDefault().language }
+        val subLang = settingsRepo.getPreferredSubLang().ifEmpty { Locale.getDefault().language }
+        val tunneling = settingsRepo.isTunnelingEnabled()
+
         parameters = buildUponParameters()
-            // Предпочитать язык системы для аудио и субтитров
-            .setPreferredAudioLanguage(Locale.getDefault().language)
-            .setPreferredTextLanguage(Locale.getDefault().language)
-            // Разрешить туннелирование (важно для Android TV 4K HDR)
-            .setTunnelingEnabled(true)
+            .setPreferredAudioLanguage(audioLang)
+            .setPreferredTextLanguage(subLang)
+            .setTunnelingEnabled(tunneling)
             .build()
     }
 
@@ -109,32 +113,42 @@ class PlayerManager(private val context: Context, private val listener: Player.L
             extensionRendererMode: Int,
             mediaCodecSelector: MediaCodecSelector,
             enableDecoderFallback: Boolean,
-            audioSink: AudioSink, // Игнорируем дефолтный, создаем свой
+            audioSink: AudioSink,
             eventHandler: Handler,
             eventListener: AudioRendererEventListener,
             out: ArrayList<Renderer>
         ) {
-            // Создаем AudioSink с поддержкой Passthrough
-            val customSink = DefaultAudioSink.Builder(appContext)
-                .setEnableFloatOutput(false) // Важно: Passthrough часто не работает с Float выходом
-                .setEnableAudioTrackPlaybackParams(true)
-                .build()
+            // Настройка Passthrough
+            val enablePassthrough = settingsRepo.isAudioPassthroughEnabled()
 
-            // Передаем наш настроенный Sink
+            // Если Passthrough включен, мы не форсируем FloatOutput и разрешаем Offload (если поддерживается)
+            // Если выключен - используем стандартную обработку (PCM)
+            val sinkBuilder = DefaultAudioSink.Builder(appContext)
+                .setEnableAudioTrackPlaybackParams(true)
+
+            if (!enablePassthrough) {
+                sinkBuilder.setEnableFloatOutput(false) // Для совместимости
+            }
+
+            // todo:
+            //  ExoPlayer сам пытается использовать Passthrough, если AudioCapabilities позволяют.
+            //  Чтобы ПРИНУДИТЕЛЬНО отключить, нужно лезть глубже, но возможно достаточно не включать Offload?
+
             super.buildAudioRenderers(
                 context,
                 extensionRendererMode,
                 mediaCodecSelector,
                 enableDecoderFallback,
-                customSink,
+                sinkBuilder.build(),
                 eventHandler,
                 eventListener,
                 out
             )
         }
     }.apply {
-        // Включаем FFmpeg расширение (если есть в libs)
-        setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+        // Установка режима расширений (FFmpeg)
+        // 0 = OFF, 1 = ON (Software if HW fails), 2 = PREFER (Software first)
+        setExtensionRendererMode(settingsRepo.getDecoderPriority())
     }
 
     // Кастомная политика обработки ошибок
@@ -167,6 +181,19 @@ class PlayerManager(private val context: Context, private val listener: Player.L
 
     init {
         exoPlayer.addListener(listener)
+    }
+
+    fun applyGlobalSettings() {
+        val audioLang = settingsRepo.getPreferredAudioLang().ifEmpty { Locale.getDefault().language }
+        val subLang = settingsRepo.getPreferredSubLang().ifEmpty { Locale.getDefault().language }
+        val tunneling = settingsRepo.isTunnelingEnabled()
+
+        trackSelector.setParameters(
+            trackSelector.buildUponParameters()
+                .setPreferredAudioLanguage(audioLang)
+                .setPreferredTextLanguage(subLang)
+                .setTunnelingEnabled(tunneling)
+        )
     }
 
     fun loadPlaylist(items: List<MediaItem>, startIndex: Int) {

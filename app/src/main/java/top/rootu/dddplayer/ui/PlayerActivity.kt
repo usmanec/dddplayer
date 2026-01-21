@@ -31,6 +31,15 @@ class PlayerActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Проверяем, как запущено приложение
+        if (isLaunchedFromLauncher(intent)) {
+            // Запуск из лаунчера -> Идем в настройки
+            val settingsIntent = Intent(this, GlobalSettingsActivity::class.java)
+            startActivity(settingsIntent)
+            finish()
+            return
+        }
+
         // Держим экран включенным
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
@@ -74,6 +83,18 @@ class PlayerActivity : FragmentActivity() {
             playerFragment =
                 supportFragmentManager.findFragmentById(R.id.container) as? PlayerFragment
         }
+    }
+
+    private fun isLaunchedFromLauncher(intent: Intent): Boolean {
+        val action = intent.action
+        val categories = intent.categories
+        val data = intent.data
+
+        // Если Action MAIN и Category LAUNCHER (или LEANBACK_LAUNCHER) и НЕТ данных (Uri)
+        return (Intent.ACTION_MAIN == action) &&
+                (categories?.contains(Intent.CATEGORY_LAUNCHER) == true ||
+                        categories?.contains(Intent.CATEGORY_LEANBACK_LAUNCHER) == true) &&
+                data == null
     }
 
     override fun onNewIntent(intent: Intent) {

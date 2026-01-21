@@ -87,6 +87,21 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         observeViewModel()
         setupBackPressedHandler()
         timerController.startClock()
+
+        // Подписываемся на событие рестарта
+        viewModel.playerRecreatedEvent.observe(viewLifecycleOwner) {
+            // Плеер заменили. Нужно заново привязать к нему Surface.
+            if (viewModel.inputType.value != StereoInputType.NONE) {
+                // Если 3D режим -> привязываем GL Surface
+                // (glSurface мы сохранили в onSurfaceReady)
+                if (glSurface != null) {
+                    viewModel.player.setVideoSurface(glSurface)
+                }
+            } else {
+                // Если 2D режим -> привязываем обычный SurfaceView
+                viewModel.player.setVideoSurfaceView(ui.standardSurfaceView)
+            }
+        }
     }
 
     fun handleKeyEvent(event: KeyEvent): Boolean {
@@ -119,7 +134,23 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         ui.prevButton.setOnClickListener { viewModel.prevTrack() }
         ui.nextButton.setOnClickListener { viewModel.nextTrack() }
 
-        ui.buttonSettings.setOnClickListener { ui.hideControls(); viewModel.openSettingsPanel() }
+        ui.buttonSettings.setOnClickListener {
+            ui.hideControls()
+            viewModel.openSettingsPanel()
+        }
+        ui.buttonSettings.setOnLongClickListener {
+            // Останавливаем таймер скрытия интерфейса
+            timerController.stopControlsTimer()
+            // Скрываем контролы плеера, чтобы при возврате был чистый экран
+            ui.hideControls()
+
+            // Запускаем глобальные настройки
+            val intent = android.content.Intent(requireContext(), GlobalSettingsActivity::class.java)
+            startActivity(intent)
+
+            true // Возвращаем true, чтобы событие считалось обработанным (не сработает onClick)
+        }
+
         ui.buttonPlaylist.setOnClickListener { showPlaylist() }
         ui.buttonQuality.setOnClickListener { showQualityPopup() }
 
@@ -476,6 +507,10 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
 
     override fun onResume() {
         super.onResume()
+
+        // Проверяем, нужно ли перезапустить плеер из-за смены настроек
+        viewModel.checkSettingsAndRestart()
+
         viewModel.player.playWhenReady = true
         if (viewModel.inputType.value != StereoInputType.NONE) {
             ui.glSurfaceView.onResume()

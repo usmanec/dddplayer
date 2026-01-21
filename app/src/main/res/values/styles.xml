@@ -51,4 +51,59 @@
         <item name="android:textAppearanceLargePopupMenu">@style/DarkMenuTextAppearance</item>
         <item name="android:textAppearanceSmallPopupMenu">@style/DarkMenuTextAppearance</item>
     </style>
+
+    <!-- Стили для экрана настроек -->
+    <style name="SettingsSectionHeader">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/text_tertiary</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:layout_marginBottom">8dp</item>
+        <item name="android:layout_marginStart">16dp</item>
+    </style>
+
+    <style name="SettingsItemContainer">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:background">@drawable/bg_selector_menu_item</item>
+        <item name="android:padding">16dp</item>
+        <item name="android:layout_marginBottom">4dp</item>
+        <item name="android:focusable">true</item>
+        <item name="android:clickable">true</item>
+    </style>
+
+    <style name="SettingsItemTitle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/selector_settings_primary</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textStyle">bold</item>
+        <!-- Важно: дублируем состояние родителя (LinearLayout) -->
+        <item name="android:duplicateParentState">true</item>
+    </style>
+
+    <style name="SettingsItemDesc">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/selector_settings_secondary</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:layout_marginTop">2dp</item>
+        <!-- Важно: дублируем состояние родителя -->
+        <item name="android:duplicateParentState">true</item>
+    </style>
+
+    <style name="SettingsItemValue">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/selector_settings_primary</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:layout_marginStart">16dp</item>
+        <!-- Важно: дублируем состояние родителя -->
+        <item name="android:duplicateParentState">true</item>
+    </style>
 </resources>

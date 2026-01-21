@@ -192,8 +192,15 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private val handler = Handler(Looper.getMainLooper())
 
     // Player Manager
-    private val playerManager: PlayerManager
+    private var playerManager: PlayerManager
     val player: ExoPlayer get() = playerManager.exoPlayer
+
+    // Событие для UI: Плеер был пересоздан, нужно перепривязать Surface
+    private val _playerRecreatedEvent = MutableLiveData<Unit>()
+    val playerRecreatedEvent: LiveData<Unit> = _playerRecreatedEvent
+
+    // Храним хэш настроек при старте
+    private var lastSettingsHash = repository.getHardSettingsSignature()
 
     private val updateManager = UpdateManager(application)
     private val _updateInfo = MutableLiveData<UpdateInfo?>()
@@ -234,109 +241,109 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    init {
-        loadCustomSettingsForCurrentType()
+    private val playerListener = object : Player.Listener {
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            _isPlaying.value = isPlaying
+            updateProgressUpdaterState()
+        }
 
-        val playerListener = object : Player.Listener {
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                _isPlaying.value = isPlaying
-                updateProgressUpdaterState()
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            _isBuffering.value = (playbackState == Player.STATE_BUFFERING)
+            if (playbackState == Player.STATE_READY) _duration.value = player.duration
+            if (playbackState == Player.STATE_ENDED) _playbackEnded.value = true
+
+            updateProgressUpdaterState()
+        }
+
+        override fun onPlayerError(error: PlaybackException) {
+            // Пытаемся восстановиться, отключив проблемный трек
+            if (tryRecoverFromError(error)) {
+                return
             }
+            _fatalError.postValue(error)
+            _isPlaying.postValue(false)
+        }
 
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                _isBuffering.value = (playbackState == Player.STATE_BUFFERING)
-                if (playbackState == Player.STATE_READY) _duration.value = player.duration
-                if (playbackState == Player.STATE_ENDED) _playbackEnded.value = true
+        override fun onMediaItemTransition(mediaItem: Media3MediaItem?, reason: Int) {
+            val title = mediaItem?.mediaMetadata?.title?.toString()
+            currentUri = mediaItem?.localConfiguration?.uri?.toString()
+            _videoTitle.value = title ?: mediaItem?.localConfiguration?.uri?.lastPathSegment
 
-                updateProgressUpdaterState()
-            }
+            _hasPrevious.value = player.hasPreviousMediaItem()
+            _hasNext.value = player.hasNextMediaItem()
+            _playlistSize.value = player.mediaItemCount
+            _currentWindowIndex.value = player.currentMediaItemIndex
 
-            override fun onPlayerError(error: PlaybackException) {
-                // Пытаемся восстановиться, отключив проблемный трек
-                if (tryRecoverFromError(error)) {
-                    return
-                }
-                _fatalError.postValue(error)
-                _isPlaying.postValue(false)
-            }
+            isSettingsLoadedFromDb = false
+            _inputType.value = StereoInputType.NONE
 
-            override fun onMediaItemTransition(mediaItem: Media3MediaItem?, reason: Int) {
-                val title = mediaItem?.mediaMetadata?.title?.toString()
-                currentUri = mediaItem?.localConfiguration?.uri?.toString()
-                _videoTitle.value = title ?: mediaItem?.localConfiguration?.uri?.lastPathSegment
-
-                _hasPrevious.value = player.hasPreviousMediaItem()
-                _hasNext.value = player.hasNextMediaItem()
-                _playlistSize.value = player.mediaItemCount
-                _currentWindowIndex.value = player.currentMediaItemIndex
-
-                isSettingsLoadedFromDb = false
-                _inputType.value = StereoInputType.NONE
-
-                if (currentUri != null) {
-                    viewModelScope.launch {
-                        val saved = repository.getVideoSettings(currentUri!!)
-                        if (saved != null) {
-                            applySettings(saved)
-                            isSettingsLoadedFromDb = true
-                        } else {
-                            loadGlobalDefaults()
-                        }
-                    }
-                }
-            }
-
-            override fun onVideoSizeChanged(videoSize: VideoSize) {
-                lastVideoSize = videoSize
-                _videoResolution.value = "${videoSize.width}x${videoSize.height}"
-
-                if (videoSize.height > 0) {
-                    val ratio = (videoSize.width * videoSize.pixelWidthHeightRatio) / videoSize.height
-                    _videoAspectRatio.postValue(ratio)
-                }
-
-                if (videoSize.width == 0 || videoSize.height == 0) return
-
-                if (isSettingsLoadedFromDb) {
-                    calculateFrameSize(_inputType.value!!, videoSize)
-                    return
-                }
-
-                if (_inputType.value == StereoInputType.NONE) {
-                    val detectedType = StereoTypeDetector.detect(
-                        player.videoFormat,
-                        player.currentMediaItem?.localConfiguration?.uri
-                    )
-                    if (detectedType != StereoInputType.NONE) {
-                        setInputType(detectedType)
-                        showAutoDetectToast(detectedType)
+            if (currentUri != null) {
+                viewModelScope.launch {
+                    val saved = repository.getVideoSettings(currentUri!!)
+                    if (saved != null) {
+                        applySettings(saved)
+                        isSettingsLoadedFromDb = true
                     } else {
-                        val ar = videoSize.width.toFloat() / videoSize.height.toFloat()
-                        val heuristic = when {
-                            ar > 3.0 -> StereoInputType.SIDE_BY_SIDE
-                            ar > 0.8 && ar < 1.2 && videoSize.height > videoSize.width * 1.1 -> StereoInputType.TOP_BOTTOM
-                            else -> StereoInputType.NONE
-                        }
-                        if (heuristic != StereoInputType.NONE) {
-                            setInputType(heuristic)
-                            showAutoDetectToast(heuristic)
-                        } else {
-                            calculateFrameSize(StereoInputType.NONE, videoSize)
-                        }
+                        loadGlobalDefaults()
                     }
-                } else {
-                    calculateFrameSize(_inputType.value!!, videoSize)
                 }
-            }
-
-            override fun onTracksChanged(tracks: Tracks) {
-                updateTracksInfo(tracks)
-            }
-
-            override fun onCues(cueGroup: CueGroup) {
-                _cues.value = cueGroup.cues
             }
         }
+
+        override fun onVideoSizeChanged(videoSize: VideoSize) {
+            lastVideoSize = videoSize
+            _videoResolution.value = "${videoSize.width}x${videoSize.height}"
+
+            if (videoSize.height > 0) {
+                val ratio = (videoSize.width * videoSize.pixelWidthHeightRatio) / videoSize.height
+                _videoAspectRatio.postValue(ratio)
+            }
+
+            if (videoSize.width == 0 || videoSize.height == 0) return
+
+            if (isSettingsLoadedFromDb) {
+                calculateFrameSize(_inputType.value!!, videoSize)
+                return
+            }
+
+            if (_inputType.value == StereoInputType.NONE) {
+                val detectedType = StereoTypeDetector.detect(
+                    player.videoFormat,
+                    player.currentMediaItem?.localConfiguration?.uri
+                )
+                if (detectedType != StereoInputType.NONE) {
+                    setInputType(detectedType)
+                    showAutoDetectToast(detectedType)
+                } else {
+                    val ar = videoSize.width.toFloat() / videoSize.height.toFloat()
+                    val heuristic = when {
+                        ar > 3.0 -> StereoInputType.SIDE_BY_SIDE
+                        ar > 0.8 && ar < 1.2 && videoSize.height > videoSize.width * 1.1 -> StereoInputType.TOP_BOTTOM
+                        else -> StereoInputType.NONE
+                    }
+                    if (heuristic != StereoInputType.NONE) {
+                        setInputType(heuristic)
+                        showAutoDetectToast(heuristic)
+                    } else {
+                        calculateFrameSize(StereoInputType.NONE, videoSize)
+                    }
+                }
+            } else {
+                calculateFrameSize(_inputType.value!!, videoSize)
+            }
+        }
+
+        override fun onTracksChanged(tracks: Tracks) {
+            updateTracksInfo(tracks)
+        }
+
+        override fun onCues(cueGroup: CueGroup) {
+            _cues.value = cueGroup.cues
+        }
+    }
+
+    init {
+        loadCustomSettingsForCurrentType()
 
         playerManager = PlayerManager(application, playerListener)
         playerManager.onMetadataAvailable = {
@@ -829,6 +836,43 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             // Для ползунков (Depth, Hue, VR) возвращаем null, лента будет скрыта
             else -> null
         }
+    }
+
+    fun checkSettingsAndRestart() {
+        val currentHash = repository.getHardSettingsSignature()
+
+        if (currentHash != lastSettingsHash) {
+            // Настройки изменились -> Полный рестарт
+            restartPlayer()
+            lastSettingsHash = currentHash
+        } else {
+            // Настройки не менялись -> Мягкое обновление
+            playerManager.applyGlobalSettings()
+        }
+    }
+
+    private fun restartPlayer() {
+        // Сохраняем состояние
+        val currentPos = player.currentPosition
+        val currentWindow = player.currentMediaItemIndex
+        val playWhenReady = player.playWhenReady
+        val playlist = _currentPlaylist.value ?: emptyList()
+
+        // Убиваем старый менеджер
+        playerManager.release()
+
+        // Создаем новый (он считает новые настройки из Repo при инициализации)
+        playerManager = PlayerManager(getApplication(), playerListener)
+
+        // Восстанавливаем состояние
+        if (playlist.isNotEmpty()) {
+            playerManager.loadPlaylist(playlist, currentWindow)
+            playerManager.exoPlayer.seekTo(currentWindow, currentPos)
+            playerManager.exoPlayer.playWhenReady = playWhenReady // Восстанавливаем автоплей или паузу
+        }
+
+        // Уведомляем UI, что нужно перепривязать Surface
+        _playerRecreatedEvent.value = Unit
     }
 
     fun setInputType(inputType: StereoInputType) {

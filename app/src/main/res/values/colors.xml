@@ -12,6 +12,7 @@
     <color name="text_secondary">#B3FFFFFF</color> <!-- ~70% -->
     <color name="text_tertiary">#80FFFFFF</color>  <!-- ~50% -->
     <color name="text_selected_black">#000000</color>
+    <color name="text_secondary_inverse">#222222</color>
 
     <!-- === ФОНЫ === -->
     <color name="bg_scrim_overlay">#CC000000</color>
@@ -23,7 +24,7 @@
     <color name="fg_app_icon">#FEFEFE</color>
 
     <!-- === ЭЛЕМЕНТЫ УПРАВЛЕНИЯ === -->
-    <color name="stroke_glass">#33FFFFFF</color>
+    <color name="stroke_glass">#20FFFFFF</color>
     <color name="control_state_focused">#CCFFFFFF</color>
     <color name="control_state_pressed">#60FFFFFF</color>
     <color name="control_halo">#50FFFFFF</color>
