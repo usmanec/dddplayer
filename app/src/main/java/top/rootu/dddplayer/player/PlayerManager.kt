@@ -38,6 +38,9 @@ import androidx.media3.common.MediaItem as Media3MediaItem
 @UnstableApi
 class PlayerManager(private val context: Context, private val listener: Player.Listener) {
 
+    // Используем Application Context для предотвращения утечек Activity
+    private val appContext = context.applicationContext
+
     // Хранилище метаданных (названия треков из MKV/MP4)
     private var currentTrackInfo: Map<Int, UnifiedMetadataReader.TrackInfo> = emptyMap()
 
@@ -83,7 +86,7 @@ class PlayerManager(private val context: Context, private val listener: Player.L
         .setConstantBitrateSeekingEnabled(true)
 
     // 4. TrackSelector (Автовыбор языка системы)
-    private val trackSelector = DefaultTrackSelector(context).apply {
+    private val trackSelector = DefaultTrackSelector(appContext).apply {
         parameters = buildUponParameters()
             // Предпочитать язык системы для аудио и субтитров
             .setPreferredAudioLanguage(Locale.getDefault().language)
@@ -100,7 +103,7 @@ class PlayerManager(private val context: Context, private val listener: Player.L
         .build()
 
     // 6. RenderersFactory (С поддержкой FFmpeg и Passthrough)
-    private val renderersFactory = object : DefaultRenderersFactory(context) {
+    private val renderersFactory = object : DefaultRenderersFactory(appContext) {
         override fun buildAudioRenderers(
             context: Context,
             extensionRendererMode: Int,
@@ -112,7 +115,7 @@ class PlayerManager(private val context: Context, private val listener: Player.L
             out: ArrayList<Renderer>
         ) {
             // Создаем AudioSink с поддержкой Passthrough
-            val customSink = DefaultAudioSink.Builder(context)
+            val customSink = DefaultAudioSink.Builder(appContext)
                 .setEnableFloatOutput(false) // Важно: Passthrough часто не работает с Float выходом
                 .setEnableAudioTrackPlaybackParams(true)
                 .build()
@@ -150,8 +153,8 @@ class PlayerManager(private val context: Context, private val listener: Player.L
             return 5
         }
     }
-    val exoPlayer: ExoPlayer = ExoPlayer.Builder(context, renderersFactory)
-        .setMediaSourceFactory(DefaultMediaSourceFactory(context, extractorsFactory)
+    val exoPlayer: ExoPlayer = ExoPlayer.Builder(appContext, renderersFactory)
+        .setMediaSourceFactory(DefaultMediaSourceFactory(appContext, extractorsFactory)
             .setDataSourceFactory(parsingDataSourceFactory)
             .setLoadErrorHandlingPolicy(loadErrorHandlingPolicy)
         ) // Используем наши обертки

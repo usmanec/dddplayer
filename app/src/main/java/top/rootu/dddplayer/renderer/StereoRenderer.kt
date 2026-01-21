@@ -403,9 +403,13 @@ class StereoRenderer(
 
     fun release() {
         // Освобождаем Java-объекты Surface, чтобы ExoPlayer перестал в них писать
-        surfaceTexture?.release()
+        try {
+            surfaceTexture?.release()
+            videoSurface?.release()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         surfaceTexture = null
-        videoSurface?.release()
         videoSurface = null
 
         // Примечание: glDeleteProgram и glDeleteTextures должны вызываться в GL потоке.

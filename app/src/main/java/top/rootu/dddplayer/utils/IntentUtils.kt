@@ -2,6 +2,7 @@ package top.rootu.dddplayer.utils
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Parcelable
 import androidx.core.net.toUri
@@ -56,7 +57,7 @@ object IntentUtils {
             val filenames = getSmartStringArray(extras, "video_list.filename")
             val posters = getSmartStringArray(extras, "video_list.thumbnail")
 
-            val playlistSubsBundles = extras.getParcelableArrayList<Bundle>("video_list.subtitles")
+            val playlistSubsBundles = getParcelableArrayListCompat<Bundle>(extras, "video_list.subtitles")
 
             val playlist = mutableListOf<MediaItem>()
             var startIndex = 0
@@ -100,21 +101,17 @@ object IntentUtils {
      * Поддерживает: String[], ArrayList<String>, CharSequence[]
      */
     private fun getSmartStringArray(bundle: Bundle, key: String): Array<String>? {
-        // 1. Попытка получить как String[]
         val strArray = bundle.getStringArray(key)
         if (strArray != null) return strArray
 
-        // 2. Попытка получить как ArrayList<String>
         val strList = bundle.getStringArrayList(key)
         if (strList != null) return strList.toTypedArray()
 
-        // 3. Попытка получить как CharSequence[] (иногда бывает такое)
         val charSeqArray = bundle.getCharSequenceArray(key)
         if (charSeqArray != null) {
             return charSeqArray.map { it.toString() }.toTypedArray()
         }
 
-        // 4. Попытка получить как ArrayList<CharSequence>
         val charSeqList = bundle.getCharSequenceArrayList(key)
         if (charSeqList != null) {
             return charSeqList.map { it.toString() }.toTypedArray()
@@ -125,7 +122,7 @@ object IntentUtils {
 
     private fun parseSubtitles(bundle: Bundle, keyUri: String, keyName: String = "$keyUri.name"): List<SubtitleItem> {
         val uris = getParcelableArrayCompat(bundle, keyUri) ?: return emptyList()
-        val names = getSmartStringArray(bundle, keyName) // Тоже используем умный метод
+        val names = getSmartStringArray(bundle, keyName)
         val filenames = getSmartStringArray(bundle, "$keyUri.filename")
 
         val list = mutableListOf<SubtitleItem>()
@@ -136,21 +133,29 @@ object IntentUtils {
         return list
     }
 
+    // Универсальный метод для получения массива Parcelable (совместимость с API 33+)
     @Suppress("DEPRECATION")
     private fun getParcelableArrayCompat(bundle: Bundle, key: String): Array<Parcelable>? {
-        // Некоторые приложения передают список URI как ArrayList<Parcelable> или ArrayList<String>
-        val array = bundle.getParcelableArray(key)
-        if (array != null) return array
-
-        val list = bundle.getParcelableArrayList<Parcelable>(key)
-        if (list != null) return list.toTypedArray()
-
-        // Fallback для строк (если передали ссылки строками)
-        val stringList = bundle.getStringArrayList(key)
-        if (stringList != null) {
-            return stringList.map { it.toUri() }.toTypedArray()
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            bundle.getParcelableArray(key, Parcelable::class.java)
+        } else {
+            bundle.getParcelableArray(key)
+        } ?: run {
+            // Fallback: некоторые передают ArrayList вместо Array
+            getParcelableArrayListCompat<Parcelable>(bundle, key)?.toTypedArray()
+        } ?: run {
+            // Fallback: строки
+            bundle.getStringArrayList(key)?.map { it.toUri() }?.toTypedArray()
         }
+    }
 
-        return null
+    // Универсальный метод для получения ArrayList (совместимость с API 33+)
+    @Suppress("DEPRECATION")
+    private inline fun <reified T : Parcelable> getParcelableArrayListCompat(bundle: Bundle, key: String): ArrayList<T>? {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            bundle.getParcelableArrayList(key, T::class.java)
+        } else {
+            bundle.getParcelableArrayList(key)
+        }
     }
 }

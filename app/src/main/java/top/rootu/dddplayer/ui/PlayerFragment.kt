@@ -489,13 +489,19 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
     }
 
     override fun onDestroyView() {
-        super.onDestroyView()
+        // Сначала отвязываем поверхность от плеера
+        viewModel.player.setVideoSurface(null)
+
+        // Останавливаем таймеры
         timerController.cleanup()
         inputHandler.cleanup()
-        viewModel.player.setVideoSurface(null)
+
+        // Освобождаем GL ресурсы
         stereoRenderer?.release()
         stereoRenderer = null
         glSurface = null
+
+        super.onDestroyView()
     }
 
     companion object {
