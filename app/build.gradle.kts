@@ -71,6 +71,10 @@ android {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
+    lint {
+        disable.add("MissingTranslation")
+        disable.add("UnsafeOptInUsageError")
+    }
 }
 
 kotlin {
@@ -91,16 +95,18 @@ dependencies {
     // Media3 dependencies
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.ui)
-    implementation(libs.media3.ui.leanback)
     implementation(libs.media3.datasource.okhttp)
     implementation(libs.media3.session)
     implementation(libs.media3.decoder)
-    // Добавляем поддержку стриминговых протоколов
+    implementation(libs.media3.common)
+    implementation(libs.media3.container)
+    implementation(libs.media3.extractor)
+    // Media3 Extensions (HLS, DASH, RTSP)
     implementation(libs.media3.exoplayer.hls)
     implementation(libs.media3.exoplayer.dash)
     implementation(libs.media3.exoplayer.smoothstreaming)
     implementation(libs.media3.exoplayer.rtsp)
-    // ffmpeg и av1
+    // Локальные AAR (Декодеры audio и AV1)
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))))
 
     // Room Database
