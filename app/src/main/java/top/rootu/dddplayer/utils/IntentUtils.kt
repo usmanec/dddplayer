@@ -128,7 +128,14 @@ object IntentUtils {
         val list = mutableListOf<SubtitleItem>()
         for (i in uris.indices) {
             val uri = (uris[i] as? Uri) ?: (uris[i] as? String)?.toUri() ?: continue
-            list.add(SubtitleItem(uri, names?.getOrNull(i), filenames?.getOrNull(i)))
+            list.add(
+                SubtitleItem(
+                    uri,
+                    names?.getOrNull(i),
+                    filenames?.getOrNull(i),
+                    MediaFormatHelper.getSubtitleMimeType(uri)
+                )
+            )
         }
         return list
     }

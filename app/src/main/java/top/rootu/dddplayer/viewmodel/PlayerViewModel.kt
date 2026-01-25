@@ -8,8 +8,6 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.C
-import androidx.media3.common.MediaMetadata
-import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
@@ -27,8 +25,8 @@ import top.rootu.dddplayer.data.VideoSettings
 import top.rootu.dddplayer.logic.AnaglyphLogic
 import top.rootu.dddplayer.logic.SettingsMutator
 import top.rootu.dddplayer.logic.TrackLogic
-import top.rootu.dddplayer.logic.UpdateManager
 import top.rootu.dddplayer.logic.UpdateInfo
+import top.rootu.dddplayer.logic.UpdateManager
 import top.rootu.dddplayer.model.MediaItem
 import top.rootu.dddplayer.model.StereoInputType
 import top.rootu.dddplayer.model.StereoOutputMode
@@ -161,6 +159,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     val currentSettingType: LiveData<SettingType> = _currentSettingType
 
     // Tracks & Nav
+    private val _audioOutputInfo = MutableLiveData<String>()
+    val audioOutputInfo: LiveData<String> = _audioOutputInfo
     private val _currentAudioName = MutableLiveData<String>()
     val currentAudioName: LiveData<String> = _currentAudioName
     private val _currentSubtitleName = MutableLiveData<String>()
@@ -192,12 +192,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private val handler = Handler(Looper.getMainLooper())
 
     // Player Manager
-    private var playerManager: PlayerManager
-    val player: ExoPlayer get() = playerManager.exoPlayer
+    private val playerManager: PlayerManager
 
-    // Событие для UI: Плеер был пересоздан, нужно перепривязать Surface
-    private val _playerRecreatedEvent = MutableLiveData<Unit>()
-    val playerRecreatedEvent: LiveData<Unit> = _playerRecreatedEvent
+    // Безопасный доступ к плееру (может быть null, если не инициализирован)
+    val player: ExoPlayer? get() = playerManager.exoPlayer
+
+    // Событие: Плеер был пересоздан (нужно привязать Surface)
+    private val _playerRecreatedEvent = MutableLiveData<ExoPlayer>()
+    val playerRecreatedEvent: LiveData<ExoPlayer> = _playerRecreatedEvent
 
     // Храним хэш настроек при старте
     private var lastSettingsHash = repository.getHardSettingsSignature()
@@ -212,28 +214,16 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private val progressUpdater = object : Runnable {
         override fun run() {
-            if (player.isPlaying || player.isLoading) { // Обновляем и при загрузке
+            val p = playerManager.exoPlayer ?: return
+            if (p.isPlaying || p.isLoading) {
                 if (!isUserInteracting) {
-                    _currentPosition.value = player.currentPosition
+                    _currentPosition.value = p.currentPosition
                 }
-                _bufferedPosition.value = player.bufferedPosition
+                _bufferedPosition.value = p.bufferedPosition
 
-                // Т.к. в ExoPlayer нет API позволяющего
-                // получить "наполненность буфера воспроизведения" (buffer health)
-                // вычислим его сами на основе косвенных данных
-                val bufferedPosition = player.bufferedPosition
-                val currentPosition = player.currentPosition
-                val bufferedDuration = bufferedPosition - currentPosition
-
-                // Дефолтные значения ExoPlayer:
-                //    minBufferMs: 50 000 мс
-                //    maxBufferMs: 50 000 мс
-                //    bufferForPlaybackMs: 2 500 мс
-                //    bufferForPlaybackAfterRebufferMs: 5 000 мс
-                // Возьмем bufferForPlaybackAfterRebufferMs секунд за основу, а при привышении minBufferMs(maxBufferMs)
+                val bufferedDuration = p.bufferedPosition - p.currentPosition
                 val targetBuffer = if (bufferedDuration > 6_000L) 50_000L else  5_000L
                 val maxPercent = if (targetBuffer == 5_000L) 99 else 100
-
                 val percent = ((bufferedDuration * 101) / targetBuffer).toInt().coerceIn(0, maxPercent)
                 _bufferedPercentage.value = percent
             }
@@ -241,6 +231,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    // Listener вынесен в поле класса
     private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             _isPlaying.value = isPlaying
@@ -249,14 +240,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
         override fun onPlaybackStateChanged(playbackState: Int) {
             _isBuffering.value = (playbackState == Player.STATE_BUFFERING)
-            if (playbackState == Player.STATE_READY) _duration.value = player.duration
+            if (playbackState == Player.STATE_READY) _duration.value = player?.duration
             if (playbackState == Player.STATE_ENDED) _playbackEnded.value = true
-
             updateProgressUpdaterState()
         }
 
         override fun onPlayerError(error: PlaybackException) {
-            // Пытаемся восстановиться, отключив проблемный трек
             if (tryRecoverFromError(error)) {
                 return
             }
@@ -265,14 +254,16 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
 
         override fun onMediaItemTransition(mediaItem: Media3MediaItem?, reason: Int) {
+            val p = player ?: return
+
             val title = mediaItem?.mediaMetadata?.title?.toString()
             currentUri = mediaItem?.localConfiguration?.uri?.toString()
             _videoTitle.value = title ?: mediaItem?.localConfiguration?.uri?.lastPathSegment
 
-            _hasPrevious.value = player.hasPreviousMediaItem()
-            _hasNext.value = player.hasNextMediaItem()
-            _playlistSize.value = player.mediaItemCount
-            _currentWindowIndex.value = player.currentMediaItemIndex
+            _hasPrevious.value = p.hasPreviousMediaItem()
+            _hasNext.value = p.hasNextMediaItem()
+            _playlistSize.value = p.mediaItemCount
+            _currentWindowIndex.value = p.currentMediaItemIndex
 
             isSettingsLoadedFromDb = false
             _inputType.value = StereoInputType.NONE
@@ -308,8 +299,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
             if (_inputType.value == StereoInputType.NONE) {
                 val detectedType = StereoTypeDetector.detect(
-                    player.videoFormat,
-                    player.currentMediaItem?.localConfiguration?.uri
+                    player?.videoFormat,
+                    player?.currentMediaItem?.localConfiguration?.uri
                 )
                 if (detectedType != StereoInputType.NONE) {
                     setInputType(detectedType)
@@ -346,24 +337,39 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         loadCustomSettingsForCurrentType()
 
         playerManager = PlayerManager(application, playerListener)
+
+        // Подписываемся на создание нового плеера
+        playerManager.onPlayerCreated = { newPlayer ->
+            _playerRecreatedEvent.postValue(newPlayer)
+            // Принудительно обновляем UI состояние
+            _isPlaying.postValue(newPlayer.isPlaying)
+            _duration.postValue(newPlayer.duration)
+        }
+
         playerManager.onMetadataAvailable = {
-            // Метаданные распарсились! Обновляем список треков в UI.
-            // Делаем это в главном потоке.
             handler.post {
-                val tracks = player.currentTracks
-                updateTracksInfo(tracks)
+                if (player != null) {
+                    val tracks = player!!.currentTracks
+                    updateTracksInfo(tracks)
+                }
             }
         }
+
+        playerManager.onAudioOutputFormatChanged = { info ->
+            _audioOutputInfo.postValue(info)
+        }
+
+        // Инициализируем плеер сразу
+        playerManager.initializePlayer()
 
         checkUpdates()
     }
 
     private fun updateProgressUpdaterState() {
-        val shouldRun = player.isPlaying || player.playbackState == Player.STATE_BUFFERING
+        val p = playerManager.exoPlayer ?: return
+        val shouldRun = p.isPlaying || p.playbackState == Player.STATE_BUFFERING
 
         if (shouldRun) {
-            // Чтобы не дублировать, сначала удаляем, потом постим (если еще не запущен)
-            // Но проще просто удалить и запустить заново, это дешево.
             handler.removeCallbacks(progressUpdater)
             handler.post(progressUpdater)
         } else {
@@ -376,7 +382,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             val currentVersion = BuildConfig.VERSION_NAME
             var hasUpdate = false
 
-            // Восстанавливаем сохраненное состояние
             val savedJson = repository.getLastUpdateInfo()
             if (savedJson != null) {
                 val savedInfo = updateManager.fromJson(savedJson)
@@ -384,36 +389,30 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     _updateInfo.postValue(savedInfo)
                     hasUpdate = true
                 } else {
-                    // Кэш устарел (мы обновились), чистим
                     updateManager.deleteUpdateFile()
                     repository.saveUpdateInfo(null)
                 }
             }
 
-            // Если в кэше нет актуального обновления, постим null (чтобы показать текущую версию)
             if (!hasUpdate) {
                 _updateInfo.postValue(null)
             }
 
-            // Проверяем необходимость сетевого запроса каждые 3 часа
             val lastCheck = repository.getLastUpdateTime()
             if (System.currentTimeMillis() - lastCheck < 10800000) {
                 return@launch
             }
 
-            // Сетевой запрос
             try {
                 val info = updateManager.checkForUpdates(currentVersion)
                 if (info != null) {
                     _updateInfo.postValue(info)
                     repository.saveUpdateInfo(updateManager.toJson(info))
                 } else {
-                    // Обновлений нет, очищаем кэш (чтобы кнопка пропала, если была)
                     repository.saveUpdateInfo(null)
                     _updateInfo.postValue(null)
                 }
             } catch (e: Exception) {
-                // Ошибка сети - оставляем старое состояние
             }
         }
     }
@@ -427,7 +426,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 val pInfo = getApplication<Application>().packageManager.getPackageInfo(getApplication<Application>().packageName, 0)
                 val currentVersion = pInfo.versionName
 
-                // Принудительная проверка (игнорируем кэш времени)
                 val info = updateManager.checkForUpdates(currentVersion)
 
                 if (info != null) {
@@ -435,7 +433,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     repository.saveUpdateInfo(updateManager.toJson(info))
                     _toastMessage.postValue("Найдено обновление: ${info.version}")
                 } else {
-                    // Обновлений нет
                     repository.saveUpdateInfo(null)
                     _updateInfo.postValue(null)
                     _toastMessage.postValue("У вас последняя версия")
@@ -462,10 +459,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    /**
-     * Пытается восстановить воспроизведение, отключив сбойный компонент.
-     * Возвращает true, если попытка восстановления запущена.
-     */
     private fun tryRecoverFromError(error: PlaybackException): Boolean {
         if (error !is ExoPlaybackException || error.type != ExoPlaybackException.TYPE_RENDERER) {
             return false
@@ -473,40 +466,39 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
         val rendererIndex = error.rendererIndex
         if (rendererIndex == C.INDEX_UNSET) return false
-        val trackType = player.getRendererType(rendererIndex)
 
-        val currentPos = player.currentPosition
-        val currentWindow = player.currentMediaItemIndex
+        if (player != null) {
+            val trackType = player!!.getRendererType(rendererIndex)
 
-        if (trackType == C.TRACK_TYPE_VIDEO) {
-            // Ошибка видео -> Экран ошибки (полупрозрачный) + Тост
-            _videoDisabledError.postValue(error)
-            _toastMessage.postValue("Ошибка видео. Переключено в аудио-режим.")
-        } else if (trackType == C.TRACK_TYPE_AUDIO) {
-            if (audioOptions.size > 1) {
-                _toastMessage.postValue("Ошибка аудио. Звук отключен.\nПопробуйте другую дорожку.\n${error.errorCodeName}: ${error.message}")
-            } else {
-                _toastMessage.postValue("Ошибка аудио. Звук отключен.\n${error.errorCodeName}: ${error.message}")
+            if (trackType == C.TRACK_TYPE_VIDEO) {
+                _videoDisabledError.postValue(error)
+                _toastMessage.postValue("Ошибка видео. Переключено в аудио-режим.")
+            } else if (trackType == C.TRACK_TYPE_AUDIO) {
+                if (audioOptions.size > 1) {
+                    _toastMessage.postValue("Ошибка аудио. Звук отключен.\nПопробуйте другую дорожку.\n${error.errorCodeName}: ${error.message}")
+                } else {
+                    _toastMessage.postValue("Ошибка аудио. Звук отключен.\n${error.errorCodeName}: ${error.message}")
+                }
             }
+
+            val parameters = player!!.trackSelectionParameters
+                .buildUpon()
+                .setTrackTypeDisabled(trackType, true)
+                .build()
+
+            player!!.trackSelectionParameters = parameters
+
+            // Перезапускаем воспроизведение
+            val currentPos = player!!.currentPosition
+            val currentWindow = player!!.currentMediaItemIndex
+            player!!.seekTo(currentWindow, currentPos)
+            player!!.prepare()
+            player!!.play()
         }
-
-        // Отключаем тип трека
-        val parameters = player.trackSelectionParameters
-            .buildUpon()
-            .setTrackTypeDisabled(trackType, true)
-            .build()
-
-        player.trackSelectionParameters = parameters
-
-        player.seekTo(currentWindow, currentPos)
-        player.prepare()
-        player.play()
-
         return true
     }
 
     private fun updateTracksInfo(tracks: Tracks) {
-        // Получаем метаданные (могут быть пустыми, если еще не распарсились)
         val metadata = playerManager.getTrackMetadata()
 
         val (audio, audioIdx) = TrackLogic.extractAudioTracks(tracks, metadata)
@@ -520,64 +512,28 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         _currentSubtitleName.postValue(subtitleOptions[currentSubtitleIndex].name)
 
         _videoQualityOptions.postValue(TrackLogic.extractVideoTracks(tracks))
-        updateAvailableSettings() // Обновляем меню настроек
+        updateAvailableSettings()
     }
 
     // --- Player Controls ---
-    fun seekForward() {
-        playerManager.seekForward()
-        _currentPosition.value = player.currentPosition
-    }
-
-    fun seekBack() {
-        playerManager.seekBack()
-        _currentPosition.value = player.currentPosition
-    }
-
+    fun seekForward() = playerManager.seekForward()
+    fun seekBack() = playerManager.seekBack()
     fun seekTo(pos: Long) {
-        player.seekTo(pos)
+        player?.seekTo(pos)
         _currentPosition.value = pos
     }
-
     fun togglePlayPause() = playerManager.togglePlayPause()
-    fun nextTrack() { if (player.hasNextMediaItem()) player.seekToNextMediaItem() }
-    fun prevTrack() { if (player.hasPreviousMediaItem()) player.seekToPreviousMediaItem() }
+    fun nextTrack() { if (player?.hasNextMediaItem() ?: false) player!!.seekToNextMediaItem() }
+    fun prevTrack() { if (player?.hasPreviousMediaItem() ?: false) player!!.seekToPreviousMediaItem() }
 
     fun loadPlaylist(items: List<MediaItem>, startIndex: Int) {
         _currentPlaylist.value = items
-
-        // Преобразуем наши MediaItem в Media3 MediaItem с метаданными (постер)
-        val exoItems = items.map { item ->
-            val subConfigs = item.subtitles.map { sub ->
-                Media3MediaItem.SubtitleConfiguration.Builder(sub.uri)
-                    .setMimeType(sub.mimeType ?: MimeTypes.APPLICATION_SUBRIP)
-                    .setLanguage("und")
-                    .setLabel(sub.name ?: sub.filename)
-                    .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
-                    .build()
-            }
-
-            val metadata = MediaMetadata.Builder()
-                .setTitle(item.title)
-                .setArtworkUri(item.posterUri)
-                .build()
-
-            Media3MediaItem.Builder()
-                .setUri(item.uri)
-                .setMediaMetadata(metadata)
-                .setSubtitleConfigurations(subConfigs)
-                .build()
+        val startPos = if (items.isNotEmpty() && startIndex in items.indices) {
+            items[startIndex].startPositionMs
+        } else {
+            0L
         }
-
-        // Передаем в PlayerManager уже готовые exoItems, но нам нужно передать и headers для первого элемента
-        // PlayerManager.loadPlaylist ожидает List<MediaItem>, поэтому мы немного изменим логику:
-        // Мы передадим оригинальные items в PlayerManager, а он сам сконвертирует их,
-        // но нам нужно обновить PlayerManager, чтобы он учитывал постеры.
-        // См. обновленный PlayerManager в предыдущем шаге (если вы его не обновили, сделайте это).
-        // В текущей реализации PlayerManager.loadPlaylist принимает List<top.rootu.dddplayer.model.MediaItem>.
-        // Поэтому мы просто вызываем:
-        playerManager.loadPlaylist(items, startIndex)
-
+        playerManager.loadPlaylist(items, startIndex, startPos)
         viewModelScope.launch { repository.cleanupOldSettings() }
     }
 
@@ -619,7 +575,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         val type = StereoRenderer.AnaglyphType.values()[anaTypeOrd]
         _anaglyphType.postValue(type)
 
-        // Загружаем VR параметры
         loadGlobalVrParams()
 
         if (AnaglyphLogic.isCustomType(type)) loadCustomSettingsForCurrentType()
@@ -745,28 +700,25 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     val option = audioOptions[currentAudioIndex]
                     _currentAudioName.value = option.name
 
-                    // Снимаем блокировку (если была ошибка) и выбираем трек
-                    val builder = player.trackSelectionParameters.buildUpon()
-                        .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false) // <-- Разрешаем аудио
-                        .setOverrideForType(
-                            TrackSelectionOverride(
-                                option.group!!.mediaTrackGroup,
-                                option.trackIndex
+                    if (player != null) {
+                        val builder = player!!.trackSelectionParameters.buildUpon()
+                            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
+                            .setOverrideForType(
+                                TrackSelectionOverride(
+                                    option.group!!.mediaTrackGroup,
+                                    option.trackIndex
+                                )
                             )
-                        )
 
-                    player.trackSelectionParameters = builder.build()
+                        player!!.trackSelectionParameters = builder.build()
 
-                    // ХАК: Т.к. имеются проблемы с переключением (возможно из-за проброса звука),
-                    // то принудительно передергиваем позицию на 16мс вперед (чуть меньше чем 60fps для одного кадра)
-                    // Это заставляет плеер сбросить буферы и пересинхронизироваться.
-                    val current = player.currentPosition
-                    player.seekTo(current + 16)
+                        val current = player!!.currentPosition ?: 0
+                        player!!.seekTo(current + 16)
 
-                    // Если плеер был остановлен из-за ошибки, пробуем запустить
-                    if (player.playerError != null) {
-                        player.prepare()
-                        player.play()
+                        if (player!!.playerError != null) {
+                            player!!.prepare()
+                            player!!.play()
+                        }
                     }
                 }
             }
@@ -775,7 +727,26 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     currentSubtitleIndex = (currentSubtitleIndex + direction + subtitleOptions.size) % subtitleOptions.size
                     val option = subtitleOptions[currentSubtitleIndex]
                     _currentSubtitleName.value = option.name
-                    playerManager.selectTrack(option, C.TRACK_TYPE_TEXT)
+
+                    // Используем playerManager для выбора трека (он использует trackSelectionParameters)
+                    // Но так как у нас нет метода selectTrack в новом PlayerManager, реализуем тут
+                    if (player != null) {
+                        val builder = player!!.trackSelectionParameters.buildUpon()
+                        if (option.isOff) {
+                            builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                        } else {
+                            builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                            option.group?.let {
+                                builder.setOverrideForType(
+                                    TrackSelectionOverride(
+                                        it.mediaTrackGroup,
+                                        option.trackIndex
+                                    )
+                                )
+                            }
+                        }
+                        player!!.trackSelectionParameters = builder.build()
+                    }
                 }
             }
             else -> {}
@@ -783,10 +754,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     // --- Helpers ---
-    /**
-     * Возвращает список доступных опций для текущей настройки.
-     * Возвращает null, если для настройки нет дискретного списка (например, ползунок).
-     */
     fun getOptionsForCurrentSetting(): Pair<List<String>, Int>? {
         return when (_currentSettingType.value) {
             SettingType.VIDEO_TYPE -> {
@@ -833,46 +800,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     Pair(list, currentSubtitleIndex)
                 } else null
             }
-            // Для ползунков (Depth, Hue, VR) возвращаем null, лента будет скрыта
             else -> null
         }
-    }
-
-    fun checkSettingsAndRestart() {
-        val currentHash = repository.getHardSettingsSignature()
-
-        if (currentHash != lastSettingsHash) {
-            // Настройки изменились -> Полный рестарт
-            restartPlayer()
-            lastSettingsHash = currentHash
-        } else {
-            // Настройки не менялись -> Мягкое обновление
-            playerManager.applyGlobalSettings()
-        }
-    }
-
-    private fun restartPlayer() {
-        // Сохраняем состояние
-        val currentPos = player.currentPosition
-        val currentWindow = player.currentMediaItemIndex
-        val playWhenReady = player.playWhenReady
-        val playlist = _currentPlaylist.value ?: emptyList()
-
-        // Убиваем старый менеджер
-        playerManager.release()
-
-        // Создаем новый (он считает новые настройки из Repo при инициализации)
-        playerManager = PlayerManager(getApplication(), playerListener)
-
-        // Восстанавливаем состояние
-        if (playlist.isNotEmpty()) {
-            playerManager.loadPlaylist(playlist, currentWindow)
-            playerManager.exoPlayer.seekTo(currentWindow, currentPos)
-            playerManager.exoPlayer.playWhenReady = playWhenReady // Восстанавливаем автоплей или паузу
-        }
-
-        // Уведомляем UI, что нужно перепривязать Surface
-        _playerRecreatedEvent.value = Unit
     }
 
     fun setInputType(inputType: StereoInputType) {
@@ -883,7 +812,18 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun setVideoQuality(option: VideoQualityOption) {
-        playerManager.selectVideoQuality(option)
+        if (player == null) return
+        val builder = player!!.trackSelectionParameters.buildUpon()
+        if (option.isAuto) {
+            builder.setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, false)
+                .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+        } else {
+            builder.setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, false)
+            option.group?.let {
+                builder.setOverrideForType(TrackSelectionOverride(it.mediaTrackGroup, option.trackIndex))
+            }
+        }
+        player!!.trackSelectionParameters = builder.build()
         _currentQualityName.value = option.name
     }
 
@@ -981,9 +921,26 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         _isMatrixValid.value = matrices.isValid
     }
 
+    // --- Hot Restart Logic ---
+
+    fun checkSettingsAndRestart() {
+        val currentHash = repository.getHardSettingsSignature()
+
+        if (currentHash != lastSettingsHash) {
+            restartPlayer()
+            lastSettingsHash = currentHash
+        } else {
+            playerManager.updateTrackSelectionParameters()
+        }
+    }
+
+    fun restartPlayer() {
+        playerManager.initializePlayer()
+    }
+
     override fun onCleared() {
         super.onCleared()
         handler.removeCallbacks(progressUpdater)
-        playerManager.release()
+        playerManager.releasePlayer(saveState = false)
     }
 }

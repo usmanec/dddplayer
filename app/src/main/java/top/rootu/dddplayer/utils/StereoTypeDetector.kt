@@ -1,10 +1,8 @@
 package top.rootu.dddplayer.utils
 
 import android.net.Uri
-import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.Format
-import androidx.media3.common.util.UnstableApi
 import top.rootu.dddplayer.model.StereoInputType
 import java.util.Locale
 import java.util.regex.Pattern
@@ -49,7 +47,6 @@ object StereoTypeDetector {
      * 1. Метаданные контейнера (MKV StereoMode, MP4 SEI)
      * 2. Имя файла (Regex)
      */
-    @OptIn(UnstableApi::class)
     fun detect(format: Format?, uri: Uri?): StereoInputType {
         // 1. Проверка метаданных ExoPlayer (Media3)
         if (format != null && format.stereoMode != Format.NO_VALUE) {

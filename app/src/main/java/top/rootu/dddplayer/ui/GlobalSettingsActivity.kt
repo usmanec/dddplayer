@@ -1,6 +1,7 @@
 package top.rootu.dddplayer.ui
 
 import android.os.Bundle
+import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.Switch
 import android.widget.TextView
@@ -16,8 +17,9 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var repo: SettingsRepository
 
     // UI Elements
-    private lateinit var btnClose: android.widget.ImageButton // Кнопка крестик
-    private lateinit var itemExit: LinearLayout // Пункт выход
+    private lateinit var btnClose: ImageButton
+    private lateinit var itemExit: LinearLayout
+
     private lateinit var itemDecoder: LinearLayout
     private lateinit var textDecoderDesc: TextView
     private lateinit var textDecoderValue: TextView
@@ -25,8 +27,19 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var itemTunneling: LinearLayout
     private lateinit var switchTunneling: Switch
 
-    private lateinit var itemPassthrough: LinearLayout
-    private lateinit var switchPassthrough: Switch
+    private lateinit var itemDv7: LinearLayout
+    private lateinit var switchDv7: Switch
+
+    private lateinit var itemAfr: LinearLayout
+    private lateinit var switchAfr: Switch
+    private lateinit var textAfrDesc: TextView
+
+    private lateinit var itemSkipSilence: LinearLayout
+    private lateinit var switchSkipSilence: Switch
+    private lateinit var textSkipSilenceDesc: TextView
+
+    private lateinit var itemBoost: LinearLayout
+    private lateinit var textBoostValue: TextView
 
     private lateinit var itemAudioLang: LinearLayout
     private lateinit var textAudioLangValue: TextView
@@ -38,9 +51,9 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var itemCalibrateAnaglyph: LinearLayout
 
     // Список популярных языков для перебора (ISO 639-1)
-    // "" = System Default
     private val languages = listOf(
-        "",     // Как в системе
+        SettingsRepository.TRACK_DEFAULT,
+        SettingsRepository.TRACK_DEVICE,
         "en",   // English
         "ru",   // Русский
         "uk",   // Українська
@@ -78,8 +91,19 @@ class GlobalSettingsActivity : AppCompatActivity() {
         itemTunneling = findViewById(R.id.item_tunneling)
         switchTunneling = findViewById(R.id.switch_tunneling)
 
-        itemPassthrough = findViewById(R.id.item_passthrough)
-        switchPassthrough = findViewById(R.id.switch_passthrough)
+        itemDv7 = findViewById(R.id.item_dv7)
+        switchDv7 = findViewById(R.id.switch_dv7)
+
+        itemAfr = findViewById(R.id.item_afr)
+        switchAfr = findViewById(R.id.switch_afr)
+        textAfrDesc = findViewById(R.id.text_afr_desc)
+
+        itemSkipSilence = findViewById(R.id.item_skip_silence)
+        switchSkipSilence = findViewById(R.id.switch_skip_silence)
+        textSkipSilenceDesc = findViewById(R.id.text_skip_silence_desc)
+
+        itemBoost = findViewById(R.id.item_boost)
+        textBoostValue = findViewById(R.id.text_boost_value)
 
         itemAudioLang = findViewById(R.id.item_audio_lang)
         textAudioLangValue = findViewById(R.id.text_audio_lang_value)
@@ -92,7 +116,10 @@ class GlobalSettingsActivity : AppCompatActivity() {
     }
 
     private fun setupLogic() {
-        // 1. Decoder Priority
+        btnClose.setOnClickListener { finish() }
+        itemExit.setOnClickListener { finish() }
+
+        // Decoder
         updateDecoderUI()
         itemDecoder.setOnClickListener {
             val current = repo.getDecoderPriority()
@@ -104,8 +131,9 @@ class GlobalSettingsActivity : AppCompatActivity() {
             repo.setDecoderPriority(next)
             updateDecoderUI()
         }
+        itemDecoder.requestFocus()
 
-        // 2. Tunneling
+        // Tunneling
         switchTunneling.isChecked = repo.isTunnelingEnabled()
         itemTunneling.setOnClickListener {
             val newState = !switchTunneling.isChecked
@@ -113,15 +141,44 @@ class GlobalSettingsActivity : AppCompatActivity() {
             repo.setTunnelingEnabled(newState)
         }
 
-        // 3. Passthrough
-        switchPassthrough.isChecked = repo.isAudioPassthroughEnabled()
-        itemPassthrough.setOnClickListener {
-            val newState = !switchPassthrough.isChecked
-            switchPassthrough.isChecked = newState
-            repo.setAudioPassthroughEnabled(newState)
+        // DV7
+        switchDv7.isChecked = repo.isMapDv7ToHevcEnabled()
+        itemDv7.setOnClickListener {
+            val newState = !switchDv7.isChecked
+            switchDv7.isChecked = newState
+            repo.setMapDv7ToHevcEnabled(newState)
         }
 
-        // 4. Audio Language
+        // AFR
+        switchAfr.isChecked = repo.isFrameRateMatchingEnabled()
+        updateAfrDesc(switchAfr.isChecked)
+        itemAfr.setOnClickListener {
+            val newState = !switchAfr.isChecked
+            switchAfr.isChecked = newState
+            repo.setFrameRateMatchingEnabled(newState)
+            updateAfrDesc(newState)
+        }
+
+        // Skip Silence
+        switchSkipSilence.isChecked = repo.isSkipSilenceEnabled()
+        updateSkipSilenceDesc(switchSkipSilence.isChecked)
+        itemSkipSilence.setOnClickListener {
+            val newState = !switchSkipSilence.isChecked
+            switchSkipSilence.isChecked = newState
+            repo.setSkipSilenceEnabled(newState)
+            updateSkipSilenceDesc(newState)
+        }
+
+        // Boost
+        updateBoostUI()
+        itemBoost.setOnClickListener {
+            val current = repo.getLoudnessBoost()
+            val next = if (current >= 1000) 0 else current + 200
+            repo.setLoudnessBoost(next)
+            updateBoostUI()
+        }
+
+        // Languages
         updateLangUI(textAudioLangValue, repo.getPreferredAudioLang())
         itemAudioLang.setOnClickListener {
             val current = repo.getPreferredAudioLang()
@@ -130,7 +187,6 @@ class GlobalSettingsActivity : AppCompatActivity() {
             updateLangUI(textAudioLangValue, next)
         }
 
-        // 5. Subtitle Language
         updateLangUI(textSubLangValue, repo.getPreferredSubLang())
         itemSubLang.setOnClickListener {
             val current = repo.getPreferredSubLang()
@@ -139,7 +195,7 @@ class GlobalSettingsActivity : AppCompatActivity() {
             updateLangUI(textSubLangValue, next)
         }
 
-        // 6. Calibration Stubs
+        // Calibration
         itemCalibrateVr.setOnClickListener {
             Toast.makeText(this, "Мастер настройки VR: Скоро будет", Toast.LENGTH_SHORT).show()
         }
@@ -148,13 +204,12 @@ class GlobalSettingsActivity : AppCompatActivity() {
             Toast.makeText(this, "Мастер настройки Анаглифа: Скоро будет", Toast.LENGTH_SHORT).show()
         }
 
-        // 7. Exit Actions
-        btnClose.setOnClickListener {
-            finish()
-        }
-
-        itemExit.setOnClickListener {
-            finish()
+        var crashCounter = 0
+        findViewById<TextView>(R.id.settings_header).setOnClickListener {
+            crashCounter++
+            if (crashCounter >= 5) {
+                throw RuntimeException("Test Crash: This is a simulated exception!")
+            }
         }
     }
 
@@ -163,16 +218,33 @@ class GlobalSettingsActivity : AppCompatActivity() {
         when (mode) {
             DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF -> {
                 textDecoderValue.text = "Только HW"
-                textDecoderDesc.text = "Только аппаратные декодеры\n(Макс. производительность)"
+                textDecoderDesc.setText(R.string.pref_decoder_priority_only_device)
             }
             DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON -> {
-                textDecoderValue.text = "HW + SW"
-                textDecoderDesc.text = "Аппаратные, программные при ошибке\n(Рекомендуется)"
+                textDecoderValue.text = "HW  +  SW "
+                textDecoderDesc.setText(R.string.pref_decoder_priority_prefer_device)
             }
             DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER -> {
-                textDecoderValue.text = "SW (FFmpeg)"
-                textDecoderDesc.text = "Предпочитать программные\n(Исправляет проблемы воспроизведения аудио, нагружает CPU)"
+                textDecoderValue.text = "SW  +  HW"
+                textDecoderDesc.setText(R.string.pref_decoder_priority_prefer_app)
             }
+        }
+    }
+
+    private fun updateAfrDesc(enabled: Boolean) {
+        textAfrDesc.setText(if (enabled) R.string.pref_framerate_matching_on else R.string.pref_framerate_matching_off)
+    }
+
+    private fun updateSkipSilenceDesc(enabled: Boolean) {
+        textSkipSilenceDesc.setText(if (enabled) R.string.pref_skip_silence_on else R.string.pref_skip_silence_off)
+    }
+
+    private fun updateBoostUI() {
+        val boost = repo.getLoudnessBoost()
+        if (boost == 0) {
+            textBoostValue.text = "Выкл"
+        } else {
+            textBoostValue.text = "+${boost / 100} dB"
         }
     }
 
@@ -183,12 +255,16 @@ class GlobalSettingsActivity : AppCompatActivity() {
     }
 
     private fun updateLangUI(textView: TextView, langCode: String) {
-        if (langCode.isEmpty()) {
-            textView.text = "Как в системе"
-        } else {
-            val loc = Locale(langCode)
-            val name = loc.displayLanguage.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
-            textView.text = "$name ($langCode)"
+        when (langCode) {
+            SettingsRepository.TRACK_DEVICE -> textView.text = getString(R.string.pref_language_track_device)
+            SettingsRepository.TRACK_DEFAULT -> textView.text = getString(R.string.pref_language_track_default)
+            else -> {
+                val loc = Locale(langCode)
+                val name = loc.displayLanguage.replaceFirstChar {
+                    if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+                }
+                textView.text = "$name ($langCode)"
+            }
         }
     }
 }

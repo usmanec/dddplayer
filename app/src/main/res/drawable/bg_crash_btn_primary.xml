@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- В ФОКУСЕ: Светлее + Белая рамка -->
+    <item android:state_focused="true">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/control_state_focused"/>
+            <stroke android:width="2dp" android:color="@color/white"/>
+            <corners android:radius="4dp"/>
+        </shape>
+    </item>
+    <!-- НАЖАТА: Темнее -->
+    <item android:state_pressed="true">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/control_state_pressed"/>
+            <corners android:radius="4dp"/>
+        </shape>
+    </item>
+    <!-- ОБЫЧНАЯ: Акцентный цвет -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/control_accent_focus"/>
+            <corners android:radius="4dp"/>
+        </shape>
+    </item>
+</selector>

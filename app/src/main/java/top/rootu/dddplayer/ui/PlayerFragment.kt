@@ -15,23 +15,19 @@ import androidx.activity.OnBackPressedCallback
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
-import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.ExoPlayer
 import top.rootu.dddplayer.BuildConfig
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.model.StereoInputType
 import top.rootu.dddplayer.renderer.OnFpsUpdatedListener
 import top.rootu.dddplayer.renderer.OnSurfaceReadyListener
-import top.rootu.dddplayer.renderer.StereoGLSurfaceView
 import top.rootu.dddplayer.renderer.StereoRenderer
 import top.rootu.dddplayer.ui.controller.PlayerInputHandler
 import top.rootu.dddplayer.ui.controller.PlayerTimerController
 import top.rootu.dddplayer.ui.controller.PlayerUiController
 import top.rootu.dddplayer.viewmodel.PlayerViewModel
 import top.rootu.dddplayer.viewmodel.SettingType
-import java.util.Calendar
-import java.util.Locale
 
-@UnstableApi
 class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener {
 
     private val viewModel: PlayerViewModel by activityViewModels()
@@ -88,19 +84,22 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         setupBackPressedHandler()
         timerController.startClock()
 
-        // Подписываемся на событие рестарта
-        viewModel.playerRecreatedEvent.observe(viewLifecycleOwner) {
-            // Плеер заменили. Нужно заново привязать к нему Surface.
-            if (viewModel.inputType.value != StereoInputType.NONE) {
-                // Если 3D режим -> привязываем GL Surface
-                // (glSurface мы сохранили в onSurfaceReady)
-                if (glSurface != null) {
-                    viewModel.player.setVideoSurface(glSurface)
-                }
-            } else {
-                // Если 2D режим -> привязываем обычный SurfaceView
-                viewModel.player.setVideoSurfaceView(ui.standardSurfaceView)
+        // Подписываемся на событие пересоздания плеера
+        viewModel.playerRecreatedEvent.observe(viewLifecycleOwner) { newPlayer ->
+            // Плеер обновился. Нужно привязать Surface.
+            attachSurfaceToPlayer(newPlayer)
+        }
+    }
+
+    private fun attachSurfaceToPlayer(player: ExoPlayer) {
+        if (viewModel.inputType.value != StereoInputType.NONE) {
+            // 3D режим -> GL Surface
+            if (glSurface != null) {
+                player.setVideoSurface(glSurface)
             }
+        } else {
+            // 2D режим -> Standard SurfaceView
+            player.setVideoSurfaceView(ui.standardSurfaceView)
         }
     }
 
@@ -251,10 +250,11 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         }
         viewModel.videoTitle.observe(viewLifecycleOwner) { title ->
             ui.videoTitleTextView.text = title
+            val p = viewModel.player ?: return@observe
             // Обновляем постер из метаданных плеера
-            val posterUri = viewModel.player.mediaMetadata.artworkUri
-            val index = viewModel.player.currentMediaItemIndex
-            val size = viewModel.player.mediaItemCount // Или viewModel.playlistSize.value
+            val posterUri = p.mediaMetadata.artworkUri
+            val index = p.currentMediaItemIndex
+            val size = p.mediaItemCount
 
             ui.loadPoster(posterUri, index, size)
         }
@@ -270,7 +270,8 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
 
         viewModel.videoResolution.observe(viewLifecycleOwner) { ui.badgeResolution.text = it }
         viewModel.videoAspectRatio.observe(viewLifecycleOwner) { ui.setAspectRatio(it) }
-        viewModel.currentAudioName.observe(viewLifecycleOwner) { ui.badgeAudio.text = it }
+        viewModel.currentAudioName.observe(viewLifecycleOwner) { updateAudioBadge() }
+        viewModel.audioOutputInfo.observe(viewLifecycleOwner) { updateAudioBadge() }
         viewModel.currentSubtitleName.observe(viewLifecycleOwner) { ui.badgeSubtitle.text = it }
 
         viewModel.isBuffering.observe(viewLifecycleOwner) { isBuffering ->
@@ -295,10 +296,10 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
             if (isStereo) {
                 ui.glSurfaceView.onResume()
                 stereoRenderer?.setInputType(type)
-                if (glSurface != null) viewModel.player.setVideoSurface(glSurface)
+                if (glSurface != null) viewModel.player?.setVideoSurface(glSurface)
             } else {
                 ui.glSurfaceView.onPause()
-                viewModel.player.setVideoSurfaceView(ui.standardSurfaceView)
+                viewModel.player?.setVideoSurfaceView(ui.standardSurfaceView)
             }
             ui.updateStereoLayout(viewModel.outputMode.value, viewModel.screenSeparation.value ?: 0f)
             ui.updateInputModeIcon(type, viewModel.swapEyes.value ?: false)
@@ -430,6 +431,14 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         ui.updateSettingsOptions(optionsData)
     }
 
+    private fun updateAudioBadge() {
+        val res = viewModel.currentAudioName.value ?: ""
+        val audioOut = viewModel.audioOutputInfo.value ?: ""
+
+        val text = if (audioOut.isNotEmpty()) "$res > $audioOut" else res
+        ui.badgeAudio.text = text
+    }
+
     private fun getGlassesGroupName(type: StereoRenderer.AnaglyphType): String {
         return when {
             type.name.startsWith("RC_") -> "Red - Cyan"
@@ -452,10 +461,10 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
 
         ui.showPlaylistDialog(
             items = playlist,
-            currentIndex = viewModel.player.currentMediaItemIndex,
+            currentIndex = viewModel.player?.currentMediaItemIndex ?: 0,
             onItemSelected = { index ->
                 viewModel.seekTo(0)
-                viewModel.player.seekToDefaultPosition(index)
+                viewModel.player?.seekToDefaultPosition(index)
             },
             onDismiss = {
                 timerController.resetControlsTimer()
@@ -496,8 +505,11 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
 
     override fun onSurfaceReady(surface: Surface) {
         this.glSurface = surface
-        if (viewModel.inputType.value != StereoInputType.NONE) {
-            activity?.runOnUiThread { viewModel.player.setVideoSurface(surface) }
+        // Если плеер уже есть, привязываем
+        viewModel.player?.let {
+            if (viewModel.inputType.value != StereoInputType.NONE) {
+                activity?.runOnUiThread { it.setVideoSurface(surface) }
+            }
         }
     }
 
@@ -511,7 +523,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         // Проверяем, нужно ли перезапустить плеер из-за смены настроек
         viewModel.checkSettingsAndRestart()
 
-        viewModel.player.playWhenReady = true
+        viewModel.player?.playWhenReady = true
         if (viewModel.inputType.value != StereoInputType.NONE) {
             ui.glSurfaceView.onResume()
         }
@@ -519,13 +531,13 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
 
     override fun onPause() {
         super.onPause()
-        viewModel.player.playWhenReady = false
+        viewModel.player?.playWhenReady = false
         ui.glSurfaceView.onPause()
     }
 
     override fun onDestroyView() {
         // Сначала отвязываем поверхность от плеера
-        viewModel.player.setVideoSurface(null)
+        viewModel.player?.setVideoSurface(null)
 
         // Останавливаем таймеры
         timerController.cleanup()

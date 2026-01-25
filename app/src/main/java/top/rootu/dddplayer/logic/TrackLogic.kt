@@ -2,12 +2,10 @@ package top.rootu.dddplayer.logic
 
 import android.content.Context
 import android.util.Log
-import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.Tracks
-import androidx.media3.common.util.UnstableApi
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.viewmodel.TrackOption
 import top.rootu.dddplayer.viewmodel.VideoQualityOption
@@ -15,7 +13,6 @@ import java.util.Locale
 
 object TrackLogic {
 
-    @OptIn(UnstableApi::class)
     fun extractVideoTracks(tracks: Tracks): List<VideoQualityOption> {
         val options = mutableListOf<VideoQualityOption>()
         for (group in tracks.groups) {
@@ -166,7 +163,6 @@ object TrackLogic {
         }
     }
 
-    @OptIn(UnstableApi::class)
     private fun getTechInfo(format: Format): String {
         val mime = format.sampleMimeType ?: return ""
 

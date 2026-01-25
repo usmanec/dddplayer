@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/black"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="32dp">
+
+    <ImageView
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:src="@drawable/ic_error_outline"
+        android:tint="@color/error_red" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text="Ой, что-то пошло не так!"
+        android:textColor="@color/tv_white"
+        android:textSize="24sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:gravity="center"
+        android:text="Произошла непредвиденная ошибка.\nЕсли ошибка повторяется, пришлите нам её лог."
+        android:textColor="@color/text_secondary"
+        android:textSize="16sp" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="48dp"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btRestartApp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_crash_btn_primary"
+            android:text="Перезапустить"
+            android:textColor="@color/selector_settings_primary"
+            android:padding="16dp"
+            android:focusable="true"
+            android:nextFocusRight="@+id/btShowErrorLogs" />
+
+        <Button
+            android:id="@+id/btShowErrorLogs"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:background="@drawable/bg_crash_btn_secondary"
+            android:text="Показать лог"
+            android:textColor="@color/selector_settings_secondary"
+            android:padding="16dp"
+            android:focusable="true"
+            android:nextFocusLeft="@+id/btRestartApp" />
+    </LinearLayout>
+
+</LinearLayout>

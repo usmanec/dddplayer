@@ -8,13 +8,13 @@ import android.os.Bundle
 import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.viewModels
-import androidx.annotation.OptIn
 import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.media3.common.util.UnstableApi
+import top.rootu.dddplayer.BuildConfig
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.utils.IntentUtils
 import top.rootu.dddplayer.viewmodel.PlayerViewModel
@@ -27,12 +27,11 @@ class PlayerActivity : FragmentActivity() {
     private var shouldReturnResult = false
     private var isCompleted = false
 
-    @OptIn(UnstableApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         // Проверяем, как запущено приложение
-        if (isLaunchedFromLauncher(intent)) {
+        if (!BuildConfig.DEBUG && isLaunchedFromLauncher(intent)) {
             // Запуск из лаунчера -> Идем в настройки
             val settingsIntent = Intent(this, GlobalSettingsActivity::class.java)
             startActivity(settingsIntent)
@@ -112,14 +111,15 @@ class PlayerActivity : FragmentActivity() {
         if (playlist.isNotEmpty()) {
             viewModel.loadPlaylist(playlist, startIndex)
         } else {
-            // Дефолтное видео для теста
-//            val defaultUri = "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-//            val defaultUri = "http://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8"
-            val defaultUri = "http://epg.rootu.top/tmp/3D/bbb_sunflower_1080p_30fps_stereo_abl.mp4"
-            viewModel.loadPlaylist(
-                listOf(top.rootu.dddplayer.model.MediaItem(defaultUri.toUri())),
-                0
-            )
+            // Дефолтное видео для теста (сейчас по умолчанию загружаются глобальные настройки)
+            if (BuildConfig.DEBUG) {
+                val defaultUri = "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+//                val defaultUri = "http://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8"
+                viewModel.loadPlaylist(
+                    listOf(top.rootu.dddplayer.model.MediaItem(defaultUri.toUri())),
+                    0
+                )
+            }
         }
     }
 
@@ -159,10 +159,10 @@ class PlayerActivity : FragmentActivity() {
             val resultIntent = Intent("top.rootu.dddplayer.intent.result.VIEW")
 
             // Возвращаем URI текущего видео (полезно, если это был плейлист)
-            resultIntent.data = viewModel.player.currentMediaItem?.localConfiguration?.uri
+            resultIntent.data = viewModel.player?.currentMediaItem?.localConfiguration?.uri
 
-            val duration = viewModel.player.duration
-            val position = if (isCompleted) duration else viewModel.player.currentPosition
+            val duration = viewModel.player?.duration
+            val position = if (isCompleted) duration else viewModel.player?.currentPosition
 
             resultIntent.putExtra("position", position)
             resultIntent.putExtra("duration", duration)

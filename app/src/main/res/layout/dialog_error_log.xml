@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_scrim_overlay"
+    android:orientation="horizontal"
+    android:padding="32dp"
+    android:weightSum="2">
+
+    <!-- Левая часть: Лог -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1.2"
+        android:orientation="vertical"
+        android:background="@drawable/bg_player_panel"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Лог ошибки"
+            android:textColor="@color/tv_white"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp"/>
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_error_details"
+            android:padding="8dp"
+            android:focusable="true"
+            android:nextFocusRight="@+id/btnUpload">
+
+            <TextView
+                android:id="@+id/tvErrorLogs"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:textIsSelectable="false" />
+        </ScrollView>
+    </LinearLayout>
+
+    <!-- Правая часть: Действия и QR -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="0.8"
+        android:layout_marginStart="24dp"
+        android:orientation="vertical"
+        android:gravity="center_horizontal">
+
+        <Button
+            android:id="@+id/btnClose"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Закрыть"
+            android:background="@drawable/bg_crash_btn_secondary"
+            android:textColor="@color/selector_settings_secondary"
+            android:padding="16dp"
+            android:focusable="true"
+            android:nextFocusDown="@+id/btnUpload"/>
+
+        <Button
+            android:id="@+id/btnUpload"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Загрузить лог (Termbin)"
+            android:background="@drawable/bg_crash_btn_primary"
+            android:textColor="@color/selector_settings_primary"
+            android:padding="16dp"
+            android:focusable="true"
+            android:nextFocusUp="@+id/btnClose"/>
+
+        <ProgressBar
+            android:id="@+id/uploadProgress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:visibility="gone"/>
+
+        <TextView
+            android:id="@+id/urlText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:textColor="@color/tv_white"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            android:textIsSelectable="true"/>
+
+        <ImageView
+            android:id="@+id/qrImage"
+            android:layout_width="200dp"
+            android:layout_height="200dp"
+            android:layout_marginTop="16dp"
+            android:visibility="gone"
+            android:background="@color/white"
+            android:padding="8dp"/>
+
+    </LinearLayout>
+
+</LinearLayout>

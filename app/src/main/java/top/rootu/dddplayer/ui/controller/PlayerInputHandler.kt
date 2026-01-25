@@ -194,7 +194,7 @@ class PlayerInputHandler(
         pendingSeekPosition = target
 
         // Считаем общую дельту от реальной позиции плеера (для оверлея)
-        val realPos = viewModel.player.currentPosition
+        val realPos = viewModel.player!!.currentPosition
         pendingSeekDelta = target - realPos
 
         // Обновляем UI (но не плеер!)

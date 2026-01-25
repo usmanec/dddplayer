@@ -2,6 +2,7 @@ package top.rootu.dddplayer.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import top.rootu.dddplayer.model.StereoOutputMode
 import top.rootu.dddplayer.renderer.StereoRenderer
 
@@ -9,6 +10,11 @@ class SettingsRepository(context: Context) {
     private val db = AppDatabase.getDatabase(context)
     private val prefs: SharedPreferences =
         context.getSharedPreferences("global_prefs", Context.MODE_PRIVATE)
+
+    companion object {
+        const val TRACK_DEFAULT = ""
+        const val TRACK_DEVICE = "device"
+    }
 
     suspend fun getVideoSettings(uri: String): VideoSettings? {
         return db.videoSettingsDao().getSettings(uri)
@@ -22,29 +28,36 @@ class SettingsRepository(context: Context) {
         db.videoSettingsDao().deleteOldSettings(System.currentTimeMillis() - 2592000000L)
     }
 
-    // Global Player Preferences
-    fun getDecoderPriority(): Int = prefs.getInt("decoder_priority", 1) // 1 = EXTENSION_RENDERER_MODE_ON
+    // --- Global Player Preferences ---
+    fun getDecoderPriority(): Int = prefs.getInt("decoder_priority", DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
     fun setDecoderPriority(mode: Int) = prefs.edit().putInt("decoder_priority", mode).apply()
 
-    fun isTunnelingEnabled(): Boolean = prefs.getBoolean("tunneling_enabled", true)
+    fun isTunnelingEnabled(): Boolean = prefs.getBoolean("tunneling_enabled", false)
     fun setTunnelingEnabled(enabled: Boolean) = prefs.edit().putBoolean("tunneling_enabled", enabled).apply()
 
-    fun isAudioPassthroughEnabled(): Boolean = prefs.getBoolean("audio_passthrough", false) // По умолчанию выкл, т.к. может ломать громкость
-    fun setAudioPassthroughEnabled(enabled: Boolean) = prefs.edit().putBoolean("audio_passthrough", enabled).apply()
+    fun isMapDv7ToHevcEnabled(): Boolean = prefs.getBoolean("map_dv7_to_hevc", false)
+    fun setMapDv7ToHevcEnabled(enabled: Boolean) = prefs.edit().putBoolean("map_dv7_to_hevc", enabled).apply()
 
-    fun getPreferredAudioLang(): String = prefs.getString("pref_audio_lang", "") ?: "" // "" = System Default
+    fun isFrameRateMatchingEnabled(): Boolean = prefs.getBoolean("frame_rate_matching", false)
+    fun setFrameRateMatchingEnabled(enabled: Boolean) = prefs.edit().putBoolean("frame_rate_matching", enabled).apply()
+
+    fun isSkipSilenceEnabled(): Boolean = prefs.getBoolean("skip_silence", false)
+    fun setSkipSilenceEnabled(enabled: Boolean) = prefs.edit().putBoolean("skip_silence", enabled).apply()
+    fun getPreferredAudioLang(): String = prefs.getString("pref_audio_lang", TRACK_DEFAULT) ?: TRACK_DEFAULT
     fun setPreferredAudioLang(lang: String) = prefs.edit().putString("pref_audio_lang", lang).apply()
 
-    fun getPreferredSubLang(): String = prefs.getString("pref_sub_lang", "") ?: ""
+    fun getPreferredSubLang(): String = prefs.getString("pref_sub_lang", TRACK_DEFAULT) ?: TRACK_DEFAULT
     fun setPreferredSubLang(lang: String) = prefs.edit().putString("pref_sub_lang", lang).apply()
-    /**
-     * Возвращает строку, зависящую от настроек, требующих пересоздания плеера
-     */
+
+    fun getLoudnessBoost(): Int = prefs.getInt("loudness_boost", 0)
+    fun setLoudnessBoost(boost: Int) = prefs.edit().putInt("loudness_boost", boost).apply()
+
+    // Сигнатура настроек, требующих полного перезапуска плеера
     fun getHardSettingsSignature(): String {
-        return "${getDecoderPriority()}_${isAudioPassthroughEnabled()}"
+        return return "${getDecoderPriority()}_${isTunnelingEnabled()}_${isMapDv7ToHevcEnabled()}"
     }
 
-    // Global Preferences Helpers
+    // --- Global Preferences Helpers ---
     fun getGlobalFloat(key: String, def: Float) = prefs.getFloat(key, def)
     fun putGlobalFloat(key: String, value: Float) = prefs.edit().putFloat(key, value).apply()
 

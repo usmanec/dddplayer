@@ -13,7 +13,7 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="48dp"
         android:layout_marginTop="32dp"
-        android:text="Настройки"
+        android:text="@string/pref_title"
         android:textColor="@color/tv_white"
         android:textSize="32sp"
         android:textStyle="bold"
@@ -25,7 +25,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:text="Глобальные параметры плеера"
+        android:text="@string/pref_title_desc"
         android:textColor="@color/text_secondary"
         android:textSize="16sp"
         app:layout_constraintStart_toStartOf="@id/settings_header"
@@ -39,15 +39,17 @@
         android:layout_marginTop="32dp"
         android:layout_marginEnd="48dp"
         android:background="@drawable/bg_selector_menu_item"
-        android:src="@drawable/ic_close"
-        android:padding="12dp"
-        android:focusable="true"
         android:clickable="true"
-        android:nextFocusDown="@id/item_decoder"
+        android:contentDescription="@string/close_settings"
+        android:focusable="false"
         android:nextFocusLeft="@id/item_decoder"
-        app:tint="@color/selector_settings_primary"
+        android:nextFocusDown="@id/item_decoder"
+        android:padding="12dp"
+        android:src="@drawable/ic_close"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:tint="@color/selector_settings_primary"
+        tools:ignore="KeyboardInaccessibleWidget" />
 
     <!-- Контейнер настроек -->
     <ScrollView
@@ -70,7 +72,7 @@
             <!-- СЕКЦИЯ: ВОСПРОИЗВЕДЕНИЕ -->
             <TextView
                 style="@style/SettingsSectionHeader"
-                android:text="Воспроизведение" />
+                android:text="@string/pref_general_header" />
 
             <!-- Декодер -->
             <LinearLayout
@@ -86,12 +88,17 @@
 
                     <TextView
                         style="@style/SettingsItemTitle"
-                        android:text="Приоритет декодера" />
+                        android:text="@string/pref_decoder_priority" />
 
                     <TextView
                         android:id="@+id/text_decoder_desc"
                         style="@style/SettingsItemDesc"
-                        tools:text="Аппаратный + Программный (Совместимость)" />
+                        tools:text="HW+SW" />
+                    <TextView
+                        android:id="@+id/text_decoder_sw_desc"
+                        style="@style/SettingsItemDesc"
+                        android:text="@string/settings_decoder_sw_desc"
+                        tools:text="HW+SW" />
                 </LinearLayout>
 
                 <TextView
@@ -100,25 +107,9 @@
                     tools:text="HW+SW" />
             </LinearLayout>
 
-            <!-- Туннелирование -->
+            <!-- Tunneling -->
             <LinearLayout
                 android:id="@+id/item_tunneling"
-                style="@style/SettingsItemContainer">
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:duplicateParentState="true"
-                    android:orientation="vertical">
-                    <TextView style="@style/SettingsItemTitle" android:text="Туннелирование (Tunneling)" />
-                    <TextView style="@style/SettingsItemDesc" android:text="Включает аппаратную синхронизацию. Необходимо для 4K/HDR/Dolby Vision на TV." />
-                </LinearLayout>
-                <Switch android:id="@+id/switch_tunneling" android:layout_width="wrap_content" android:layout_height="wrap_content" android:focusable="false" android:clickable="false" />
-            </LinearLayout>
-
-            <!-- Passthrough -->
-            <LinearLayout
-                android:id="@+id/item_passthrough"
                 style="@style/SettingsItemContainer">
 
                 <LinearLayout
@@ -130,64 +121,208 @@
 
                     <TextView
                         style="@style/SettingsItemTitle"
-                        android:text="Audio Passthrough" />
+                        android:text="@string/pref_tunneling" />
 
                     <TextView
                         style="@style/SettingsItemDesc"
-                        android:text="Передавать звук (AC3, DTS) на ресивер без обработки" />
+                        android:text="@string/pref_tunneling_summary" />
                 </LinearLayout>
 
                 <Switch
-                    android:id="@+id/switch_passthrough"
+                    android:id="@+id/switch_tunneling"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:clickable="false"
                     android:focusable="false"
-                    android:clickable="false" />
+                    tools:ignore="UseSwitchCompatOrMaterialXml" />
             </LinearLayout>
 
-            <!-- СЕКЦИЯ: ЯЗЫК (НОВОЕ) -->
-            <TextView
-                style="@style/SettingsSectionHeader"
-                android:layout_marginTop="24dp"
-                android:text="Язык и Субтитры" />
-
-            <!-- Аудио язык -->
+            <!-- DV7 -->
             <LinearLayout
-                android:id="@+id/item_audio_lang"
+                android:id="@+id/item_dv7"
+                android:visibility="gone"
                 style="@style/SettingsItemContainer">
+
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:duplicateParentState="true"
                     android:orientation="vertical">
-                    <TextView style="@style/SettingsItemTitle" android:text="Язык аудио по умолчанию" />
-                    <TextView style="@style/SettingsItemDesc" android:text="Предпочитаемая дорожка при старте видео" />
+
+                    <TextView
+                        style="@style/SettingsItemTitle"
+                        android:text="@string/pref_map_dv7" />
+
+                    <TextView
+                        style="@style/SettingsItemDesc"
+                        android:text="@string/pref_map_dv7_on" />
                 </LinearLayout>
-                <TextView android:id="@+id/text_audio_lang_value" style="@style/SettingsItemValue" tools:text="Русский" />
+
+                <Switch
+                    android:id="@+id/switch_dv7"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:focusable="false"
+                    tools:ignore="UseSwitchCompatOrMaterialXml" />
+            </LinearLayout>
+
+            <!-- AFR -->
+            <LinearLayout
+                android:id="@+id/item_afr"
+                style="@style/SettingsItemContainer"
+                android:visibility="gone"
+                tools:visibility="visible">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:duplicateParentState="true"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/SettingsItemTitle"
+                        android:text="@string/pref_framerate_matching" />
+
+                    <TextView
+                        android:id="@+id/text_afr_desc"
+                        style="@style/SettingsItemDesc"
+                        tools:text="@string/pref_framerate_matching_off" />
+                </LinearLayout>
+
+                <Switch
+                    android:id="@+id/switch_afr"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:focusable="false"
+                    tools:ignore="UseSwitchCompatOrMaterialXml" />
+            </LinearLayout>
+
+            <!-- Skip Silence -->
+            <LinearLayout
+                android:id="@+id/item_skip_silence"
+                style="@style/SettingsItemContainer">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:duplicateParentState="true"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/SettingsItemTitle"
+                        android:text="@string/pref_skip_silence" />
+
+                    <TextView
+                        android:id="@+id/text_skip_silence_desc"
+                        style="@style/SettingsItemDesc"
+                        tools:text="@string/pref_skip_silence_off" />
+                </LinearLayout>
+
+                <Switch
+                    android:id="@+id/switch_skip_silence"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:focusable="false"
+                    tools:ignore="UseSwitchCompatOrMaterialXml" />
+            </LinearLayout>
+
+            <!-- Boost -->
+            <LinearLayout
+                android:id="@+id/item_boost"
+                style="@style/SettingsItemContainer">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:duplicateParentState="true"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/SettingsItemTitle"
+                        android:text="@string/settings_audio_boost" />
+
+                    <TextView
+                        style="@style/SettingsItemDesc"
+                        android:text="@string/settings_audio_boost_desc" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/text_boost_value"
+                    style="@style/SettingsItemValue"
+                    tools:text="Выкл" />
+            </LinearLayout>
+
+            <TextView
+                style="@style/SettingsSectionHeader"
+                android:layout_marginTop="24dp"
+                android:text="@string/settings_sec_lang_and_sub" />
+
+            <!-- Аудио язык -->
+            <LinearLayout
+                android:id="@+id/item_audio_lang"
+                style="@style/SettingsItemContainer">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:duplicateParentState="true"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/SettingsItemTitle"
+                        android:text="@string/pref_language_audio" />
+
+                    <TextView
+                        style="@style/SettingsItemDesc"
+                        android:text="@string/pref_language_audio_desc" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/text_audio_lang_value"
+                    style="@style/SettingsItemValue"
+                    tools:text="Русский" />
             </LinearLayout>
 
             <!-- Субтитры язык -->
             <LinearLayout
                 android:id="@+id/item_sub_lang"
                 style="@style/SettingsItemContainer">
+
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:duplicateParentState="true"
                     android:orientation="vertical">
-                    <TextView style="@style/SettingsItemTitle" android:text="Язык субтитров по умолчанию" />
-                    <TextView style="@style/SettingsItemDesc" android:text="Предпочитаемые субтитры (если есть)" />
+
+                    <TextView
+                        style="@style/SettingsItemTitle"
+                        android:text="@string/sttings_sub_default" />
+
+                    <TextView
+                        style="@style/SettingsItemDesc"
+                        android:text="@string/settings_sub_default_desc" />
                 </LinearLayout>
-                <TextView android:id="@+id/text_sub_lang_value" style="@style/SettingsItemValue" tools:text="Английский" />
+
+                <TextView
+                    android:id="@+id/text_sub_lang_value"
+                    style="@style/SettingsItemValue"
+                    tools:text="Английский" />
             </LinearLayout>
 
             <!-- СЕКЦИЯ: КАЛИБРОВКА -->
             <TextView
                 style="@style/SettingsSectionHeader"
                 android:layout_marginTop="24dp"
-                android:text="Калибровка 3D" />
+                android:text="@string/settings_calibration_3d" />
 
             <!-- Пункт: VR -->
             <LinearLayout
@@ -203,16 +338,17 @@
 
                     <TextView
                         style="@style/SettingsItemTitle"
-                        android:text="Настройка Cardboard VR" />
+                        android:text="@string/settings_cardboard_vr" />
 
                     <TextView
                         style="@style/SettingsItemDesc"
-                        android:text="Мастер настройки линз, масштаба и IPD" />
+                        android:text="@string/settings_cardboard_vr_desc" />
                 </LinearLayout>
 
                 <ImageView
                     android:layout_width="24dp"
                     android:layout_height="24dp"
+                    android:contentDescription="@string/settings_cardboard_vr"
                     android:src="@drawable/ic_arrow_right"
                     android:duplicateParentState="true"
                     app:tint="@color/selector_settings_secondary" />
@@ -232,16 +368,17 @@
 
                     <TextView
                         style="@style/SettingsItemTitle"
-                        android:text="Настройка Анаглифа" />
+                        android:text="@string/settings_anaglyph" />
 
                     <TextView
                         style="@style/SettingsItemDesc"
-                        android:text="Определение типа очков и цветокоррекция" />
+                        android:text="@string/settings_anaglyph_desc" />
                 </LinearLayout>
 
                 <ImageView
                     android:layout_width="24dp"
                     android:layout_height="24dp"
+                    android:contentDescription="@string/settings_anaglyph_desc"
                     android:src="@drawable/ic_arrow_right"
                     android:duplicateParentState="true"
                     app:tint="@color/selector_settings_secondary" />
@@ -251,7 +388,7 @@
             <TextView
                 style="@style/SettingsSectionHeader"
                 android:layout_marginTop="24dp"
-                android:text="Приложение" />
+                android:text="@string/settings_sec_app" />
 
             <!-- Пункт: Выход -->
             <LinearLayout
@@ -267,16 +404,17 @@
 
                     <TextView
                         style="@style/SettingsItemTitle"
-                        android:text="Выход" />
+                        android:text="@string/exit" />
 
                     <TextView
                         style="@style/SettingsItemDesc"
-                        android:text="Закрыть настройки" />
+                        android:text="@string/close_settings" />
                 </LinearLayout>
 
                 <ImageView
                     android:layout_width="24dp"
                     android:layout_height="24dp"
+                    android:contentDescription="@string/close_settings"
                     android:src="@drawable/ic_exit"
                     android:duplicateParentState="true"
                     app:tint="@color/selector_settings_secondary" />
@@ -284,5 +422,4 @@
 
         </LinearLayout>
     </ScrollView>
-
 </androidx.constraintlayout.widget.ConstraintLayout>
