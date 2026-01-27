@@ -204,6 +204,24 @@
             android:padding="8dp"
             android:nextFocusUp="@id/seek_bar"/>
 
+        <ImageButton
+            android:id="@+id/button_audio"
+            style="@style/PlayerSecondaryControlButton"
+            android:src="@drawable/ic_audio_track"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            app:tint="@color/tv_white"
+            android:padding="8dp"
+            android:nextFocusUp="@id/seek_bar"/>
+
+        <ImageButton
+            android:id="@+id/button_subs"
+            style="@style/PlayerSecondaryControlButton"
+            android:src="@drawable/ic_subtitles"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            app:tint="@color/tv_white"
+            android:padding="8dp"
+            android:nextFocusUp="@id/seek_bar"/>
+
         <!-- Settings -->
         <ImageButton
             android:id="@+id/button_settings"

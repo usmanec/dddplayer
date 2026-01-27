@@ -22,7 +22,6 @@ import androidx.recyclerview.widget.LinearSmoothScroller
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import top.rootu.dddplayer.R
-import top.rootu.dddplayer.logic.UpdateInfo
 import top.rootu.dddplayer.model.MediaItem
 import top.rootu.dddplayer.model.StereoInputType
 import top.rootu.dddplayer.model.StereoOutputMode
@@ -86,6 +85,8 @@ class PlayerUiController(private val rootView: View) {
     val timeDurationTextView: TextView = controlsView.findViewById(R.id.time_duration)
     val buttonQuality: TextView = controlsView.findViewById(R.id.button_quality)
     val buttonPlaylist: ImageButton = controlsView.findViewById(R.id.button_playlist)
+    val buttonAudio: ImageButton = controlsView.findViewById(R.id.button_audio)
+    val buttonSubs: ImageButton = controlsView.findViewById(R.id.button_subs)
     val buttonSettings: ImageButton = controlsView.findViewById(R.id.button_settings)
 
     // Settings Panel
@@ -141,64 +142,6 @@ class PlayerUiController(private val rootView: View) {
 
     fun hideSeekOverlay() {
         seekOverlay.isVisible = false
-    }
-    fun showUpdateDialog(
-        info: UpdateInfo,
-        onUpdateClick: () -> Unit,
-        onCancelClick: () -> Unit
-    ) {
-        val context = rootView.context
-        if (updateDialog == null) {
-            updateDialog = Dialog(context, android.R.style.Theme_Translucent_NoTitleBar)
-            updateDialog?.setContentView(R.layout.dialog_update)
-
-            updateDialog?.window?.apply {
-                setLayout(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                setGravity(Gravity.CENTER)
-                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            }
-        }
-
-        val title = updateDialog?.findViewById<TextView>(R.id.update_title)
-        val desc = updateDialog?.findViewById<TextView>(R.id.update_desc)
-        val btnUpdate = updateDialog?.findViewById<View>(R.id.btn_update)
-        val btnCancel = updateDialog?.findViewById<View>(R.id.btn_cancel)
-        val progress = updateDialog?.findViewById<ProgressBar>(R.id.update_progress)
-        val status = updateDialog?.findViewById<TextView>(R.id.update_status)
-
-        title?.text = "Обновление ${info.version}"
-        desc?.text = info.description
-
-        progress?.visibility = View.GONE
-        status?.visibility = View.GONE
-        btnUpdate?.visibility = View.VISIBLE
-        btnCancel?.visibility = View.VISIBLE
-
-        btnUpdate?.setOnClickListener {
-            onUpdateClick()
-            progress?.visibility = View.VISIBLE
-            status?.visibility = View.VISIBLE
-            btnUpdate.visibility = View.GONE
-            btnCancel?.visibility = View.GONE
-        }
-
-        btnCancel?.setOnClickListener {
-            updateDialog?.dismiss()
-            onCancelClick()
-        }
-
-        updateDialog?.show()
-    }
-
-    fun updateDownloadProgress(percent: Int) {
-        val progress = updateDialog?.findViewById<ProgressBar>(R.id.update_progress)
-        val status = updateDialog?.findViewById<TextView>(R.id.update_status)
-        progress?.progress = percent
-        status?.text = "Скачивание... $percent%"
-
-        if (percent == 100) {
-            updateDialog?.dismiss()
-        }
     }
 
     fun showFatalError(error: PlaybackException) {

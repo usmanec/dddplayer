@@ -53,6 +53,7 @@
 
     <!-- Контейнер настроек -->
     <ScrollView
+        android:id="@+id/settings_scrollview"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:layout_marginTop="32dp"
@@ -441,6 +442,64 @@
                 style="@style/SettingsSectionHeader"
                 android:layout_marginTop="24dp"
                 android:text="@string/settings_sec_app" />
+
+            <!-- Кнопка Вверх -->
+            <LinearLayout
+                android:id="@+id/item_up_action"
+                style="@style/SettingsItemContainer">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:duplicateParentState="true"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/SettingsItemTitle"
+                        android:text="Действие кнопки 'Вверх'" />
+
+                    <TextView
+                        style="@style/SettingsItemDesc"
+                        android:text="Что открывать при нажатии 'Вверх' в плеере" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/text_up_action_value"
+                    style="@style/SettingsItemValue"
+                    tools:text="Быстрые настройки" />
+            </LinearLayout>
+
+            <!-- Обновление -->
+            <LinearLayout
+                android:id="@+id/item_update"
+                style="@style/SettingsItemContainer">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:duplicateParentState="true"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/text_update"
+                        style="@style/SettingsItemTitle"
+                        android:text="Проверить обновление" />
+
+                    <TextView
+                        android:id="@+id/text_update_desc"
+                        style="@style/SettingsItemDesc"
+                        tools:text="v1.0.6" />
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:duplicateParentState="true"
+                    android:src="@drawable/ic_arrow_right"
+                    app:tint="@color/selector_settings_secondary" />
+            </LinearLayout>
 
             <!-- Пункт: Выход -->
             <LinearLayout

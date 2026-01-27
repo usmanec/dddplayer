@@ -1,27 +1,39 @@
 package top.rootu.dddplayer.ui
 
 import android.app.Dialog
+import android.graphics.Color
 import android.os.Bundle
+import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.ImageButton
 import android.widget.LinearLayout
+import android.widget.ProgressBar
+import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.Spinner
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.graphics.drawable.toDrawable
 import androidx.media3.exoplayer.DefaultRenderersFactory
+import top.rootu.dddplayer.BuildConfig
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
 import top.rootu.dddplayer.logic.AudioMixerLogic
+import top.rootu.dddplayer.logic.UpdateInfo
+import top.rootu.dddplayer.viewmodel.PlayerViewModel
 import java.util.Locale
 
 class GlobalSettingsActivity : AppCompatActivity() {
 
+    private val viewModel: PlayerViewModel by viewModels()
+    private var updateDialog: Dialog? = null
     private lateinit var repo: SettingsRepository
 
     // UI Elements
@@ -61,6 +73,12 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var itemDownmix: LinearLayout
     private lateinit var switchDownmix: Switch
     private lateinit var itemDownmixConfig: LinearLayout
+    private lateinit var itemUpAction: LinearLayout
+    private lateinit var textUpActionValue: TextView
+    private lateinit var itemUpdate: LinearLayout
+    private lateinit var textUpdate: TextView
+    private lateinit var textUpdateDesc: TextView
+    private lateinit var scrollView: ScrollView
 
     // Список популярных языков для перебора (ISO 639-1)
     private val languages = listOf(
@@ -90,9 +108,43 @@ class GlobalSettingsActivity : AppCompatActivity() {
 
         bindViews()
         setupLogic()
+
+        val focusItemId = intent.getIntExtra("FOCUS_ITEM_ID", 0)
+
+        if (focusItemId != 0) {
+            val viewToFocus = findViewById<View>(focusItemId)
+            viewToFocus?.post {
+                scrollView.smoothScrollTo(0, viewToFocus.top)
+                scrollView.requestChildFocus(viewToFocus.parent as View, viewToFocus)
+                viewToFocus.requestFocus()
+
+                if (focusItemId == R.id.item_update) { // Обновление
+                    val info = viewModel.updateInfo.value
+                    if (info != null) {
+                        showUpdateDialog(info)
+                    } else {
+                        // Если инфо нет (редкий случай), просто проверяем
+                        viewModel.forceCheckUpdates()
+                        viewModel.updateInfo.observe(this) { newInfo ->
+                            if (newInfo != null) {
+                                showUpdateDialog(newInfo)
+                                // Отписываемся, чтобы не показывать диалог снова при смене конфигурации
+                                viewModel.updateInfo.removeObservers(this)
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            itemDecoder.post{
+                itemDecoder.requestFocus()
+            }
+        }
     }
 
     private fun bindViews() {
+        scrollView = findViewById(R.id.settings_scrollview)
+
         btnClose = findViewById(R.id.btn_close)
         itemExit = findViewById(R.id.item_exit)
 
@@ -129,6 +181,12 @@ class GlobalSettingsActivity : AppCompatActivity() {
         itemDownmix = findViewById(R.id.item_downmix)
         switchDownmix = findViewById(R.id.switch_downmix)
         itemDownmixConfig = findViewById(R.id.item_downmix_config)
+
+        itemUpAction = findViewById(R.id.item_up_action)
+        textUpActionValue = findViewById(R.id.text_up_action_value)
+        itemUpdate = findViewById(R.id.item_update)
+        textUpdate = findViewById(R.id.text_update)
+        textUpdateDesc = findViewById(R.id.text_update_desc)
     }
 
     private fun setupLogic() {
@@ -147,7 +205,6 @@ class GlobalSettingsActivity : AppCompatActivity() {
             repo.setDecoderPriority(next)
             updateDecoderUI()
         }
-        itemDecoder.requestFocus()
 
         // Downmix
         fun updateDownmixUI() {
@@ -246,12 +303,119 @@ class GlobalSettingsActivity : AppCompatActivity() {
                 throw RuntimeException("Test Crash: This is a simulated exception!")
             }
         }
+
+        // Действие кнопки "Вверх"
+        updateUpActionUI()
+        itemUpAction.setOnClickListener {
+            val current = repo.getUpButtonAction()
+            val next = (current + 1) % 3 // 0, 1, 2
+            repo.setUpButtonAction(next)
+            updateUpActionUI()
+        }
+
+        // Обновление
+        updateUpdateUI()
+        itemUpdate.setOnClickListener {
+            val info = viewModel.updateInfo.value
+            if (info != null) {
+                // Обновление доступно -> Показываем диалог
+                showUpdateDialog(info)
+            } else {
+                // Обновлений нет -> Запускаем проверку
+                viewModel.forceCheckUpdates()
+            }
+        }
+
+        // Наблюдаем за состоянием обновления
+        viewModel.updateInfo.observe(this) { updateUpdateUI() }
+        viewModel.isCheckingUpdates.observe(this) { checking ->
+            if (checking) {
+                textUpdateDesc.text = "Проверка..."
+            } else {
+                updateUpdateUI()
+            }
+        }
+
+        // Наблюдаем за прогрессом скачивания
+        viewModel.downloadProgress.observe(this) { progress ->
+            updateDownloadProgress(progress)
+        }
     }
 
+
+    private fun updateUpActionUI() {
+        val action = repo.getUpButtonAction()
+        textUpActionValue.text = when (action) {
+            1 -> "Панель настройки"
+            2 -> "Меню настроек (Боковое)"
+            else -> "Ничего"
+        }
+    }
+
+    private fun showUpdateDialog(info: UpdateInfo) {
+        // Используем тот же layout, что и в плеере
+        updateDialog = Dialog(this, android.R.style.Theme_Translucent_NoTitleBar)
+        updateDialog?.setContentView(R.layout.dialog_update)
+        updateDialog?.window?.apply {
+            setLayout(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            setGravity(Gravity.CENTER)
+            setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
+        }
+
+        val title = updateDialog?.findViewById<TextView>(R.id.update_title)
+        val desc = updateDialog?.findViewById<TextView>(R.id.update_desc)
+        val btnUpdate = updateDialog?.findViewById<View>(R.id.btn_update)
+        val btnCancel = updateDialog?.findViewById<View>(R.id.btn_cancel)
+        val progress = updateDialog?.findViewById<ProgressBar>(R.id.update_progress)
+        val status = updateDialog?.findViewById<TextView>(R.id.update_status)
+
+        title?.text = "Обновление ${info.version}"
+        desc?.text = info.description
+
+        progress?.visibility = View.GONE
+        status?.visibility = View.GONE
+        btnUpdate?.visibility = View.VISIBLE
+        btnCancel?.visibility = View.VISIBLE
+
+        btnUpdate?.setOnClickListener {
+            viewModel.startUpdate() // <-- ЗАПУСК ОБНОВЛЕНИЯ
+            progress?.visibility = View.VISIBLE
+            status?.visibility = View.VISIBLE
+            btnUpdate.visibility = View.GONE
+            btnCancel?.visibility = View.GONE
+        }
+
+        btnCancel?.setOnClickListener {
+            updateDialog?.dismiss()
+        }
+
+        updateDialog?.show()
+    }
+
+    private fun updateDownloadProgress(percent: Int) {
+        val progress = updateDialog?.findViewById<ProgressBar>(R.id.update_progress)
+        val status = updateDialog?.findViewById<TextView>(R.id.update_status)
+        progress?.progress = percent
+        status?.text = "Скачивание... $percent%"
+
+        if (percent >= 100) {
+            updateDialog?.dismiss()
+        }
+    }
+
+    private fun updateUpdateUI() {
+        val info = viewModel.updateInfo.value
+        if (info != null) {
+            textUpdate.text = "Обновить до ${info.version}"
+        } else {
+            textUpdate.text = "Проверить наличие обновления"
+        }
+        textUpdateDesc.text = "Текущая версия v${BuildConfig.VERSION_NAME}"
+    }
     private fun showAudioMixDialog() {
         val dialog = Dialog(this)
         dialog.setContentView(R.layout.dialog_audio_mix)
-        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+        dialog.window?.setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
 
         // --- UI Elements ---
         val spinner = dialog.findViewById<Spinner>(R.id.spinner_preset)
@@ -426,5 +590,10 @@ class GlobalSettingsActivity : AppCompatActivity() {
                 textView.text = "$name ($langCode)"
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        updateDialog?.dismiss()
     }
 }

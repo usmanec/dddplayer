@@ -1,27 +1,37 @@
 package top.rootu.dddplayer.ui
 
+import android.app.Dialog
+import android.content.Intent
 import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.opengl.GLSurfaceView
 import android.os.Bundle
 import android.view.ContextThemeWrapper
+import android.view.Gravity
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
 import android.widget.PopupMenu
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.media3.common.C
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.recyclerview.widget.RecyclerView
 import top.rootu.dddplayer.BuildConfig
 import top.rootu.dddplayer.R
+import top.rootu.dddplayer.data.SettingsRepository
+import top.rootu.dddplayer.model.MenuItem
 import top.rootu.dddplayer.model.StereoInputType
 import top.rootu.dddplayer.renderer.OnFpsUpdatedListener
 import top.rootu.dddplayer.renderer.OnSurfaceReadyListener
 import top.rootu.dddplayer.renderer.StereoRenderer
+import top.rootu.dddplayer.ui.adapter.SideMenuAdapter
 import top.rootu.dddplayer.ui.controller.PlayerInputHandler
 import top.rootu.dddplayer.ui.controller.PlayerTimerController
 import top.rootu.dddplayer.ui.controller.PlayerUiController
@@ -32,6 +42,8 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
 
     private val viewModel: PlayerViewModel by activityViewModels()
     private var stereoRenderer: StereoRenderer? = null
+    private var sideMenuDialog: Dialog? = null
+    private var sideMenuAdapter: SideMenuAdapter? = null
 
     // Контроллеры
     private lateinit var ui: PlayerUiController
@@ -59,6 +71,8 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
 
         inputHandler = PlayerInputHandler(
             viewModel, ui,
+            SettingsRepository(requireContext()),
+            onShowMainMenu = { showMainMenu() },
             onShowControls = { ui.showControls(); timerController.resetControlsTimer() },
             onHideControls = { ui.hideControls() },
             onResetHideTimer = { timerController.resetControlsTimer() },
@@ -133,9 +147,19 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         ui.prevButton.setOnClickListener { viewModel.prevTrack() }
         ui.nextButton.setOnClickListener { viewModel.nextTrack() }
 
+        ui.buttonAudio.setOnClickListener {
+            ui.hideControls()
+            showAudioTrackMenu()
+        }
+
+        ui.buttonSubs.setOnClickListener {
+            ui.hideControls()
+            showSubtitlesMenu()
+        }
+
         ui.buttonSettings.setOnClickListener {
             ui.hideControls()
-            viewModel.openSettingsPanel()
+            showMainMenu()
         }
         ui.buttonSettings.setOnLongClickListener {
             // Останавливаем таймер скрытия интерфейса
@@ -173,6 +197,88 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         })
     }
 
+    private fun showMainMenu() {
+        // Запрашиваем готовый список у ViewModel
+        val menuItems = viewModel.getMainMenuItems()
+
+        showSideMenu("Настройки", menuItems) { selected ->
+            when (selected.id) {
+                "audio" -> showAudioTrackMenu()
+                "subtitles" -> showSubtitlesMenu()
+                "quick_settings" -> {
+                    sideMenuDialog?.dismiss()
+                    viewModel.openSettingsPanel()
+                }
+                "global_settings" -> {
+                    sideMenuDialog?.dismiss()
+                    startActivity(Intent(requireContext(), GlobalSettingsActivity::class.java))
+                }
+            }
+        }
+    }
+
+    private fun showAudioTrackMenu() {
+        // Запрашиваем готовый список
+        val menuItems = viewModel.getAudioTrackMenuItems()
+        if (menuItems.isEmpty()) return
+
+        showSideMenu("Аудиодорожка (${menuItems.size})", menuItems) { selected ->
+            viewModel.selectTrackByIndex(C.TRACK_TYPE_AUDIO, selected.id.toInt())
+            sideMenuDialog?.dismiss()
+        }
+    }
+
+    private fun showSubtitlesMenu() {
+        // Запрашиваем готовый список
+        val menuItems = viewModel.getSubtitleMenuItems()
+        if (menuItems.isEmpty()) return
+
+        showSideMenu("Субтитры (${menuItems.size - 1})", menuItems) { selected ->
+            viewModel.selectTrackByIndex(C.TRACK_TYPE_TEXT, selected.id.toInt())
+            sideMenuDialog?.dismiss()
+        }
+    }
+
+    private fun showSideMenu(title: String, items: List<MenuItem>, onItemSelected: (MenuItem) -> Unit) {
+        timerController.stopControlsTimer()
+        ui.hideControls()
+
+        if (sideMenuDialog == null) {
+            sideMenuDialog = Dialog(requireContext(), android.R.style.Theme_Translucent_NoTitleBar)
+            sideMenuDialog?.setContentView(R.layout.dialog_side_menu)
+            sideMenuDialog?.setCanceledOnTouchOutside(true)
+            sideMenuDialog?.window?.apply {
+                setLayout(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                setGravity(Gravity.END)
+                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            }
+            sideMenuDialog?.setOnDismissListener {
+                timerController.resetControlsTimer()
+            }
+        }
+
+        val header = sideMenuDialog?.findViewById<TextView>(R.id.menu_header)
+        header?.text = title
+
+        val recycler = sideMenuDialog?.findViewById<RecyclerView>(R.id.menu_recycler)
+        if (sideMenuAdapter == null) {
+            sideMenuAdapter = SideMenuAdapter { item ->
+                onItemSelected(item)
+            }
+            recycler?.adapter = sideMenuAdapter
+        }
+
+        sideMenuAdapter?.onItemClick = onItemSelected // Обновляем колбэк
+        sideMenuAdapter?.submitList(items)
+
+        // Фокус на первый или выделенный элемент
+        recycler?.post {
+            val position = items.indexOfFirst { it.isSelected }.coerceAtLeast(0)
+            recycler.findViewHolderForAdapterPosition(position)?.itemView?.requestFocus()
+        }
+
+        sideMenuDialog?.show()
+    }
     private fun observeViewModel() {
         viewModel.isPlaying.observe(viewLifecycleOwner) { isPlaying ->
             if (isPlaying) {
@@ -209,7 +315,10 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
                 ui.buttonUpdate.text = "Обновить до ${info.version}"
                 ui.buttonUpdate.alpha = 1.0f
                 ui.buttonUpdate.setOnClickListener {
-                    ui.showUpdateDialog(info, { viewModel.startUpdate() }, {})
+                    val intent = Intent(requireContext(), GlobalSettingsActivity::class.java).apply {
+                        putExtra("FOCUS_ITEM_ID", R.id.item_update)
+                    }
+                    startActivity(intent)
                 }
             } else {
                 ui.buttonUpdate.text = "v${BuildConfig.VERSION_NAME}"
@@ -228,10 +337,6 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
                 ui.buttonUpdate.isEnabled = true
                 // Текст обновится через updateInfo observer
             }
-        }
-
-        viewModel.downloadProgress.observe(viewLifecycleOwner) { progress ->
-            ui.updateDownloadProgress(progress)
         }
 
         viewModel.duration.observe(viewLifecycleOwner) { duration ->

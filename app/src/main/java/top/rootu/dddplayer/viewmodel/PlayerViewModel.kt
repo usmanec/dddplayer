@@ -20,6 +20,7 @@ import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.launch
 import top.rootu.dddplayer.BuildConfig
+import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
 import top.rootu.dddplayer.data.VideoSettings
 import top.rootu.dddplayer.logic.AnaglyphLogic
@@ -28,6 +29,7 @@ import top.rootu.dddplayer.logic.TrackLogic
 import top.rootu.dddplayer.logic.UpdateInfo
 import top.rootu.dddplayer.logic.UpdateManager
 import top.rootu.dddplayer.model.MediaItem
+import top.rootu.dddplayer.model.MenuItem
 import top.rootu.dddplayer.model.StereoInputType
 import top.rootu.dddplayer.model.StereoOutputMode
 import top.rootu.dddplayer.player.PlayerManager
@@ -644,6 +646,77 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     fun onMenuLeft() { changeSettingValue(-1) }
     fun onMenuRight() { changeSettingValue(1) }
 
+    // Метод для получения главного меню
+    fun getMainMenuItems(): List<MenuItem> {
+        return listOf(
+            MenuItem("audio", "Аудиодорожка (${audioOptions.size})", currentAudioName.value, R.drawable.ic_audio_track),
+            MenuItem("subtitles", "Субтитры (${subtitleOptions.size - 1})", currentSubtitleName.value, R.drawable.ic_subtitles),
+            MenuItem("quick_settings", "Панель настройки", "3D, параллакс...", R.drawable.ic_settings_3d),
+            MenuItem("global_settings", "Глобальные настройки", "Декодер, язык...", R.drawable.ic_build)
+        )
+    }
+
+    // Метод для получения меню аудиодорожек
+    fun getAudioTrackMenuItems(): List<MenuItem> {
+        val options = audioOptions
+        val currentIndex = currentAudioIndex
+
+        return options.mapIndexed { index, option ->
+            MenuItem(
+                id = index.toString(),
+                title = option.name,
+                isSelected = index == currentIndex
+            )
+        }
+    }
+
+    // Метод для получения меню субтитров
+    fun getSubtitleMenuItems(): List<MenuItem> {
+        val options = subtitleOptions
+        val currentIndex = currentSubtitleIndex
+
+        return options.mapIndexed { index, option ->
+            MenuItem(
+                id = index.toString(),
+                title = option.name,
+                isSelected = index == currentIndex
+            )
+        }
+    }
+    fun selectTrackByIndex(trackType: Int, index: Int) {
+        val options = if (trackType == C.TRACK_TYPE_AUDIO) audioOptions else subtitleOptions
+
+        if (index in options.indices) {
+            val option = options[index]
+
+            if (trackType == C.TRACK_TYPE_AUDIO) {
+                currentAudioIndex = index
+                _currentAudioName.value = option.name
+            } else {
+                currentSubtitleIndex = index
+                _currentSubtitleName.value = option.name
+            }
+
+            // Общая логика применения
+            if (player != null) {
+                val builder = player!!.trackSelectionParameters.buildUpon()
+                if (option.isOff) {
+                    builder.setTrackTypeDisabled(trackType, true)
+                } else {
+                    builder.setTrackTypeDisabled(trackType, false)
+                    option.group?.let {
+                        builder.setOverrideForType(
+                            TrackSelectionOverride(
+                                it.mediaTrackGroup,
+                                option.trackIndex
+                            )
+                        )
+                    }
+                }
+                player!!.trackSelectionParameters = builder.build()
+            }
+        }
+    }
     private fun changeSettingValue(direction: Int) {
         when (_currentSettingType.value) {
             SettingType.VIDEO_TYPE -> setInputType(SettingsMutator.cycleEnum(_inputType.value!!, direction))
@@ -695,58 +768,17 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             SettingType.VR_DISTORTION -> _vrK1.value = SettingsMutator.modifyFloat(_vrK1.value!!, direction, 0.02f, 0.0f, 2.0f)
             SettingType.VR_ZOOM -> _vrScale.value = SettingsMutator.modifyFloat(_vrScale.value!!, direction, 0.05f, 0.5f, 3.0f)
             SettingType.AUDIO_TRACK -> {
-                if (audioOptions.isNotEmpty()) {
-                    currentAudioIndex = (currentAudioIndex + direction + audioOptions.size) % audioOptions.size
-                    val option = audioOptions[currentAudioIndex]
-                    _currentAudioName.value = option.name
-
-                    if (player != null) {
-                        val builder = player!!.trackSelectionParameters.buildUpon()
-                            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
-                            .setOverrideForType(
-                                TrackSelectionOverride(
-                                    option.group!!.mediaTrackGroup,
-                                    option.trackIndex
-                                )
-                            )
-
-                        player!!.trackSelectionParameters = builder.build()
-
-                        val current = player!!.currentPosition ?: 0
-                        player!!.seekTo(current + 16)
-
-                        if (player!!.playerError != null) {
-                            player!!.prepare()
-                            player!!.play()
-                        }
-                    }
+                val options = audioOptions
+                if (options.isNotEmpty()) {
+                    val nextIndex = (currentAudioIndex + direction + options.size) % options.size
+                    selectTrackByIndex(C.TRACK_TYPE_AUDIO, nextIndex)
                 }
             }
             SettingType.SUBTITLES -> {
-                if (subtitleOptions.isNotEmpty()) {
-                    currentSubtitleIndex = (currentSubtitleIndex + direction + subtitleOptions.size) % subtitleOptions.size
-                    val option = subtitleOptions[currentSubtitleIndex]
-                    _currentSubtitleName.value = option.name
-
-                    // Используем playerManager для выбора трека (он использует trackSelectionParameters)
-                    // Но так как у нас нет метода selectTrack в новом PlayerManager, реализуем тут
-                    if (player != null) {
-                        val builder = player!!.trackSelectionParameters.buildUpon()
-                        if (option.isOff) {
-                            builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
-                        } else {
-                            builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-                            option.group?.let {
-                                builder.setOverrideForType(
-                                    TrackSelectionOverride(
-                                        it.mediaTrackGroup,
-                                        option.trackIndex
-                                    )
-                                )
-                            }
-                        }
-                        player!!.trackSelectionParameters = builder.build()
-                    }
+                val options = subtitleOptions
+                if (options.isNotEmpty()) {
+                    val nextIndex = (currentSubtitleIndex + direction + options.size) % options.size
+                    selectTrackByIndex(C.TRACK_TYPE_TEXT, nextIndex)
                 }
             }
             else -> {}

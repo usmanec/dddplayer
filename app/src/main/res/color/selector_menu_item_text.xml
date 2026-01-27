@@ -6,5 +6,5 @@
     <item android:state_selected="true" android:color="@color/black"/>
 
     <!-- По умолчанию - белый -->
-    <item android:color="@color/white"/>
+    <item android:color="@color/tv_white"/>
 </selector>

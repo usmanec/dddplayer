@@ -6,11 +6,14 @@ import android.view.KeyEvent
 import android.view.View
 import androidx.core.view.isVisible
 import top.rootu.dddplayer.R
+import top.rootu.dddplayer.data.SettingsRepository
 import top.rootu.dddplayer.viewmodel.PlayerViewModel
 
 class PlayerInputHandler(
     private val viewModel: PlayerViewModel,
     private val ui: PlayerUiController,
+    private val repo: SettingsRepository,
+    private val onShowMainMenu: () -> Unit,
     private val onShowControls: () -> Unit,
     private val onHideControls: () -> Unit,
     private val onResetHideTimer: () -> Unit,
@@ -98,7 +101,11 @@ class PlayerInputHandler(
                     onHideControls()
                     return true
                 } else if (!ui.controlsView.isVisible) {
-                    viewModel.openSettingsPanel()
+                    when (repo.getUpButtonAction()) {
+                        1 -> viewModel.openSettingsPanel() // OSD
+                        2 -> onShowMainMenu() // Боковое меню
+                        // 0 -> Ничего
+                    }
                     return true
                 }
             }

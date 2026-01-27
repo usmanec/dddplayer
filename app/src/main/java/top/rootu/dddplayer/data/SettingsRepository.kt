@@ -68,6 +68,10 @@ class SettingsRepository(context: Context) {
     fun getLoudnessBoost(): Int = prefs.getInt("loudness_boost", 0)
     fun setLoudnessBoost(boost: Int) = prefs.edit().putInt("loudness_boost", boost).apply()
 
+    // Действие кнопки "Вверх" ( 0 = Nothing, 1 = OSD, 2 = Side Menu)
+    fun getUpButtonAction(): Int = prefs.getInt("up_button_action", 1) // По умолчанию OSD
+    fun setUpButtonAction(action: Int) = prefs.edit().putInt("up_button_action", action).apply()
+
     // Сигнатура настроек, требующих полного перезапуска плеера
     fun getHardSettingsSignature(): String {
         val videoParams = "${getDecoderPriority()}_${isTunnelingEnabled()}_${isMapDv7ToHevcEnabled()}"
