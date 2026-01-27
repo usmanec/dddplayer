@@ -1,8 +1,15 @@
 package top.rootu.dddplayer.ui
 
+import android.app.Dialog
 import android.os.Bundle
+import android.view.View
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
+import android.widget.Button
 import android.widget.ImageButton
 import android.widget.LinearLayout
+import android.widget.SeekBar
+import android.widget.Spinner
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
@@ -10,6 +17,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
+import top.rootu.dddplayer.logic.AudioMixerLogic
 import java.util.Locale
 
 class GlobalSettingsActivity : AppCompatActivity() {
@@ -49,6 +57,10 @@ class GlobalSettingsActivity : AppCompatActivity() {
 
     private lateinit var itemCalibrateVr: LinearLayout
     private lateinit var itemCalibrateAnaglyph: LinearLayout
+
+    private lateinit var itemDownmix: LinearLayout
+    private lateinit var switchDownmix: Switch
+    private lateinit var itemDownmixConfig: LinearLayout
 
     // Список популярных языков для перебора (ISO 639-1)
     private val languages = listOf(
@@ -113,6 +125,10 @@ class GlobalSettingsActivity : AppCompatActivity() {
 
         itemCalibrateVr = findViewById(R.id.item_calibrate_vr)
         itemCalibrateAnaglyph = findViewById(R.id.item_calibrate_anaglyph)
+
+        itemDownmix = findViewById(R.id.item_downmix)
+        switchDownmix = findViewById(R.id.switch_downmix)
+        itemDownmixConfig = findViewById(R.id.item_downmix_config)
     }
 
     private fun setupLogic() {
@@ -132,6 +148,25 @@ class GlobalSettingsActivity : AppCompatActivity() {
             updateDecoderUI()
         }
         itemDecoder.requestFocus()
+
+        // Downmix
+        fun updateDownmixUI() {
+            val enabled = repo.isStereoDownmixEnabled()
+            switchDownmix.isChecked = enabled
+            itemDownmixConfig.visibility = if (enabled) View.VISIBLE else View.GONE
+        }
+
+        updateDownmixUI()
+
+        itemDownmix.setOnClickListener {
+            val newState = !switchDownmix.isChecked
+            repo.setStereoDownmixEnabled(newState)
+            updateDownmixUI()
+        }
+
+        itemDownmixConfig.setOnClickListener {
+            showAudioMixDialog()
+        }
 
         // Tunneling
         switchTunneling.isChecked = repo.isTunnelingEnabled()
@@ -213,19 +248,144 @@ class GlobalSettingsActivity : AppCompatActivity() {
         }
     }
 
+    private fun showAudioMixDialog() {
+        val dialog = Dialog(this)
+        dialog.setContentView(R.layout.dialog_audio_mix)
+        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+
+        // --- UI Elements ---
+        val spinner = dialog.findViewById<Spinner>(R.id.spinner_preset)
+        val slidersContainer = dialog.findViewById<LinearLayout>(R.id.sliders_container)
+
+        val seekFront = dialog.findViewById<SeekBar>(R.id.seek_front)
+        val valFront = dialog.findViewById<TextView>(R.id.val_front)
+        val seekCenter = dialog.findViewById<SeekBar>(R.id.seek_center)
+        val valCenter = dialog.findViewById<TextView>(R.id.val_center)
+        val seekRear = dialog.findViewById<SeekBar>(R.id.seek_rear)
+        val valRear = dialog.findViewById<TextView>(R.id.val_rear)
+        val seekMiddle = dialog.findViewById<SeekBar>(R.id.seek_middle)
+        val valMiddle = dialog.findViewById<TextView>(R.id.val_middle)
+        val seekLfe = dialog.findViewById<SeekBar>(R.id.seek_lfe)
+        val valLfe = dialog.findViewById<TextView>(R.id.val_lfe)
+
+        val btnReset = dialog.findViewById<Button>(R.id.btn_reset)
+        val btnClose = dialog.findViewById<Button>(R.id.btn_close)
+
+        // --- Helpers ---
+
+        fun updateText(view: TextView, progress: Int) {
+            view.text = "${progress}%"
+        }
+
+        var isUpdatingUiFromCode = false
+
+        fun updateSeekBarsWithoutTriggering(params: AudioMixerLogic.MixParams) {
+            isUpdatingUiFromCode = true
+            seekFront.progress = (params.front * 100).toInt()
+            updateText(valFront, seekFront.progress)
+
+            seekCenter.progress = (params.center * 100).toInt()
+            updateText(valCenter, seekCenter.progress)
+
+            seekRear.progress = (params.rear * 100).toInt()
+            updateText(valRear, seekRear.progress)
+
+            seekMiddle.progress = (params.middle * 100).toInt()
+            updateText(valMiddle, seekMiddle.progress)
+
+            seekLfe.progress = (params.lfe * 100).toInt()
+            updateText(valLfe, seekLfe.progress)
+            isUpdatingUiFromCode = false
+        }
+
+        fun updateSlidersState(preset: AudioMixerLogic.MixPreset) {
+            val isCustom = preset == AudioMixerLogic.MixPreset.CUSTOM
+
+            slidersContainer.alpha = if (isCustom) 1.0f else 0.5f
+            seekFront.isEnabled = isCustom
+            seekCenter.isEnabled = isCustom
+            seekRear.isEnabled = isCustom
+            seekMiddle.isEnabled = isCustom
+            seekLfe.isEnabled = isCustom
+            btnReset.isEnabled = isCustom
+
+            val params = AudioMixerLogic.getParamsForPreset(preset, repo)
+            updateSeekBarsWithoutTriggering(params)
+        }
+
+        fun initSeek(seekBar: SeekBar, textView: TextView, setter: (Float) -> Unit) {
+            seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
+                    updateText(textView, progress)
+                    if (fromUser && !isUpdatingUiFromCode && repo.getMixPreset() == AudioMixerLogic.MixPreset.CUSTOM.id) {
+                        setter(progress / 100f)
+                    }
+                }
+                override fun onStartTrackingTouch(sb: SeekBar?) {}
+                override fun onStopTrackingTouch(sb: SeekBar?) {}
+            })
+        }
+
+        // --- Init Logic ---
+
+        val presets = AudioMixerLogic.MixPreset.values()
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, presets.map { it.title })
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinner.adapter = adapter
+
+        val currentPresetId = repo.getMixPreset()
+        val currentPresetIndex = presets.indexOfFirst { it.id == currentPresetId }.coerceAtLeast(0)
+        spinner.setSelection(currentPresetIndex, false) // false - не вызывать onItemSelected при инициализации
+
+        initSeek(seekFront, valFront) { repo.setMixFront(it) }
+        initSeek(seekCenter, valCenter) { repo.setMixCenter(it) }
+        initSeek(seekRear, valRear) { repo.setMixRear(it) }
+        initSeek(seekMiddle, valMiddle) { repo.setMixMiddle(it) }
+        initSeek(seekLfe, valLfe) { repo.setMixLfe(it) }
+
+        spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val selected = presets[position]
+                if (repo.getMixPreset() != selected.id) {
+                    repo.setMixPreset(selected.id)
+                }
+                updateSlidersState(selected)
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
+        updateSlidersState(presets[currentPresetIndex])
+
+        btnReset.setOnClickListener {
+            if (repo.getMixPreset() == AudioMixerLogic.MixPreset.CUSTOM.id) {
+                repo.setMixFront(1.0f)
+                repo.setMixCenter(1.0f)
+                repo.setMixRear(1.0f)
+                repo.setMixMiddle(1.0f)
+                repo.setMixLfe(0.0f)
+                updateSeekBarsWithoutTriggering(AudioMixerLogic.getParamsForPreset(AudioMixerLogic.MixPreset.CUSTOM, repo))
+            }
+        }
+
+        btnClose.setOnClickListener { dialog.dismiss() }
+
+        dialog.show()
+        spinner.requestFocus()
+    }
+
     private fun updateDecoderUI() {
         val mode = repo.getDecoderPriority()
         when (mode) {
             DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF -> {
-                textDecoderValue.text = "Только HW"
+                textDecoderValue.text = "HW"
                 textDecoderDesc.setText(R.string.pref_decoder_priority_only_device)
             }
             DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON -> {
-                textDecoderValue.text = "HW  +  SW "
+                textDecoderValue.text = "HW+"
                 textDecoderDesc.setText(R.string.pref_decoder_priority_prefer_device)
             }
             DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER -> {
-                textDecoderValue.text = "SW  +  HW"
+                textDecoderValue.text = "SW"
                 textDecoderDesc.setText(R.string.pref_decoder_priority_prefer_app)
             }
         }

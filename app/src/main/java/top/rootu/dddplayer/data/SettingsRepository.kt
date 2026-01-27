@@ -35,6 +35,22 @@ class SettingsRepository(context: Context) {
     fun isTunnelingEnabled(): Boolean = prefs.getBoolean("tunneling_enabled", false)
     fun setTunnelingEnabled(enabled: Boolean) = prefs.edit().putBoolean("tunneling_enabled", enabled).apply()
 
+    // Принудительный Downmix в стерео (исправляет отсутствие голоса на стерео-устройствах)
+    fun isStereoDownmixEnabled(): Boolean = prefs.getBoolean("stereo_downmix", false)
+    fun setStereoDownmixEnabled(enabled: Boolean) = prefs.edit().putBoolean("stereo_downmix", enabled).apply()
+    fun getMixPreset(): Int = prefs.getInt("mix_preset", 0)
+    fun setMixPreset(id: Int) = prefs.edit().putInt("mix_preset", id).apply()
+    fun getMixFront(): Float = prefs.getFloat("mix_front", 1.0f)
+    fun setMixFront(value: Float) = prefs.edit().putFloat("mix_front", value).apply()
+    fun getMixCenter(): Float = prefs.getFloat("mix_center", 1.0f)
+    fun setMixCenter(value: Float) = prefs.edit().putFloat("mix_center", value).apply()
+    fun getMixLfe(): Float = prefs.getFloat("mix_lfe", 0.0f)
+    fun setMixLfe(value: Float) = prefs.edit().putFloat("mix_lfe", value).apply()
+    fun getMixRear(): Float = prefs.getFloat("mix_rear", 1.0f)
+    fun setMixRear(value: Float) = prefs.edit().putFloat("mix_rear", value).apply()
+    fun getMixMiddle(): Float = prefs.getFloat("mix_middle", 1.0f) // Для 7.1 Side
+    fun setMixMiddle(value: Float) = prefs.edit().putFloat("mix_middle", value).apply()
+
     fun isMapDv7ToHevcEnabled(): Boolean = prefs.getBoolean("map_dv7_to_hevc", false)
     fun setMapDv7ToHevcEnabled(enabled: Boolean) = prefs.edit().putBoolean("map_dv7_to_hevc", enabled).apply()
 
@@ -54,7 +70,9 @@ class SettingsRepository(context: Context) {
 
     // Сигнатура настроек, требующих полного перезапуска плеера
     fun getHardSettingsSignature(): String {
-        return return "${getDecoderPriority()}_${isTunnelingEnabled()}_${isMapDv7ToHevcEnabled()}"
+        val videoParams = "${getDecoderPriority()}_${isTunnelingEnabled()}_${isMapDv7ToHevcEnabled()}"
+        val audioDownmix = "${isStereoDownmixEnabled()}_${getMixPreset()}}_${getMixFront()}_${getMixCenter()}_${getMixRear()}_${getMixMiddle()}_${getMixLfe()}"
+        return "${videoParams}_${audioDownmix}"
     }
 
     // --- Global Preferences Helpers ---

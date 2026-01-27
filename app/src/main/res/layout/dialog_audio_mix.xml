@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="480dp"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_player_panel"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/settings_downmix_config"
+        android:textColor="@color/tv_white"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp"/>
+
+    <!-- Пресет -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Пресет:"
+            android:textColor="@color/text_secondary"
+            android:layout_marginEnd="16dp"/>
+
+        <Spinner
+            android:id="@+id/spinner_preset"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@drawable/bg_selector_menu_item"
+            android:minHeight="48dp"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"/>
+    </LinearLayout>
+
+    <!-- ScrollView для ползунков -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fadeScrollbars="false"
+        android:scrollbarThumbVertical="@color/tv_white">
+
+        <LinearLayout
+            android:id="@+id/sliders_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Front -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Фронт (L/R)"
+                style="@style/SettingsItemDesc"/>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+                <SeekBar android:id="@+id/seek_front" style="@style/Widget.AppCompat.SeekBar.Discrete" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:max="200" android:progress="100"/>
+                <TextView android:id="@+id/val_front" android:layout_width="50dp" android:layout_height="wrap_content" android:text="100%" android:textColor="@color/tv_white" android:gravity="end"/>
+            </LinearLayout>
+
+            <!-- Center -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Центр (Голос)"
+                style="@style/SettingsItemDesc"
+                android:layout_marginTop="8dp"/>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+                <SeekBar android:id="@+id/seek_center" style="@style/Widget.AppCompat.SeekBar.Discrete" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:max="200" android:progress="100"/>
+                <TextView android:id="@+id/val_center" android:layout_width="50dp" android:layout_height="wrap_content" android:text="100%" android:textColor="@color/tv_white" android:gravity="end"/>
+            </LinearLayout>
+
+            <!-- Rear -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Тылы (Surround)"
+                style="@style/SettingsItemDesc"
+                android:layout_marginTop="8dp"/>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+                <SeekBar android:id="@+id/seek_rear" style="@style/Widget.AppCompat.SeekBar.Discrete" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:max="200" android:progress="100"/>
+                <TextView android:id="@+id/val_rear" android:layout_width="50dp" android:layout_height="wrap_content" android:text="100%" android:textColor="@color/tv_white" android:gravity="end"/>
+            </LinearLayout>
+
+            <!-- Middle -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Боковые (7.1 Side)"
+                style="@style/SettingsItemDesc"
+                android:layout_marginTop="8dp"/>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+                <SeekBar android:id="@+id/seek_middle" style="@style/Widget.AppCompat.SeekBar.Discrete" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:max="200" android:progress="100"/>
+                <TextView android:id="@+id/val_middle" android:layout_width="50dp" android:layout_height="wrap_content" android:text="100%" android:textColor="@color/tv_white" android:gravity="end"/>
+            </LinearLayout>
+
+            <!-- LFE -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Сабвуфер (LFE)"
+                style="@style/SettingsItemDesc"
+                android:layout_marginTop="8dp"/>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+                <SeekBar android:id="@+id/seek_lfe" style="@style/Widget.AppCompat.SeekBar.Discrete" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:max="200" android:progress="0"/>
+                <TextView android:id="@+id/val_lfe" android:layout_width="50dp" android:layout_height="wrap_content" android:text="0%" android:textColor="@color/tv_white" android:gravity="end"/>
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- Кнопки -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="end"
+        android:layout_marginTop="24dp">
+
+        <Button
+            android:id="@+id/btn_reset"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Сброс"
+            android:background="@drawable/bg_crash_btn_secondary"
+            android:textColor="@color/selector_settings_secondary"/>
+
+        <Button
+            android:id="@+id/btn_close"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Закрыть"
+            android:layout_marginStart="16dp"
+            android:background="@drawable/bg_crash_btn_primary"
+            android:textColor="@color/selector_settings_primary"/>
+    </LinearLayout>
+
+</LinearLayout>

@@ -50,8 +50,8 @@
     <string name="pref_map_dv7_off">Воспроизведение содержимого UHD Blu-ray, содержащего Dolby Vision, как есть</string>
 
     <string name="pref_decoder_priority">Приоритет декодера</string>
-    <string name="pref_decoder_priority_prefer_device">Предпочитать декодеры устройства (по умолчанию)</string>
-    <string name="pref_decoder_priority_prefer_app">Предпочитать декодеры приложения (AV1 + FFmpeg)</string>
+    <string name="pref_decoder_priority_prefer_device">Предпочитать декодеры устройства (по умолчанию) HW+SW</string>
+    <string name="pref_decoder_priority_prefer_app">Предпочитать декодеры приложения (AV1 + FFmpeg) SW+HW</string>
     <string name="pref_decoder_priority_only_device">Только декодеры устройства</string>
 
     <string name="pref_language_audio">Звуковая дорожка по умолчанию</string>
@@ -74,6 +74,10 @@
     <string name="pref_language_audio_desc">Предпочитаемая дорожка при старте видео</string>
     <string name="settings_sec_lang_and_sub">Язык и Субтитры</string>
     <string name="settings_audio_boost">Усиление громкости (Boost)</string>
-    <string name="settings_audio_boost_desc">Полезно для тихих фильмов. Его главная цель — сделать тихий звук громче, не вызывая жесткого клиппинга (хрипа) на пиках.</string>
-    <string name="settings_decoder_sw_desc">*SW содержит декодеры AV1 и FFmpeg (собран с аудиокодеками: vorbis, opus, flac, alac, pcm_mulaw, pcm_alaw, mp3, amrnb, amrwb, aac, ac3, eac3, dca(DTS), mlp, truehd)</string>
+    <string name="settings_audio_boost_desc">Полезно для тихих фильмов. Главная цель — сделать тихий звук громче, не вызывая жесткого клиппинга (хрипа) на пиках.</string>
+    <string name="settings_decoder_sw_desc">¹ - SW содержит декодеры AV1 и FFmpeg (собран с аудиокодеками: vorbis, opus, flac, alac, pcm_mulaw, pcm_alaw, mp3, amrnb, amrwb, aac, ac3, eac3, dca(DTS), mlp, truehd)</string>
+    <string name="settings_downmix_config">Коррекция Downmix</string>
+    <string name="settings_downmix">Downmix в стерео</string>
+    <string name="settings_downmix_desc">При использовании SW декодера, позволяет преобразовать многоканальный звук в правильно¹ смиксированное стерео, что позволяет решить проблему с отсутствием голоса/перевода (обычно присутствуют на центральном канале).\n¹ - Матрицы для downmix рассчитаны аналогично RFC 7845 (Section 5.1.1.5).</string>
+    <string name="settings_downmix_config_desc">Вы можете изменить настройки громкости аудиоканалов (фронт, центр, тылы, боковые, сабвуфер) при downmix на свой вкус.</string>
 </resources>

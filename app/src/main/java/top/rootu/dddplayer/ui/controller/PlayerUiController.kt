@@ -208,7 +208,7 @@ class PlayerUiController(private val rootView: View) {
         errorScreen.isVisible = true
         errorScreen.setBackgroundColor(Color.parseColor("#CC000000")) // Темный фон
 
-        bufferingIndicator.isVisible = false
+        bufferingContainer.isVisible = false
         bufferingSplitContainer.isVisible = false
     }
 
@@ -220,7 +220,7 @@ class PlayerUiController(private val rootView: View) {
         // Полупрозрачный фон, чтобы видеть постер (если есть)
         errorScreen.setBackgroundColor(Color.parseColor("#80000000"))
 
-        bufferingIndicator.isVisible = false
+        bufferingContainer.isVisible = false
         bufferingSplitContainer.isVisible = false
     }
 

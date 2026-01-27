@@ -107,6 +107,58 @@
                     tools:text="HW+SW" />
             </LinearLayout>
 
+            <!-- Downmix -->
+            <LinearLayout
+                android:id="@+id/item_downmix"
+                style="@style/SettingsItemContainer">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:duplicateParentState="true"
+                    android:orientation="vertical">
+                    <TextView
+                        style="@style/SettingsItemTitle"
+                        android:text="@string/settings_downmix" />
+                    <TextView
+                        style="@style/SettingsItemDesc"
+                        android:text="@string/settings_downmix_desc" />
+                </LinearLayout>
+
+                <Switch android:id="@+id/switch_downmix" android:layout_width="wrap_content" android:layout_height="wrap_content" android:focusable="false" android:clickable="false" />
+            </LinearLayout>
+
+            <!-- Настройка Downmix (появляется при включении) -->
+            <LinearLayout
+                android:id="@+id/item_downmix_config"
+                style="@style/SettingsItemContainer"
+                android:visibility="gone"
+                tools:visibility="visible">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:duplicateParentState="true"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/SettingsItemTitle"
+                        android:text="@string/settings_downmix_config" />
+
+                    <TextView
+                        style="@style/SettingsItemDesc"
+                        android:text="@string/settings_downmix_config_desc" />
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_arrow_right"
+                    android:duplicateParentState="true"
+                    app:tint="@color/selector_settings_secondary" />
+            </LinearLayout>
+
             <!-- Tunneling -->
             <LinearLayout
                 android:id="@+id/item_tunneling"

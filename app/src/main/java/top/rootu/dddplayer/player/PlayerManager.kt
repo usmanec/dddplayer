@@ -2,6 +2,7 @@ package top.rootu.dddplayer.player
 
 import android.content.Context
 import android.media.audiofx.LoudnessEnhancer
+import android.os.Handler
 import android.view.accessibility.CaptioningManager
 import androidx.core.os.LocaleListCompat
 import androidx.media3.common.AudioAttributes
@@ -9,12 +10,16 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
+import androidx.media3.common.audio.ChannelMixingAudioProcessor
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.RenderersFactory
+import androidx.media3.exoplayer.Renderer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
+import androidx.media3.exoplayer.audio.AudioRendererEventListener
 import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
@@ -26,6 +31,7 @@ import androidx.media3.session.MediaSession
 import okhttp3.OkHttpClient
 import top.rootu.dddplayer.BuildConfig
 import top.rootu.dddplayer.data.SettingsRepository
+import top.rootu.dddplayer.logic.AudioMixerLogic
 import top.rootu.dddplayer.logic.UnifiedMetadataReader
 import top.rootu.dddplayer.model.MediaItem
 import top.rootu.dddplayer.utils.MediaFormatHelper
@@ -137,8 +143,54 @@ class PlayerManager(
             .setMp4ExtractorFlags(Mp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES)
             .setConstantBitrateSeekingEnabled(true)
 
-        val renderersFactory: RenderersFactory = DefaultRenderersFactory(appContext)
-            .setExtensionRendererMode(settingsRepo.getDecoderPriority())
+        val renderersFactory = object : DefaultRenderersFactory(appContext) {
+            override fun buildAudioRenderers(
+                context: Context,
+                extensionRendererMode: Int,
+                mediaCodecSelector: MediaCodecSelector,
+                enableDecoderFallback: Boolean,
+                audioSink: AudioSink, // <-- Стандартный Sink от ExoPlayer
+                eventHandler: Handler,
+                eventListener: AudioRendererEventListener,
+                out: ArrayList<Renderer>
+            ) {
+                // Решаем, какой Sink использовать
+                val finalSink = if (settingsRepo.isStereoDownmixEnabled()) {
+                    // Если нужен Downmix -> создаем свой Sink с процессором
+                    val sinkBuilder = DefaultAudioSink.Builder(appContext)
+                        .setEnableAudioTrackPlaybackParams(true)
+                        .setEnableFloatOutput(false) // Для совместимости с процессором
+
+                    val mixingProcessor = ChannelMixingAudioProcessor()
+                    val matrices = AudioMixerLogic.createMatrices(settingsRepo)
+                    matrices.forEach { matrix ->
+                        mixingProcessor.putChannelMixingMatrix(matrix)
+                    }
+
+                    sinkBuilder.setAudioProcessorChain(
+                        DefaultAudioSink.DefaultAudioProcessorChain(mixingProcessor)
+                    )
+
+                    sinkBuilder.build()
+                } else {
+                    // Если Downmix не нужен -> используем стандартный (для Passthrough и т.д.)
+                    audioSink
+                }
+
+                super.buildAudioRenderers(
+                    context,
+                    extensionRendererMode,
+                    mediaCodecSelector,
+                    enableDecoderFallback,
+                    finalSink,
+                    eventHandler,
+                    eventListener,
+                    out
+                )
+            }
+        }.apply {
+            setExtensionRendererMode(settingsRepo.getDecoderPriority())
+        }
 
         // 3. LoadErrorHandlingPolicy
         val loadErrorHandlingPolicy = object : DefaultLoadErrorHandlingPolicy() {
