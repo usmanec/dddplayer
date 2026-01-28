@@ -2,11 +2,11 @@ package top.rootu.dddplayer.player
 
 import android.net.Uri
 import android.util.Log
-import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSink
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.TeeDataSource
+import androidx.media3.datasource.TransferListener
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -20,12 +20,11 @@ private const val TAG = "ParsingDataSource"
 // 32 МБ должно хватить для подавляющего большинства файлов.
 private const val PARSE_BUFFER_SIZE = 32 * 1024 * 1024 // 32 MB
 
-@UnstableApi
 class ParsingDataSource(
     private val upstream: DataSource,
     private val onMetadataParsed: (Map<Int, UnifiedMetadataReader.TrackInfo>) -> Unit,
     private val isMetadataParsed: () -> Boolean
-) : DataSource by upstream {
+) : DataSource {
 
     private var teeDataSource: TeeDataSource? = null
     private var parsingJob: Job? = null
@@ -74,7 +73,7 @@ class ParsingDataSource(
                 // пока мы не заполним его целиком.
                 pipedOut?.write(buffer, offset, length)
                 totalBytesWritten += length
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 // Парсер закрыл поток (нашел что искал), это нормально.
             }
         }
@@ -84,8 +83,8 @@ class ParsingDataSource(
         }
 
         private fun closePipes() {
-            try { pipedIn?.close() } catch (e: Exception) {}
-            try { pipedOut?.close() } catch (e: Exception) {}
+            try { pipedIn?.close() } catch (_: Exception) {}
+            try { pipedOut?.close() } catch (_: Exception) {}
             pipedIn = null
             pipedOut = null
         }
@@ -112,9 +111,22 @@ class ParsingDataSource(
         teeDataSource?.close() ?: upstream.close()
         parsingJob?.cancel()
     }
+
+    // ===================================================================
+    // ЯВНОЕ ПЕРЕОПРЕДЕЛЕНИЕ DEFAULT-МЕТОДОВ ИНТЕРФЕЙСА
+    // ===================================================================
+
+    override fun addTransferListener(transferListener: TransferListener) {
+        // Делегируем вызов upstream, так как он является основным источником данных
+        upstream.addTransferListener(transferListener)
+    }
+
+    override fun getResponseHeaders(): Map<String, List<String>> {
+        // Делегируем вызов upstream
+        return upstream.responseHeaders
+    }
 }
 
-@UnstableApi
 class ParsingDataSourceFactory(
     private val upstreamFactory: DataSource.Factory,
     private val onMetadataParsed: (Map<Int, UnifiedMetadataReader.TrackInfo>) -> Unit,

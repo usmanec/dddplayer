@@ -154,7 +154,7 @@ object TrackLogic {
     private fun getDisplayLanguage(langCode: String, index: Int): String {
         if (langCode == "und") return "Track $index"
 
-        val locale = Locale(langCode)
+        val locale = Locale.forLanguageTag(langCode)
         val display = locale.displayLanguage
         return if (display.isNotEmpty()) {
             display.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }

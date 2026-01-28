@@ -13,7 +13,7 @@
         android:layout_height="wrap_content"
         android:paddingHorizontal="16dp"
         android:paddingTop="16dp"
-        android:text="Настройки"
+        android:text="@string/Settings"
         android:textColor="@color/tv_white"
         android:textSize="20sp"
         android:textStyle="bold" />

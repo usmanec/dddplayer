@@ -1,11 +1,9 @@
 package top.rootu.dddplayer.logic
 
-import android.util.Log
-import java.io.EOFException
-import java.io.InputStream
-import java.nio.charset.Charset
 import top.rootu.dddplayer.logic.UnifiedMetadataReader.TrackInfo
 import top.rootu.dddplayer.logic.UnifiedMetadataReader.TrackType
+import java.io.EOFException
+import java.io.InputStream
 
 object MatroskaMetadataReader {
     private const val TAG = "MkvDebug"
@@ -33,7 +31,7 @@ object MatroskaMetadataReader {
                 }
             }
             return tracks
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             return emptyList()
         }
     }
@@ -55,7 +53,7 @@ object MatroskaMetadataReader {
                 }
                 bytesRead += s // Грубая оценка
             }
-        } catch (e: Exception) { }
+        } catch (_: Exception) { }
     }
 
     private fun parseTracks(reader: EbmlReader, size: Long, out: MutableList<TrackInfo>) {
@@ -71,7 +69,7 @@ object MatroskaMetadataReader {
                     reader.skip(s)
                 }
                 read += s
-            } catch (e: Exception) { break }
+            } catch (_: Exception) { break }
         }
     }
 
@@ -105,7 +103,7 @@ object MatroskaMetadataReader {
                     }
                     else -> reader.skip(s)
                 }
-            } catch (e: Exception) { break }
+            } catch (_: Exception) { break }
         }
         return TrackInfo(number, name, lang, type)
     }

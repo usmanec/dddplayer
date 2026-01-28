@@ -3,7 +3,6 @@ package top.rootu.dddplayer.ui.controller
 import android.app.Dialog
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.drawable.ColorDrawable
 import android.view.Gravity
 import android.view.SurfaceView
 import android.view.View
@@ -13,6 +12,8 @@ import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.SeekBar
 import android.widget.TextView
+import androidx.core.graphics.drawable.toDrawable
+import androidx.core.graphics.toColorInt
 import androidx.core.view.isVisible
 import androidx.media3.common.PlaybackException
 import androidx.media3.ui.AspectRatioFrameLayout
@@ -32,6 +33,7 @@ import top.rootu.dddplayer.viewmodel.SettingType
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.abs
 
 class PlayerUiController(private val rootView: View) {
 
@@ -49,7 +51,6 @@ class PlayerUiController(private val rootView: View) {
     val fpsCounterTextView: TextView = rootView.findViewById(R.id.fps_counter)
 
     // Buffering
-    val bufferingIndicator: ProgressBar = rootView.findViewById(R.id.buffering_indicator)
     val bufferingSplitContainer: View = rootView.findViewById(R.id.buffering_split_container)
     val bufferingContainer: View = rootView.findViewById(R.id.buffering_container)
     val bufferingPercentage: TextView = rootView.findViewById(R.id.buffering_percentage)
@@ -69,7 +70,7 @@ class PlayerUiController(private val rootView: View) {
     val textClock: TextView = topInfoPanel.findViewById(R.id.text_clock)
     val textEndsAt: TextView = topInfoPanel.findViewById(R.id.text_ends_at)
     val iconInputMode: ImageView = topInfoPanel.findViewById(R.id.icon_input_mode)
-    val iconSwapEyes: android.widget.ImageView = topInfoPanel.findViewById(R.id.icon_swap_eyes)
+    val iconSwapEyes: ImageView = topInfoPanel.findViewById(R.id.icon_swap_eyes)
     val badgeResolution: TextView = topInfoPanel.findViewById(R.id.badge_resolution)
     val badgeAudio: TextView = topInfoPanel.findViewById(R.id.badge_audio)
     val badgeSubtitle: TextView = topInfoPanel.findViewById(R.id.badge_subtitle)
@@ -107,7 +108,6 @@ class PlayerUiController(private val rootView: View) {
     val errorDetails: TextView = rootView.findViewById(R.id.error_details)
 
     val buttonUpdate: TextView = controlsView.findViewById(R.id.button_update)
-    private var updateDialog: Dialog? = null
 
     val seekOverlay: View = rootView.findViewById(R.id.seek_overlay)
     val seekDeltaText: TextView = rootView.findViewById(R.id.seek_delta)
@@ -121,22 +121,18 @@ class PlayerUiController(private val rootView: View) {
         // Отключаем перехват фокуса, чтобы лента не воровала управление у кнопок
         optionsRecycler.isFocusable = false
         optionsRecycler.isFocusableInTouchMode = false
+
+        // ВАЖНО: Отключаем анимации изменений.
+        // Это убирает "дерганье" и эффект морфинга при смене списков (например, Аудио -> Субтитры).
+        optionsRecycler.itemAnimator = null
     }
 
     fun showSeekOverlay(deltaMs: Long, targetTimeMs: Long) {
         seekOverlay.isVisible = true
-
         val sign = if (deltaMs > 0) "+" else "-"
-        val absDelta = Math.abs(deltaMs)
-
-        // Форматируем дельту (если < 1 мин, то просто секунды, иначе мин:сек)
-        val deltaStr = if (absDelta < 60000) {
-            "${absDelta / 1000}s"
-        } else {
-            formatTime(absDelta)
-        }
-
-        seekDeltaText.text = "$sign $deltaStr"
+        val absDelta = abs(deltaMs)
+        val deltaStr = if (absDelta < 60000) "${absDelta / 1000}s" else formatTime(absDelta)
+        seekDeltaText.text = rootView.context.getString(R.string.seek_delta_format, sign, deltaStr)
         seekTargetText.text = formatTime(targetTimeMs)
     }
 
@@ -145,24 +141,19 @@ class PlayerUiController(private val rootView: View) {
     }
 
     fun showFatalError(error: PlaybackException) {
-        errorText.text = "Ошибка воспроизведения"
+        errorText.text = rootView.context.getString(R.string.error_playback_title)
         errorDetails.text = formatErrorDetails(error)
-
         errorScreen.isVisible = true
-        errorScreen.setBackgroundColor(Color.parseColor("#CC000000")) // Темный фон
-
+        errorScreen.setBackgroundColor("#CC000000".toColorInt())
         bufferingContainer.isVisible = false
         bufferingSplitContainer.isVisible = false
     }
 
     fun showVideoErrorState(error: PlaybackException) {
-        errorText.text = "Ошибка видео декодера.\nВоспроизводится только звук."
+        errorText.text = rootView.context.getString(R.string.error_video_decoder)
         errorDetails.text = formatErrorDetails(error)
-
         errorScreen.isVisible = true
-        // Полупрозрачный фон, чтобы видеть постер (если есть)
-        errorScreen.setBackgroundColor(Color.parseColor("#80000000"))
-
+        errorScreen.setBackgroundColor("#80000000".toColorInt())
         bufferingContainer.isVisible = false
         bufferingSplitContainer.isVisible = false
     }
@@ -172,7 +163,6 @@ class PlayerUiController(private val rootView: View) {
     }
 
     private fun formatErrorDetails(error: PlaybackException): String {
-        // Формируем строку: "Код ошибки (Число)\nСообщение"
         return "${error.errorCodeName} (${error.errorCode})\n${error.message ?: ""}"
     }
 
@@ -190,26 +180,31 @@ class PlayerUiController(private val rootView: View) {
 
             optionsRecycler.isVisible = true
 
-            // Используем submitData для преобразования строк в уникальные элементы
-            optionsAdapter.submitData(list)
-            optionsAdapter.setSelection(index)
+            // Используем callback, чтобы скроллить только ПОСЛЕ обновления списка
+            optionsAdapter.submitData(list) {
+                optionsAdapter.setSelection(index)
 
-            // 2. Скроллим
-            // Используем scrollToPosition для мгновенного прыжка при первом показе,
-            // и smoothScroll для анимации при смене.
-            // Но так как мы не знаем, "первый" это показ или нет, используем smoothScroll всегда,
-            // но с post, чтобы дать RecyclerView время на layout.
-            optionsRecycler.post {
-                val smoothScroller = object : LinearSmoothScroller(rootView.context) {
-                    override fun getHorizontalSnapPreference(): Int = SNAP_TO_ANY
-                    override fun calculateDtToFit(viewStart: Int, viewEnd: Int, boxStart: Int, boxEnd: Int, snapPreference: Int): Int {
-                        val boxCenter = boxStart + (boxEnd - boxStart) / 2
-                        val viewCenter = viewStart + (viewEnd - viewStart) / 2
-                        return boxCenter - viewCenter
+                // Используем post, чтобы дать RecyclerView время на layout (измерение ширины элементов)
+                optionsRecycler.post {
+                    // Используем кастомный SmoothScroller для точного центрирования
+                    val smoothScroller = object : LinearSmoothScroller(rootView.context) {
+                        override fun getHorizontalSnapPreference(): Int = SNAP_TO_ANY
+
+                        // Вычисляем смещение так, чтобы центр элемента совпал с центром контейнера
+                        override fun calculateDtToFit(viewStart: Int, viewEnd: Int, boxStart: Int, boxEnd: Int, snapPreference: Int): Int {
+                            val boxCenter = boxStart + (boxEnd - boxStart) / 2
+                            val viewCenter = viewStart + (viewEnd - viewStart) / 2
+                            return boxCenter - viewCenter
+                        }
+
+                        // Делаем скролл быстрым, чтобы это выглядело отзывчиво
+                        override fun calculateTimeForScrolling(dx: Int): Int {
+                            return 100.coerceAtMost(super.calculateTimeForScrolling(dx))
+                        }
                     }
+                    smoothScroller.targetPosition = index
+                    optionsRecycler.layoutManager?.startSmoothScroll(smoothScroller)
                 }
-                smoothScroller.targetPosition = index
-                optionsRecycler.layoutManager?.startSmoothScroll(smoothScroller)
             }
 
         } else {
@@ -223,19 +218,12 @@ class PlayerUiController(private val rootView: View) {
      * @param durationMs Общая длительность в мс
      */
     fun updateTimeLabels(currentMs: Long, durationMs: Long) {
-        // 1. Левая метка: "00:10:23" (Текущее)
         timeCurrentTextView.text = formatTime(currentMs)
-
         if (durationMs > 0) {
             val remainingMs = (durationMs - currentMs).coerceAtLeast(0)
-
-            // 2. Правая метка: "- 01:44:37" (Осталось)
-            timeDurationTextView.text = "- ${formatTime(remainingMs)}"
-
-            // 3. Верхняя метка: "Конец в 23:15" (Реальное время)
+            timeDurationTextView.text = rootView.context.getString(R.string.seek_delta_format, "-", formatTime(remainingMs))
             val endTimeMs = System.currentTimeMillis() + remainingMs
             val endTimeStr = timeFormat.format(Date(endTimeMs))
-
             textEndsAt.text = rootView.context.getString(R.string.time_ends_at, endTimeStr)
             textEndsAt.isVisible = true
         } else {
@@ -277,7 +265,6 @@ class PlayerUiController(private val rootView: View) {
     fun loadPoster(uri: android.net.Uri?, playlistIndex: Int, playlistSize: Int) {
         val isPlaylist = playlistSize > 1
         val numberText = (playlistIndex + 1).toString()
-
         posterNumberBadge.text = numberText
         posterPlaceholderText.text = numberText
 
@@ -287,7 +274,6 @@ class PlayerUiController(private val rootView: View) {
             posterPlaceholderText.isVisible = false
             // Если плейлист -> показываем бейдж
             posterNumberBadge.isVisible = isPlaylist
-
             videoPoster.load(uri) {
                 crossfade(true)
                 listener(onError = { _, _ -> handleNoPoster(isPlaylist)})
@@ -308,7 +294,6 @@ class PlayerUiController(private val rootView: View) {
             // Одиночное видео без постера -> Дефолтная иконка (старая логика)
             videoPoster.isVisible = true
             videoPoster.setImageResource(R.drawable.tv_banner)
-
             posterNumberBadge.isVisible = false
             posterPlaceholderText.isVisible = false
         }
@@ -328,7 +313,7 @@ class PlayerUiController(private val rootView: View) {
             playlistDialog?.window?.apply {
                 setLayout(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT)
                 setGravity(Gravity.END)
-                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+                setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
             }
 
             val recycler = playlistDialog?.findViewById<RecyclerView>(R.id.playlist_recycler)
@@ -341,26 +326,21 @@ class PlayerUiController(private val rootView: View) {
             playlistDialog?.setOnDismissListener { onDismiss() }
         }
 
-        playlistAdapter?.submitList(items)
-        playlistAdapter?.setCurrentIndex(currentIndex)
+        playlistAdapter?.submitList(items) {
+            playlistAdapter?.setCurrentIndex(currentIndex)
 
-        // Скроллим к текущему элементу (ВСЕГДА, даже если диалог переиспользован)
-        val recycler = playlistDialog?.findViewById<RecyclerView>(R.id.playlist_recycler)
-        // Используем post, чтобы скролл сработал после того, как RecyclerView обновит лейаут
-        recycler?.post {
-            recycler.scrollToPosition(currentIndex)
+            // Скроллим к текущему элементу (ВСЕГДА, даже если диалог переиспользован)
+            val recycler = playlistDialog?.findViewById<RecyclerView>(R.id.playlist_recycler)
+            // Используем post, чтобы скролл сработал после того, как RecyclerView обновит лейаут
+            recycler?.post {
+                recycler.scrollToPosition(currentIndex)
 
-            // Ждем, пока скролл завершится и элемент появится, затем фокусируемся
-            recycler.postDelayed({
-                val holder = recycler.findViewHolderForAdapterPosition(currentIndex)
-                if (holder != null) {
-                    holder.itemView.requestFocus()
-                } else {
-                    // Если ViewHolder все еще null (например, список длинный и scrollToPosition не успел),
-                    // можно попробовать жесткий скролл или просто оставить как есть.
-                    // Но вроде как postDelayed(50-100ms) должно хватать.
-                }
-            }, 100)
+                // Ждем, пока скролл завершится и элемент появится, затем фокусируемся
+                recycler.postDelayed({
+                    val holder = recycler.findViewHolderForAdapterPosition(currentIndex)
+                    holder?.itemView?.requestFocus()
+                }, 50)
+            }
         }
 
         playlistDialog?.show()
@@ -387,11 +367,11 @@ class PlayerUiController(private val rootView: View) {
             SettingType.OUTPUT_FORMAT -> context.getString(R.string.setting_output_format)
             SettingType.GLASSES_TYPE -> context.getString(R.string.setting_glasses_type)
             SettingType.FILTER_MODE -> context.getString(R.string.setting_filter)
-            SettingType.CUSTOM_HUE_L -> "Оттенок (Левый)"
-            SettingType.CUSTOM_HUE_R -> "Оттенок (Правый)"
-            SettingType.CUSTOM_LEAK_L -> "Утечка (Левый)"
-            SettingType.CUSTOM_LEAK_R -> "Утечка (Правый)"
-            SettingType.CUSTOM_SPACE -> "Пространство"
+            SettingType.CUSTOM_HUE_L -> context.getString(R.string.setting_hue_l)
+            SettingType.CUSTOM_HUE_R -> context.getString(R.string.setting_hue_r)
+            SettingType.CUSTOM_LEAK_L -> context.getString(R.string.setting_leak_l)
+            SettingType.CUSTOM_LEAK_R -> context.getString(R.string.setting_leak_r)
+            SettingType.CUSTOM_SPACE -> context.getString(R.string.setting_space)
             SettingType.SWAP_EYES -> context.getString(R.string.setting_swap_eyes)
             SettingType.DEPTH_3D -> context.getString(R.string.setting_depth)
             SettingType.SCREEN_SEPARATION -> context.getString(R.string.setting_screen_separation)
@@ -410,7 +390,7 @@ class PlayerUiController(private val rootView: View) {
             } else {
                 bufferingContainer.isVisible = true
                 bufferingSplitContainer.isVisible = false
-                bufferingPercentage.text = "$percent%"
+                bufferingPercentage.text = rootView.context.getString(R.string.percentage_int_format, percent)
             }
         } else {
             bufferingContainer.isVisible = false
@@ -444,19 +424,9 @@ class PlayerUiController(private val rootView: View) {
     fun updateInputModeIcon(type: StereoInputType, swapEyes: Boolean) {
         val iconRes = when (type) {
             StereoInputType.NONE -> R.drawable.ic_input_mode_mono
-
-            StereoInputType.SIDE_BY_SIDE -> {
-                if (swapEyes) R.drawable.ic_input_mode_ss_rl
-                else R.drawable.ic_input_mode_ss_lr
-            }
-
-            StereoInputType.TOP_BOTTOM -> {
-                if (swapEyes) R.drawable.ic_input_mode_ou_rl
-                else R.drawable.ic_input_mode_ou_lr
-            }
-
+            StereoInputType.SIDE_BY_SIDE -> if (swapEyes) R.drawable.ic_input_mode_ss_rl else R.drawable.ic_input_mode_ss_lr
+            StereoInputType.TOP_BOTTOM -> if (swapEyes) R.drawable.ic_input_mode_ou_rl else R.drawable.ic_input_mode_ou_lr
             StereoInputType.INTERLACED -> R.drawable.ic_input_mode_interlaced
-
             StereoInputType.TILED_1080P -> R.drawable.ic_input_mode_3dz
         }
         iconInputMode.setImageResource(iconRes)

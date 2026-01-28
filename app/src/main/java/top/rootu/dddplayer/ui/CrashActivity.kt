@@ -13,6 +13,7 @@ import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
@@ -44,6 +45,12 @@ class CrashActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btShowErrorLogs).setOnClickListener {
             showErrorLogDialog()
         }
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                exitProcess(0)
+            }
+        })
     }
 
     private fun restartApp() {
@@ -169,12 +176,6 @@ class CrashActivity : AppCompatActivity() {
                 e.printStackTrace()
             }
         }
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        super.onBackPressed()
-        exitProcess(0)
     }
 
     override fun onDestroy() {

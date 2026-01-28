@@ -29,7 +29,7 @@ class UpdateManager(private val context: Context) {
         try {
             val request = Request.Builder().url(repoUrl).build()
             val response = client.newCall(request).execute()
-            val json = response.body?.string() ?: return@withContext null
+            val json = response.body.string()
 
             val releases = JSONArray(json)
             if (releases.length() > 0) {
@@ -77,7 +77,7 @@ class UpdateManager(private val context: Context) {
         try {
             val request = Request.Builder().url(url).build()
             val response = client.newCall(request).execute()
-            val body = response.body ?: return@withContext null
+            val body = response.body
 
             val file = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "update.apk")
             val inputStream = body.byteStream()
@@ -142,7 +142,7 @@ class UpdateManager(private val context: Context) {
                 json.getString("downloadUrl"),
                 json.getLong("size")
             )
-        } catch (e: Exception) { null }
+        } catch (_: Exception) { null }
     }
 
     fun isNewer(remote: String, current: String): Boolean {

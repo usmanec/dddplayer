@@ -1,10 +1,10 @@
 package top.rootu.dddplayer.ui
 
 import android.app.AlertDialog
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.edit
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.utils.CardboardParamsParser
 
@@ -33,13 +33,13 @@ class VrConfigActivity : AppCompatActivity() {
     }
 
     private fun saveProfile(profile: top.rootu.dddplayer.utils.CardboardProfile) {
-        val prefs = getSharedPreferences("global_prefs", Context.MODE_PRIVATE)
-        prefs.edit()
-            .putFloat("vr_k1", profile.k1)
-            .putFloat("vr_k2", profile.k2)
+        val prefs = getSharedPreferences("global_prefs", MODE_PRIVATE)
+        prefs.edit {
+            putFloat("vr_k1", profile.k1)
+            putFloat("vr_k2", profile.k2)
             // Можно сохранить IPD, если нужно использовать его как базу для screenSeparation
-            // .putFloat("vr_ipd", profile.interLensDistance)
-            .apply()
+            // putFloat("vr_ipd", profile.interLensDistance)
+        }
     }
 
     private fun showSuccessDialog(k1: Float, k2: Float) {

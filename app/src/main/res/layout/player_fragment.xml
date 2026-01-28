@@ -80,8 +80,8 @@
         <ImageView
             android:layout_width="64dp"
             android:layout_height="64dp"
-            android:src="@drawable/ic_error_outline"
-            app:tint="@color/error_red" />
+            android:contentDescription="@string/error"
+            android:src="@drawable/ic_error_outline" />
 
         <TextView
             android:id="@+id/error_text"
@@ -90,7 +90,7 @@
             android:layout_marginTop="16dp"
             android:gravity="center"
             android:paddingHorizontal="32dp"
-            android:text="Ошибка воспроизведения"
+            android:text="@string/playback_error"
             android:textColor="@color/tv_white"
             android:textSize="18sp" />
 
@@ -111,13 +111,14 @@
             android:textSize="13sp"
             android:fontFamily="monospace"
 
-            android:maxWidth="600dp" />
+            android:maxWidth="600dp"
+            tools:ignore="HardcodedText" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Нажмите НАЗАД для выхода"
+            android:text="@string/press_back_exit"
             android:textColor="@color/text_secondary"
             android:textSize="14sp" />
     </LinearLayout>
@@ -160,7 +161,8 @@
         android:layout_gravity="top"
         android:clickable="true"
         android:focusable="false"
-        android:background="@color/transparent"/>
+        android:background="@color/transparent"
+        tools:ignore="KeyboardInaccessibleWidget" />
 
     <TextView
         android:id="@+id/fps_counter"

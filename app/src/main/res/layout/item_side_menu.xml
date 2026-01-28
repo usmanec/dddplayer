@@ -17,6 +17,7 @@
         android:layout_width="24dp"
         android:layout_height="24dp"
         android:layout_marginEnd="16dp"
+        android:contentDescription="@string/pic"
         app:tint="@color/selector_menu_item_text" />
 
     <LinearLayout

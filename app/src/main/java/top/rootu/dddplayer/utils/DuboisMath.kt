@@ -7,13 +7,13 @@ import kotlin.math.pow
 object DuboisMath {
 
     // Базисные матрицы
-    private val M_XYZ = arrayOf(
+    private val mXYZ = arrayOf(
         floatArrayOf(0.4124f, 0.3576f, 0.1805f),
         floatArrayOf(0.2126f, 0.7152f, 0.0722f),
         floatArrayOf(0.0193f, 0.1192f, 0.9505f)
     )
 
-    private val M_LMS = arrayOf(
+    private val mLMS = arrayOf(
         floatArrayOf(0.3811f, 0.5783f, 0.0402f),
         floatArrayOf(0.1967f, 0.7244f, 0.0782f),
         floatArrayOf(0.0241f, 0.1288f, 0.8444f)
@@ -31,13 +31,33 @@ object DuboisMath {
         val left: FloatArray,
         val right: FloatArray,
         val isValid: Boolean = true
-    )
+    ) {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+
+            other as ResultMatrices
+
+            if (isValid != other.isValid) return false
+            if (!left.contentEquals(other.left)) return false
+            if (!right.contentEquals(other.right)) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            var result = isValid.hashCode()
+            result = 31 * result + left.contentHashCode()
+            result = 31 * result + right.contentHashCode()
+            return result
+        }
+    }
 
     fun calculate(params: DuboisParams): ResultMatrices {
         val cL = colorToLinear(params.colorLeft)
         val cR = colorToLinear(params.colorRight)
 
-        val mBasis = if (params.useLms) M_LMS else M_XYZ
+        val mBasis = if (params.useLms) mLMS else mXYZ
 
         // Моделирование фильтров с раздельной утечкой
         val gray = floatArrayOf(0.299f, 0.587f, 0.114f)
@@ -47,44 +67,44 @@ object DuboisMath {
         // Составляем матрицу Q (6x3)
         // Q = [ Basis * effL ]
         //     [ Basis * effR ]
-        val Q = Array(6) { FloatArray(3) }
+        val q = Array(6) { FloatArray(3) }
         for (row in 0 until 3) {
-            Q[row][0] = mBasis[row][0] * effL[0]
-            Q[row][1] = mBasis[row][1] * effL[1]
-            Q[row][2] = mBasis[row][2] * effL[2]
+            q[row][0] = mBasis[row][0] * effL[0]
+            q[row][1] = mBasis[row][1] * effL[1]
+            q[row][2] = mBasis[row][2] * effL[2]
         }
         for (row in 0 until 3) {
-            Q[row + 3][0] = mBasis[row][0] * effR[0]
-            Q[row + 3][1] = mBasis[row][1] * effR[1]
-            Q[row + 3][2] = mBasis[row][2] * effR[2]
+            q[row + 3][0] = mBasis[row][0] * effR[0]
+            q[row + 3][1] = mBasis[row][1] * effR[1]
+            q[row + 3][2] = mBasis[row][2] * effR[2]
         }
 
         // Least Squares: (Q^T * Q)^-1 * Q^T
-        val QT = transpose(Q) // 3x6
-        val QTQ = multiply(QT, Q) // 3x3
+        val qt = transpose(q) // 3x6
+        val qtq = multiply(qt, q) // 3x3
 
         // Если инверсия не удалась, возвращаем цвета и помечаем как Invalid
-        val QTQ_inv = invert3x3(QTQ) ?: return ResultMatrices(
+        val qtqInv = invert3x3(qtq) ?: return ResultMatrices(
             floatArrayOf(cL[0], 0f, 0f, 0f, cL[1], 0f, 0f, 0f, cL[2]),
             floatArrayOf(cR[0], 0f, 0f, 0f, cR[1], 0f, 0f, 0f, cR[2]),
             isValid = false
         )
 
-        val M_pinv = multiply(QTQ_inv, QT) // 3x6
+        val mPInv = multiply(qtqInv, qt) // 3x6
 
-        // Extract P_Left (3x3) and P_Right (3x3) from pseudo-inverse
-        val P_Left = Array(3) { i -> floatArrayOf(M_pinv[i][0], M_pinv[i][1], M_pinv[i][2]) }
-        val P_Right = Array(3) { i -> floatArrayOf(M_pinv[i][3], M_pinv[i][4], M_pinv[i][5]) }
+        // Extract pLeft (3x3) and pRight (3x3) from pseudo-inverse
+        val pLeft = Array(3) { i -> floatArrayOf(mPInv[i][0], mPInv[i][1], mPInv[i][2]) }
+        val pRight = Array(3) { i -> floatArrayOf(mPInv[i][3], mPInv[i][4], mPInv[i][5]) }
 
         // Final = P * Basis
-        val Final_L = multiply3x3(P_Left, mBasis)
-        val Final_R = multiply3x3(P_Right, mBasis)
+        val finalL = multiply3x3(pLeft, mBasis)
+        val finalR = multiply3x3(pRight, mBasis)
 
 
         // Normalize (White balance fix)
-        normalize(Final_L, Final_R)
+        normalize(finalL, finalR)
 
-        return ResultMatrices(flatten(Final_L), flatten(Final_R), true)
+        return ResultMatrices(flatten(finalL), flatten(finalR), true)
     }
 
     private fun sRGBtoLinear(x: Float): Float {
@@ -114,23 +134,23 @@ object DuboisMath {
     }
 
     // Multiply (m x n) by (n x p) -> (m x p)
-    private fun multiply(A: Array<FloatArray>, B: Array<FloatArray>): Array<FloatArray> {
-        val m = A.size
-        val n = A[0].size
-        val p = B[0].size
+    private fun multiply(a: Array<FloatArray>, b: Array<FloatArray>): Array<FloatArray> {
+        val m = a.size
+        val n = a[0].size
+        val p = b[0].size
         val res = Array(m) { FloatArray(p) }
         for (i in 0 until m) {
             for (j in 0 until p) {
                 var sum = 0f
-                for (k in 0 until n) sum += A[i][k] * B[k][j]
+                for (k in 0 until n) sum += a[i][k] * b[k][j]
                 res[i][j] = sum
             }
         }
         return res
     }
 
-    private fun multiply3x3(A: Array<FloatArray>, B: Array<FloatArray>): Array<FloatArray> {
-        return multiply(A, B)
+    private fun multiply3x3(a: Array<FloatArray>, b: Array<FloatArray>): Array<FloatArray> {
+        return multiply(a, b)
     }
 
     private fun invert3x3(m: Array<FloatArray>): Array<FloatArray>? {

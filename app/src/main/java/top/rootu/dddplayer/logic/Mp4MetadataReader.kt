@@ -1,11 +1,11 @@
 package top.rootu.dddplayer.logic
 
 import android.util.Log
-import java.io.DataInputStream
-import java.io.InputStream
-import java.nio.charset.Charset
 import top.rootu.dddplayer.logic.UnifiedMetadataReader.TrackInfo
 import top.rootu.dddplayer.logic.UnifiedMetadataReader.TrackType
+import java.io.DataInputStream
+import java.io.InputStream
+
 object Mp4MetadataReader {
     private const val TAG = "Mp4Debug"
 
@@ -119,12 +119,16 @@ object Mp4MetadataReader {
 
             if (actualBoxSize > remaining) break
 
-            if (type == "mdhd") {
-                language = parseMdhd(stream, bodySize)
-            } else if (type == "hdlr") {
-                hdlrType = parseHdlrType(stream, bodySize)
-            } else {
-                stream.skipBytes(bodySize.toInt())
+            when (type) {
+                "mdhd" -> {
+                    language = parseMdhd(stream, bodySize)
+                }
+                "hdlr" -> {
+                    hdlrType = parseHdlrType(stream, bodySize)
+                }
+                else -> {
+                    stream.skipBytes(bodySize.toInt())
+                }
             }
             remaining -= actualBoxSize
         }

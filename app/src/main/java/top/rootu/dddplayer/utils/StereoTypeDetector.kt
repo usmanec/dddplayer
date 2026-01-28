@@ -14,7 +14,7 @@ object StereoTypeDetector {
     private const val SEP = "[\\.\\-_ \\[\\]\\(\\)\\{\\}]"
 
     // Граница начала: любой разделитель
-    private const val B_START = "$SEP"
+    private const val B_START = SEP
 
     // Граница конца: Либо конец строки ($), либо любой разделитель
     private const val B_END = "($SEP|$)"
@@ -55,6 +55,7 @@ object StereoTypeDetector {
                 C.STEREO_MODE_TOP_BOTTOM -> return StereoInputType.TOP_BOTTOM
                 C.STEREO_MODE_INTERLEAVED_LEFT_PRIMARY,
                 C.STEREO_MODE_INTERLEAVED_RIGHT_PRIMARY -> return StereoInputType.INTERLACED
+                else -> {}
             }
         }
 

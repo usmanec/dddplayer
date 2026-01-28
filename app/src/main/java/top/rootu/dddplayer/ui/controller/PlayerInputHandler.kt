@@ -8,9 +8,11 @@ import androidx.core.view.isVisible
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
 import top.rootu.dddplayer.viewmodel.PlayerViewModel
+import top.rootu.dddplayer.viewmodel.SettingsViewModel
 
 class PlayerInputHandler(
     private val viewModel: PlayerViewModel,
+    private val settingsViewModel: SettingsViewModel,
     private val ui: PlayerUiController,
     private val repo: SettingsRepository,
     private val onShowMainMenu: () -> Unit,
@@ -47,24 +49,26 @@ class PlayerInputHandler(
             performSeekHandler.postDelayed({ viewModel.isUserInteracting = false }, 500)
         }
     }
+
     fun handleKeyEvent(event: KeyEvent, currentFocus: View?): Boolean {
         if (event.action != KeyEvent.ACTION_DOWN) return false
 
         // 1. Навигация в настройках
-        if (viewModel.isSettingsPanelVisible.value == true) {
-            // Сброс таймера скрытия настроек должен быть во фрагменте,
-            // но здесь мы возвращаем true, что сигнал обработан
+        if (settingsViewModel.isSettingsPanelVisible.value == true) {
+            val available = viewModel.availableSettings.value ?: emptyList()
             when (event.keyCode) {
-                KeyEvent.KEYCODE_DPAD_UP -> viewModel.onMenuUp()
-                KeyEvent.KEYCODE_DPAD_DOWN -> viewModel.onMenuDown()
-                KeyEvent.KEYCODE_DPAD_LEFT -> viewModel.onMenuLeft()
-                KeyEvent.KEYCODE_DPAD_RIGHT -> viewModel.onMenuRight()
+                KeyEvent.KEYCODE_DPAD_UP -> settingsViewModel.onMenuUp(available)
+                KeyEvent.KEYCODE_DPAD_DOWN -> settingsViewModel.onMenuDown(available)
+                KeyEvent.KEYCODE_DPAD_LEFT -> viewModel.changeSettingValue(settingsViewModel.currentSettingType.value!!, -1)
+                KeyEvent.KEYCODE_DPAD_RIGHT -> viewModel.changeSettingValue(settingsViewModel.currentSettingType.value!!, 1)
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                    viewModel.closeSettingsPanel(save = true)
+                    settingsViewModel.closePanel()
+                    viewModel.saveCurrentSettings()
                 }
 
                 KeyEvent.KEYCODE_BACK -> {
-                    viewModel.closeSettingsPanel(save = false)
+                    settingsViewModel.closePanel()
+                    viewModel.restoreSettings()
                 }
             }
             return true
@@ -102,7 +106,10 @@ class PlayerInputHandler(
                     return true
                 } else if (!ui.controlsView.isVisible) {
                     when (repo.getUpButtonAction()) {
-                        1 -> viewModel.openSettingsPanel() // OSD
+                        1 -> { // OSD
+                            viewModel.prepareSettingsPanel()
+                            settingsViewModel.openPanel(viewModel.availableSettings.value ?: emptyList())
+                        }
                         2 -> onShowMainMenu() // Боковое меню
                         // 0 -> Ничего
                     }

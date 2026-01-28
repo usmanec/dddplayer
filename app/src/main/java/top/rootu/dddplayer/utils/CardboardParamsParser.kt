@@ -60,23 +60,27 @@ object CardboardParamsParser {
                     else skip(buffer, wireType)
                 }
                 8 -> { // Distortion coefficients (repeated float)
-                    if (wireType == 2) { // Packed repeated
-                        val length = readVarInt(buffer)
-                        val end = buffer.position() + length
-                        while (buffer.position() < end) {
+                    when (wireType) {
+                        2 -> { // Packed repeated
+                            val length = readVarInt(buffer)
+                            val end = buffer.position() + length
+                            while (buffer.position() < end) {
+                                coeffs.add(buffer.float)
+                            }
+                        }
+                        5 -> { // Non-packed
                             coeffs.add(buffer.float)
                         }
-                    } else if (wireType == 5) { // Non-packed
-                        coeffs.add(buffer.float)
-                    } else {
-                        skip(buffer, wireType)
+                        else -> {
+                            skip(buffer, wireType)
+                        }
                     }
                 }
                 else -> skip(buffer, wireType)
             }
         }
 
-        if (coeffs.size >= 1) k1 = coeffs[0]
+        if (coeffs.isNotEmpty()) k1 = coeffs[0]
         if (coeffs.size >= 2) k2 = coeffs[1]
 
         return CardboardProfile(k1, k2, screenToLens, interLens)

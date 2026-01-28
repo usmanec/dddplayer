@@ -16,7 +16,7 @@ object CrashHandler {
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             try {
                 handleUncaughtException(application, throwable)
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 // Если не удалось показать экран ошибки, отдаем системе
                 defaultHandler?.uncaughtException(thread, throwable)
             }

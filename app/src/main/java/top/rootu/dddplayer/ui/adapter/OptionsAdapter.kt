@@ -22,19 +22,20 @@ class OptionsAdapter : ListAdapter<OptionsAdapter.OptionItem, OptionsAdapter.Vie
 
     /**
      * Метод для приема списка строк.
-     * Преобразует строки в OptionItem с уникальными ID.
+     * @param commitCallback Вызывается, когда DiffUtil закончил работу и список обновлен.
      */
-    fun submitData(items: List<String>) {
+    fun submitData(items: List<String>, commitCallback: (() -> Unit)? = null) {
         val mappedItems = items.mapIndexed { index, text ->
             OptionItem(index.toLong(), text)
         }
-        submitList(mappedItems)
+        submitList(mappedItems, commitCallback)
     }
 
     fun setSelection(index: Int) {
         val oldIndex = selectedIndex
         selectedIndex = index
 
+        // Проверяем границы, так как список мог измениться асинхронно
         if (oldIndex in 0 until itemCount) {
             notifyItemChanged(oldIndex)
         }

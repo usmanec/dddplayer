@@ -98,7 +98,7 @@
                     <TextView
                         android:id="@+id/text_decoder_sw_desc"
                         style="@style/SettingsItemDesc"
-                        android:text="@string/settings_decoder_sw_desc"
+                        android:text="@string/pref_decoder_sw_desc"
                         tools:text="HW+SW" />
                 </LinearLayout>
 
@@ -120,13 +120,18 @@
                     android:orientation="vertical">
                     <TextView
                         style="@style/SettingsItemTitle"
-                        android:text="@string/settings_downmix" />
+                        android:text="@string/pref_downmix" />
                     <TextView
                         style="@style/SettingsItemDesc"
-                        android:text="@string/settings_downmix_desc" />
+                        android:text="@string/pref_downmix_desc" />
                 </LinearLayout>
 
-                <Switch android:id="@+id/switch_downmix" android:layout_width="wrap_content" android:layout_height="wrap_content" android:focusable="false" android:clickable="false" />
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switch_downmix"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:focusable="false"
+                    android:clickable="false" />
             </LinearLayout>
 
             <!-- Настройка Downmix (появляется при включении) -->
@@ -145,16 +150,17 @@
 
                     <TextView
                         style="@style/SettingsItemTitle"
-                        android:text="@string/settings_downmix_config" />
+                        android:text="@string/pref_downmix_config" />
 
                     <TextView
                         style="@style/SettingsItemDesc"
-                        android:text="@string/settings_downmix_config_desc" />
+                        android:text="@string/pref_downmix_config_desc" />
                 </LinearLayout>
 
                 <ImageView
                     android:layout_width="24dp"
                     android:layout_height="24dp"
+                    android:contentDescription="@string/pref_downmix_config"
                     android:src="@drawable/ic_arrow_right"
                     android:duplicateParentState="true"
                     app:tint="@color/selector_settings_secondary" />
@@ -181,13 +187,12 @@
                         android:text="@string/pref_tunneling_summary" />
                 </LinearLayout>
 
-                <Switch
+                <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/switch_tunneling"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:clickable="false"
-                    android:focusable="false"
-                    tools:ignore="UseSwitchCompatOrMaterialXml" />
+                    android:focusable="false" />
             </LinearLayout>
 
             <!-- DV7 -->
@@ -212,13 +217,12 @@
                         android:text="@string/pref_map_dv7_on" />
                 </LinearLayout>
 
-                <Switch
+                <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/switch_dv7"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:clickable="false"
-                    android:focusable="false"
-                    tools:ignore="UseSwitchCompatOrMaterialXml" />
+                    android:focusable="false" />
             </LinearLayout>
 
             <!-- AFR -->
@@ -245,13 +249,12 @@
                         tools:text="@string/pref_framerate_matching_off" />
                 </LinearLayout>
 
-                <Switch
+                <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/switch_afr"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:clickable="false"
-                    android:focusable="false"
-                    tools:ignore="UseSwitchCompatOrMaterialXml" />
+                    android:focusable="false" />
             </LinearLayout>
 
             <!-- Skip Silence -->
@@ -276,13 +279,12 @@
                         tools:text="@string/pref_skip_silence_off" />
                 </LinearLayout>
 
-                <Switch
+                <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/switch_skip_silence"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:clickable="false"
-                    android:focusable="false"
-                    tools:ignore="UseSwitchCompatOrMaterialXml" />
+                    android:focusable="false" />
             </LinearLayout>
 
             <!-- Boost -->
@@ -299,11 +301,11 @@
 
                     <TextView
                         style="@style/SettingsItemTitle"
-                        android:text="@string/settings_audio_boost" />
+                        android:text="@string/pref_audio_boost" />
 
                     <TextView
                         style="@style/SettingsItemDesc"
-                        android:text="@string/settings_audio_boost_desc" />
+                        android:text="@string/pref_audio_boost_desc" />
                 </LinearLayout>
 
                 <TextView
@@ -315,7 +317,7 @@
             <TextView
                 style="@style/SettingsSectionHeader"
                 android:layout_marginTop="24dp"
-                android:text="@string/settings_sec_lang_and_sub" />
+                android:text="@string/pref_sec_lang_and_sub" />
 
             <!-- Аудио язык -->
             <LinearLayout
@@ -358,11 +360,11 @@
 
                     <TextView
                         style="@style/SettingsItemTitle"
-                        android:text="@string/sttings_sub_default" />
+                        android:text="@string/pref_sub_lang_default" />
 
                     <TextView
                         style="@style/SettingsItemDesc"
-                        android:text="@string/settings_sub_default_desc" />
+                        android:text="@string/pref_sub_lang_default_desc" />
                 </LinearLayout>
 
                 <TextView
@@ -375,7 +377,7 @@
             <TextView
                 style="@style/SettingsSectionHeader"
                 android:layout_marginTop="24dp"
-                android:text="@string/settings_calibration_3d" />
+                android:text="@string/pref_calibration_3d" />
 
             <!-- Пункт: VR -->
             <LinearLayout
@@ -391,17 +393,17 @@
 
                     <TextView
                         style="@style/SettingsItemTitle"
-                        android:text="@string/settings_cardboard_vr" />
+                        android:text="@string/pref_cardboard_vr" />
 
                     <TextView
                         style="@style/SettingsItemDesc"
-                        android:text="@string/settings_cardboard_vr_desc" />
+                        android:text="@string/pref_cardboard_vr_desc" />
                 </LinearLayout>
 
                 <ImageView
                     android:layout_width="24dp"
                     android:layout_height="24dp"
-                    android:contentDescription="@string/settings_cardboard_vr"
+                    android:contentDescription="@string/pref_cardboard_vr"
                     android:src="@drawable/ic_arrow_right"
                     android:duplicateParentState="true"
                     app:tint="@color/selector_settings_secondary" />
@@ -421,17 +423,17 @@
 
                     <TextView
                         style="@style/SettingsItemTitle"
-                        android:text="@string/settings_anaglyph" />
+                        android:text="@string/pref_anaglyph" />
 
                     <TextView
                         style="@style/SettingsItemDesc"
-                        android:text="@string/settings_anaglyph_desc" />
+                        android:text="@string/pref_anaglyph_desc" />
                 </LinearLayout>
 
                 <ImageView
                     android:layout_width="24dp"
                     android:layout_height="24dp"
-                    android:contentDescription="@string/settings_anaglyph_desc"
+                    android:contentDescription="@string/pref_anaglyph_desc"
                     android:src="@drawable/ic_arrow_right"
                     android:duplicateParentState="true"
                     app:tint="@color/selector_settings_secondary" />
@@ -441,7 +443,7 @@
             <TextView
                 style="@style/SettingsSectionHeader"
                 android:layout_marginTop="24dp"
-                android:text="@string/settings_sec_app" />
+                android:text="@string/pref_sec_app" />
 
             <!-- Кнопка Вверх -->
             <LinearLayout
@@ -457,17 +459,17 @@
 
                     <TextView
                         style="@style/SettingsItemTitle"
-                        android:text="Действие кнопки 'Вверх'" />
+                        android:text="@string/pref_up_action" />
 
                     <TextView
                         style="@style/SettingsItemDesc"
-                        android:text="Что открывать при нажатии 'Вверх' в плеере" />
+                        android:text="@string/pref_up_action_desc" />
                 </LinearLayout>
 
                 <TextView
                     android:id="@+id/text_up_action_value"
                     style="@style/SettingsItemValue"
-                    tools:text="Быстрые настройки" />
+                    tools:text="@string/pref_up_action_osd" />
             </LinearLayout>
 
             <!-- Обновление -->
@@ -485,17 +487,19 @@
                     <TextView
                         android:id="@+id/text_update"
                         style="@style/SettingsItemTitle"
-                        android:text="Проверить обновление" />
+                        android:text="@string/pref_update_check" />
 
                     <TextView
                         android:id="@+id/text_update_desc"
                         style="@style/SettingsItemDesc"
-                        tools:text="v1.0.6" />
+                        tools:text="v1.0.6"
+                        tools:ignore="TooManyViews" />
                 </LinearLayout>
 
                 <ImageView
                     android:layout_width="24dp"
                     android:layout_height="24dp"
+                    android:contentDescription="@string/pref_update_check"
                     android:duplicateParentState="true"
                     android:src="@drawable/ic_arrow_right"
                     app:tint="@color/selector_settings_secondary" />

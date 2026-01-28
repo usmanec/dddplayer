@@ -1,5 +1,6 @@
 package top.rootu.dddplayer.ui
 
+import android.annotation.SuppressLint
 import android.app.Dialog
 import android.graphics.Color
 import android.os.Bundle
@@ -15,11 +16,11 @@ import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.Spinner
-import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SwitchCompat
 import androidx.core.graphics.drawable.toDrawable
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import top.rootu.dddplayer.BuildConfig
@@ -27,12 +28,12 @@ import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
 import top.rootu.dddplayer.logic.AudioMixerLogic
 import top.rootu.dddplayer.logic.UpdateInfo
-import top.rootu.dddplayer.viewmodel.PlayerViewModel
+import top.rootu.dddplayer.viewmodel.UpdateViewModel
 import java.util.Locale
 
 class GlobalSettingsActivity : AppCompatActivity() {
 
-    private val viewModel: PlayerViewModel by viewModels()
+    private val updateViewModel: UpdateViewModel by viewModels()
     private var updateDialog: Dialog? = null
     private lateinit var repo: SettingsRepository
 
@@ -45,17 +46,17 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var textDecoderValue: TextView
 
     private lateinit var itemTunneling: LinearLayout
-    private lateinit var switchTunneling: Switch
+    private lateinit var switchTunneling: SwitchCompat
 
     private lateinit var itemDv7: LinearLayout
-    private lateinit var switchDv7: Switch
+    private lateinit var switchDv7: SwitchCompat
 
     private lateinit var itemAfr: LinearLayout
-    private lateinit var switchAfr: Switch
+    private lateinit var switchAfr: SwitchCompat
     private lateinit var textAfrDesc: TextView
 
     private lateinit var itemSkipSilence: LinearLayout
-    private lateinit var switchSkipSilence: Switch
+    private lateinit var switchSkipSilence: SwitchCompat
     private lateinit var textSkipSilenceDesc: TextView
 
     private lateinit var itemBoost: LinearLayout
@@ -71,7 +72,7 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var itemCalibrateAnaglyph: LinearLayout
 
     private lateinit var itemDownmix: LinearLayout
-    private lateinit var switchDownmix: Switch
+    private lateinit var switchDownmix: SwitchCompat
     private lateinit var itemDownmixConfig: LinearLayout
     private lateinit var itemUpAction: LinearLayout
     private lateinit var textUpActionValue: TextView
@@ -118,18 +119,16 @@ class GlobalSettingsActivity : AppCompatActivity() {
                 scrollView.requestChildFocus(viewToFocus.parent as View, viewToFocus)
                 viewToFocus.requestFocus()
 
-                if (focusItemId == R.id.item_update) { // Обновление
-                    val info = viewModel.updateInfo.value
+                if (focusItemId == R.id.item_update) {
+                    val info = updateViewModel.updateInfo.value
                     if (info != null) {
                         showUpdateDialog(info)
                     } else {
-                        // Если инфо нет (редкий случай), просто проверяем
-                        viewModel.forceCheckUpdates()
-                        viewModel.updateInfo.observe(this) { newInfo ->
+                        updateViewModel.forceCheckUpdates()
+                        updateViewModel.updateInfo.observe(this) { newInfo ->
                             if (newInfo != null) {
                                 showUpdateDialog(newInfo)
-                                // Отписываемся, чтобы не показывать диалог снова при смене конфигурации
-                                viewModel.updateInfo.removeObservers(this)
+                                updateViewModel.updateInfo.removeObservers(this)
                             }
                         }
                     }
@@ -316,44 +315,42 @@ class GlobalSettingsActivity : AppCompatActivity() {
         // Обновление
         updateUpdateUI()
         itemUpdate.setOnClickListener {
-            val info = viewModel.updateInfo.value
+            val info = updateViewModel.updateInfo.value
             if (info != null) {
                 // Обновление доступно -> Показываем диалог
                 showUpdateDialog(info)
             } else {
                 // Обновлений нет -> Запускаем проверку
-                viewModel.forceCheckUpdates()
+                updateViewModel.forceCheckUpdates()
             }
         }
 
         // Наблюдаем за состоянием обновления
-        viewModel.updateInfo.observe(this) { updateUpdateUI() }
-        viewModel.isCheckingUpdates.observe(this) { checking ->
+        updateViewModel.updateInfo.observe(this) { updateUpdateUI() }
+        updateViewModel.isCheckingUpdates.observe(this) { checking ->
             if (checking) {
-                textUpdateDesc.text = "Проверка..."
+                textUpdateDesc.text = getString(R.string.update_btn_checking)
             } else {
                 updateUpdateUI()
             }
         }
 
         // Наблюдаем за прогрессом скачивания
-        viewModel.downloadProgress.observe(this) { progress ->
+        updateViewModel.downloadProgress.observe(this) { progress ->
             updateDownloadProgress(progress)
         }
     }
 
-
     private fun updateUpActionUI() {
         val action = repo.getUpButtonAction()
         textUpActionValue.text = when (action) {
-            1 -> "Панель настройки"
-            2 -> "Меню настроек (Боковое)"
-            else -> "Ничего"
+            1 -> getString(R.string.pref_up_action_osd)
+            2 -> getString(R.string.pref_up_action_menu)
+            else -> getString(R.string.pref_up_action_none)
         }
     }
 
     private fun showUpdateDialog(info: UpdateInfo) {
-        // Используем тот же layout, что и в плеере
         updateDialog = Dialog(this, android.R.style.Theme_Translucent_NoTitleBar)
         updateDialog?.setContentView(R.layout.dialog_update)
         updateDialog?.window?.apply {
@@ -369,7 +366,7 @@ class GlobalSettingsActivity : AppCompatActivity() {
         val progress = updateDialog?.findViewById<ProgressBar>(R.id.update_progress)
         val status = updateDialog?.findViewById<TextView>(R.id.update_status)
 
-        title?.text = "Обновление ${info.version}"
+        title?.text = getString(R.string.update_title, info.version)
         desc?.text = info.description
 
         progress?.visibility = View.GONE
@@ -378,7 +375,7 @@ class GlobalSettingsActivity : AppCompatActivity() {
         btnCancel?.visibility = View.VISIBLE
 
         btnUpdate?.setOnClickListener {
-            viewModel.startUpdate() // <-- ЗАПУСК ОБНОВЛЕНИЯ
+            updateViewModel.startUpdate()
             progress?.visibility = View.VISIBLE
             status?.visibility = View.VISIBLE
             btnUpdate.visibility = View.GONE
@@ -396,7 +393,7 @@ class GlobalSettingsActivity : AppCompatActivity() {
         val progress = updateDialog?.findViewById<ProgressBar>(R.id.update_progress)
         val status = updateDialog?.findViewById<TextView>(R.id.update_status)
         progress?.progress = percent
-        status?.text = "Скачивание... $percent%"
+        status?.text = getString(R.string.update_loading, percent)
 
         if (percent >= 100) {
             updateDialog?.dismiss()
@@ -404,14 +401,15 @@ class GlobalSettingsActivity : AppCompatActivity() {
     }
 
     private fun updateUpdateUI() {
-        val info = viewModel.updateInfo.value
+        val info = updateViewModel.updateInfo.value
         if (info != null) {
-            textUpdate.text = "Обновить до ${info.version}"
+            textUpdate.text = getString(R.string.update_btn_update_fmt, info.version)
         } else {
-            textUpdate.text = "Проверить наличие обновления"
+            textUpdate.text = getString(R.string.update_btn_check)
         }
-        textUpdateDesc.text = "Текущая версия v${BuildConfig.VERSION_NAME}"
+        textUpdateDesc.text = getString(R.string.update_current_version, BuildConfig.VERSION_NAME)
     }
+
     private fun showAudioMixDialog() {
         val dialog = Dialog(this)
         dialog.setContentView(R.layout.dialog_audio_mix)
@@ -438,7 +436,7 @@ class GlobalSettingsActivity : AppCompatActivity() {
         // --- Helpers ---
 
         fun updateText(view: TextView, progress: Int) {
-            view.text = "${progress}%"
+            view.text = getString(R.string.percentage_int_format,progress)
         }
 
         var isUpdatingUiFromCode = false
@@ -492,14 +490,14 @@ class GlobalSettingsActivity : AppCompatActivity() {
 
         // --- Init Logic ---
 
-        val presets = AudioMixerLogic.MixPreset.values()
+        val presets = AudioMixerLogic.MixPreset.entries.toTypedArray()
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, presets.map { it.title })
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinner.adapter = adapter
 
         val currentPresetId = repo.getMixPreset()
         val currentPresetIndex = presets.indexOfFirst { it.id == currentPresetId }.coerceAtLeast(0)
-        spinner.setSelection(currentPresetIndex, false) // false - не вызывать onItemSelected при инициализации
+        spinner.setSelection(currentPresetIndex, false)
 
         initSeek(seekFront, valFront) { repo.setMixFront(it) }
         initSeek(seekCenter, valCenter) { repo.setMixCenter(it) }
@@ -537,6 +535,7 @@ class GlobalSettingsActivity : AppCompatActivity() {
         spinner.requestFocus()
     }
 
+    @SuppressLint("SetTextI18n")
     private fun updateDecoderUI() {
         val mode = repo.getDecoderPriority()
         when (mode) {
@@ -566,9 +565,9 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private fun updateBoostUI() {
         val boost = repo.getLoudnessBoost()
         if (boost == 0) {
-            textBoostValue.text = "Выкл"
+            textBoostValue.text = getString(R.string.track_off)
         } else {
-            textBoostValue.text = "+${boost / 100} dB"
+            textBoostValue.text = getString(R.string.loudness_boost_format, boost / 100)
         }
     }
 
@@ -583,11 +582,11 @@ class GlobalSettingsActivity : AppCompatActivity() {
             SettingsRepository.TRACK_DEVICE -> textView.text = getString(R.string.pref_language_track_device)
             SettingsRepository.TRACK_DEFAULT -> textView.text = getString(R.string.pref_language_track_default)
             else -> {
-                val loc = Locale(langCode)
+                val loc = Locale.forLanguageTag(langCode)
                 val name = loc.displayLanguage.replaceFirstChar {
                     if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
                 }
-                textView.text = "$name ($langCode)"
+                textView.text = getString(R.string.language_code_format, name, langCode)
             }
         }
     }

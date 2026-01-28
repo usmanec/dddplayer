@@ -158,7 +158,7 @@ class PlayerManager(
                 val finalSink = if (settingsRepo.isStereoDownmixEnabled()) {
                     // Если нужен Downmix -> создаем свой Sink с процессором
                     val sinkBuilder = DefaultAudioSink.Builder(appContext)
-                        .setEnableAudioTrackPlaybackParams(true)
+                        .setEnableAudioOutputPlaybackParameters(true)
                         .setEnableFloatOutput(false) // Для совместимости с процессором
 
                     val mixingProcessor = ChannelMixingAudioProcessor()

@@ -3,7 +3,6 @@ package top.rootu.dddplayer.ui
 import android.app.Dialog
 import android.content.Intent
 import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
 import android.opengl.GLSurfaceView
 import android.os.Bundle
 import android.view.ContextThemeWrapper
@@ -17,9 +16,11 @@ import android.widget.PopupMenu
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.core.graphics.drawable.toDrawable
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
 import androidx.media3.common.C
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.recyclerview.widget.RecyclerView
@@ -37,10 +38,16 @@ import top.rootu.dddplayer.ui.controller.PlayerTimerController
 import top.rootu.dddplayer.ui.controller.PlayerUiController
 import top.rootu.dddplayer.viewmodel.PlayerViewModel
 import top.rootu.dddplayer.viewmodel.SettingType
+import top.rootu.dddplayer.viewmodel.SettingsViewModel
+import top.rootu.dddplayer.viewmodel.UpdateViewModel
+import java.util.Locale
 
 class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener {
 
     private val viewModel: PlayerViewModel by activityViewModels()
+    private val settingsViewModel: SettingsViewModel by viewModels()
+    private val updateViewModel: UpdateViewModel by viewModels()
+
     private var stereoRenderer: StereoRenderer? = null
     private var sideMenuDialog: Dialog? = null
     private var sideMenuAdapter: SideMenuAdapter? = null
@@ -61,8 +68,9 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         timerController = PlayerTimerController(
             onHideControls = { ui.hideControls() },
             onHideSettings = {
-                if (viewModel.isSettingsPanelVisible.value == true) {
-                    viewModel.closeSettingsPanel(true)
+                if (settingsViewModel.isSettingsPanelVisible.value == true) {
+                    settingsViewModel.closePanel()
+                    viewModel.restoreSettings()
                     view.findViewById<View>(R.id.root_container)?.requestFocus()
                 }
             },
@@ -70,7 +78,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         )
 
         inputHandler = PlayerInputHandler(
-            viewModel, ui,
+            viewModel, settingsViewModel, ui,
             SettingsRepository(requireContext()),
             onShowMainMenu = { showMainMenu() },
             onShowControls = { ui.showControls(); timerController.resetControlsTimer() },
@@ -118,23 +126,38 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
     }
 
     fun handleKeyEvent(event: KeyEvent): Boolean {
-        if (viewModel.isSettingsPanelVisible.value == true) timerController.resetSettingsTimer()
+        if (settingsViewModel.isSettingsPanelVisible.value == true) timerController.resetSettingsTimer()
         val handled = inputHandler.handleKeyEvent(event, activity?.currentFocus)
         return handled
     }
 
     private fun setupControls() {
         // Навигация в настройках
-        ui.btnSettingsPrev.setOnClickListener { viewModel.onMenuLeft(); timerController.resetSettingsTimer() }
-        ui.btnSettingsNext.setOnClickListener { viewModel.onMenuRight(); timerController.resetSettingsTimer() }
-        ui.titleContainer.setOnClickListener { viewModel.onMenuDown(); timerController.resetSettingsTimer() }
+        ui.btnSettingsPrev.setOnClickListener {
+            viewModel.changeSettingValue(settingsViewModel.currentSettingType.value!!, -1)
+            timerController.resetSettingsTimer()
+        }
+        ui.btnSettingsNext.setOnClickListener {
+            viewModel.changeSettingValue(settingsViewModel.currentSettingType.value!!, 1)
+            timerController.resetSettingsTimer()
+        }
+        ui.titleContainer.setOnClickListener {
+            settingsViewModel.onMenuDown(viewModel.availableSettings.value ?: emptyList())
+            timerController.resetSettingsTimer()
+        }
         ui.topSettingsPanel.setOnClickListener { timerController.resetSettingsTimer() }
 
         // Основные клики
-        ui.touchZoneTop.setOnClickListener { if (viewModel.isSettingsPanelVisible.value != true) viewModel.openSettingsPanel() }
+        ui.touchZoneTop.setOnClickListener {
+            if (settingsViewModel.isSettingsPanelVisible.value != true) {
+                viewModel.prepareSettingsPanel()
+                settingsViewModel.openPanel(viewModel.availableSettings.value ?: emptyList())
+            }
+        }
         view?.findViewById<View>(R.id.root_container)?.setOnClickListener {
-            if (viewModel.isSettingsPanelVisible.value == true) {
-                viewModel.closeSettingsPanel(save = true)
+            if (settingsViewModel.isSettingsPanelVisible.value == true) {
+                settingsViewModel.closePanel()
+                viewModel.saveCurrentSettings()
                 it.requestFocus()
             } else if (ui.controlsView.isVisible) ui.hideControls() else ui.showControls()
         }
@@ -166,12 +189,10 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
             timerController.stopControlsTimer()
             // Скрываем контролы плеера, чтобы при возврате был чистый экран
             ui.hideControls()
-
             // Запускаем глобальные настройки
-            val intent = android.content.Intent(requireContext(), GlobalSettingsActivity::class.java)
+            val intent = Intent(requireContext(), GlobalSettingsActivity::class.java)
             startActivity(intent)
-
-            true // Возвращаем true, чтобы событие считалось обработанным (не сработает onClick)
+            true
         }
 
         ui.buttonPlaylist.setOnClickListener { showPlaylist() }
@@ -197,20 +218,25 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         })
     }
 
-    private fun showMainMenu() {
-        // Запрашиваем готовый список у ViewModel
+    /**
+     * @param focusId ID элемента, на который нужно установить фокус.
+     */
+    private fun showMainMenu(focusId: String? = null) {
         val menuItems = viewModel.getMainMenuItems()
 
-        showSideMenu("Настройки", menuItems) { selected ->
+        showSideMenu(getString(R.string.menu_main_title), menuItems, focusId) { selected ->
+            if (selected == null) return@showSideMenu
+
             when (selected.id) {
-                "audio" -> showAudioTrackMenu()
-                "subtitles" -> showSubtitlesMenu()
+                "audio" -> showAudioTrackMenu() // Переход в подменю (диалог не закрываем)
+                "subtitles" -> showSubtitlesMenu() // Переход в подменю
                 "quick_settings" -> {
-                    sideMenuDialog?.dismiss()
-                    viewModel.openSettingsPanel()
+                    sideMenuDialog?.dismiss() // Закрываем явно
+                    viewModel.prepareSettingsPanel()
+                    settingsViewModel.openPanel(viewModel.availableSettings.value ?: emptyList())
                 }
                 "global_settings" -> {
-                    sideMenuDialog?.dismiss()
+                    sideMenuDialog?.dismiss() // Закрываем явно
                     startActivity(Intent(requireContext(), GlobalSettingsActivity::class.java))
                 }
             }
@@ -222,24 +248,47 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         val menuItems = viewModel.getAudioTrackMenuItems()
         if (menuItems.isEmpty()) return
 
-        showSideMenu("Аудиодорожка (${menuItems.size})", menuItems) { selected ->
-            viewModel.selectTrackByIndex(C.TRACK_TYPE_AUDIO, selected.id.toInt())
-            sideMenuDialog?.dismiss()
+        showSideMenu(getString(R.string.menu_audio_title, menuItems.size), menuItems) { selected ->
+            if (selected == null) {
+                // Возврат в главное меню с фокусом на "audio"
+                showMainMenu("audio")
+            } else {
+                // Выбрали пункт -> применяем и закрываем
+                viewModel.selectTrackByIndex(C.TRACK_TYPE_AUDIO, selected.id.toInt())
+                sideMenuDialog?.dismiss()
+            }
         }
     }
 
     private fun showSubtitlesMenu() {
-        // Запрашиваем готовый список
         val menuItems = viewModel.getSubtitleMenuItems()
         if (menuItems.isEmpty()) return
 
-        showSideMenu("Субтитры (${menuItems.size - 1})", menuItems) { selected ->
-            viewModel.selectTrackByIndex(C.TRACK_TYPE_TEXT, selected.id.toInt())
-            sideMenuDialog?.dismiss()
+        showSideMenu(getString(R.string.menu_subtitle_title, menuItems.size - 1), menuItems) { selected ->
+            if (selected == null) {
+                // Возврат в главное меню с фокусом на "subtitles"
+                showMainMenu("subtitles")
+            } else {
+                // Выбрали пункт -> применяем и закрываем
+                viewModel.selectTrackByIndex(C.TRACK_TYPE_TEXT, selected.id.toInt())
+                sideMenuDialog?.dismiss()
+            }
         }
     }
 
-    private fun showSideMenu(title: String, items: List<MenuItem>, onItemSelected: (MenuItem) -> Unit) {
+    /**
+     * @param initialFocusId ID элемента для начального фокуса.
+     * Если null, фокус ставится на элемент с isSelected=true, либо на первый.
+     * @param onItemSelected Колбек выбора.
+     * Если передан MenuItem - пользователь выбрал пункт.
+     * Если передан null - пользователь закрыл меню (назад/тап мимо).
+     */
+    private fun showSideMenu(
+        title: String,
+        items: List<MenuItem>,
+        initialFocusId: String? = null,
+        onItemSelected: (MenuItem?) -> Unit
+    ) {
         timerController.stopControlsTimer()
         ui.hideControls()
 
@@ -250,10 +299,21 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
             sideMenuDialog?.window?.apply {
                 setLayout(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT)
                 setGravity(Gravity.END)
-                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+                setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
             }
-            sideMenuDialog?.setOnDismissListener {
-                timerController.resetControlsTimer()
+        }
+
+        // Флаг, чтобы понять, был ли выбор или просто закрытие
+        var isSelectionMade = false
+
+        sideMenuDialog?.setOnDismissListener {
+            timerController.resetControlsTimer()
+
+            // Если закрыли не через выбор пункта (назад или тап мимо)
+            if (!isSelectionMade) {
+                onItemSelected(null)
+            } else {
+                sideMenuAdapter?.submitList(emptyList()) // Очистка списка
             }
         }
 
@@ -263,22 +323,51 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         val recycler = sideMenuDialog?.findViewById<RecyclerView>(R.id.menu_recycler)
         if (sideMenuAdapter == null) {
             sideMenuAdapter = SideMenuAdapter { item ->
+                // Пользователь выбрал пункт
+                isSelectionMade = true
+                // ВАЖНО: Мы НЕ закрываем диалог здесь автоматически.
+                // Мы передаем управление в колбек. Если это подменю, диалог останется открытым.
+                // Если это конечное действие, колбек сам вызовет dismiss().
                 onItemSelected(item)
             }
             recycler?.adapter = sideMenuAdapter
+        } else {
+            // Обновляем клик-листенер адаптера, так как он захватывает текущий onItemSelected
+            sideMenuAdapter?.onItemClick = { item ->
+                isSelectionMade = true
+                onItemSelected(item)
+            }
         }
 
-        sideMenuAdapter?.onItemClick = onItemSelected // Обновляем колбэк
-        sideMenuAdapter?.submitList(items)
-
-        // Фокус на первый или выделенный элемент
+        // Используем callback submitList для установки фокуса после обновления
+        sideMenuAdapter?.submitList(items) {
         recycler?.post {
-            val position = items.indexOfFirst { it.isSelected }.coerceAtLeast(0)
-            recycler.findViewHolderForAdapterPosition(position)?.itemView?.requestFocus()
+                // 1. Ищем индекс по ID
+                var targetIndex = -1
+                if (initialFocusId != null) {
+                    targetIndex = items.indexOfFirst { it.id == initialFocusId }
+                }
+
+                // 2. Если не нашли или ID не передан, ищем по isSelected
+                if (targetIndex == -1) {
+                    targetIndex = items.indexOfFirst { it.isSelected }
+                }
+
+                // 3. Fallback на 0
+                if (targetIndex == -1) targetIndex = 0
+
+                // Скроллим и фокусируемся
+                recycler.scrollToPosition(targetIndex)
+                recycler.postDelayed({
+                    val vh = recycler.findViewHolderForAdapterPosition(targetIndex)
+                    vh?.itemView?.requestFocus()
+                }, 50)
+            }
         }
 
         sideMenuDialog?.show()
     }
+
     private fun observeViewModel() {
         viewModel.isPlaying.observe(viewLifecycleOwner) { isPlaying ->
             if (isPlaying) {
@@ -310,9 +399,10 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
             }
         }
 
-        viewModel.updateInfo.observe(viewLifecycleOwner) { info ->
+        // UpdateViewModel Observers
+        updateViewModel.updateInfo.observe(viewLifecycleOwner) { info ->
             if (info != null) {
-                ui.buttonUpdate.text = "Обновить до ${info.version}"
+                ui.buttonUpdate.text = getString(R.string.update_btn_update_fmt, info.version)
                 ui.buttonUpdate.alpha = 1.0f
                 ui.buttonUpdate.setOnClickListener {
                     val intent = Intent(requireContext(), GlobalSettingsActivity::class.java).apply {
@@ -321,21 +411,27 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
                     startActivity(intent)
                 }
             } else {
-                ui.buttonUpdate.text = "v${BuildConfig.VERSION_NAME}"
-                ui.buttonUpdate.alpha = 0.5f // Тусклая
+                ui.buttonUpdate.text = getString(R.string.version, BuildConfig.VERSION_NAME)
+                ui.buttonUpdate.alpha = 0.5f
                 ui.buttonUpdate.setOnClickListener {
-                    viewModel.forceCheckUpdates()
+                    updateViewModel.forceCheckUpdates()
                 }
             }
         }
 
-        viewModel.isCheckingUpdates.observe(viewLifecycleOwner) { checking ->
+        updateViewModel.isCheckingUpdates.observe(viewLifecycleOwner) { checking ->
             if (checking) {
-                ui.buttonUpdate.text = "Проверка..."
+                ui.buttonUpdate.text = getString(R.string.update_btn_checking)
                 ui.buttonUpdate.isEnabled = false
             } else {
                 ui.buttonUpdate.isEnabled = true
-                // Текст обновится через updateInfo observer
+            }
+        }
+
+        updateViewModel.toastMessage.observe(viewLifecycleOwner) { msg ->
+            if (msg != null) {
+                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                updateViewModel.clearToast()
             }
         }
 
@@ -356,7 +452,6 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         viewModel.videoTitle.observe(viewLifecycleOwner) { title ->
             ui.videoTitleTextView.text = title
             val p = viewModel.player ?: return@observe
-            // Обновляем постер из метаданных плеера
             val posterUri = p.mediaMetadata.artworkUri
             val index = p.currentMediaItemIndex
             val size = p.mediaItemCount
@@ -428,15 +523,15 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
             ui.updateStereoLayout(viewModel.outputMode.value, it)
         }
 
-        // VR параметры
-        viewModel.vrK1.observe(viewLifecycleOwner) { updateVrParams() }
-        viewModel.vrK2.observe(viewLifecycleOwner) { updateVrParams() }
-        viewModel.vrScale.observe(viewLifecycleOwner) { updateVrParams() }
+        // VR параметры через делегат
+        viewModel.anaglyphDelegate.vrK1.observe(viewLifecycleOwner) { updateVrParams() }
+        viewModel.anaglyphDelegate.vrK2.observe(viewLifecycleOwner) { updateVrParams() }
+        viewModel.anaglyphDelegate.vrScale.observe(viewLifecycleOwner) { updateVrParams() }
 
-        viewModel.currentMatrices.observe(viewLifecycleOwner) { (l, r) -> stereoRenderer?.setAnaglyphMatrices(l, r) }
+        viewModel.anaglyphDelegate.currentMatrices.observe(viewLifecycleOwner) { (l, r) -> stereoRenderer?.setAnaglyphMatrices(l, r) }
 
-        // Панель настроек
-        viewModel.isSettingsPanelVisible.observe(viewLifecycleOwner) { isVisible ->
+        // Панель настроек (SettingsViewModel)
+        settingsViewModel.isSettingsPanelVisible.observe(viewLifecycleOwner) { isVisible ->
             ui.topSettingsPanel.isVisible = isVisible
             if (isVisible) {
                 ui.hideControls()
@@ -450,7 +545,9 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
 
         // Обновление текста настроек
         val updateTextObserver = { _: Any -> updateSettingsText() }
-        viewModel.currentSettingType.observe(viewLifecycleOwner, updateTextObserver)
+        settingsViewModel.currentSettingType.observe(viewLifecycleOwner, updateTextObserver)
+
+        // Наблюдаем за всеми параметрами, которые могут изменить текст в OSD
         viewModel.inputType.observe(viewLifecycleOwner, updateTextObserver)
         viewModel.outputMode.observe(viewLifecycleOwner, updateTextObserver)
         viewModel.anaglyphType.observe(viewLifecycleOwner, updateTextObserver)
@@ -459,12 +556,13 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         viewModel.screenSeparation.observe(viewLifecycleOwner, updateTextObserver)
         viewModel.currentAudioName.observe(viewLifecycleOwner, updateTextObserver)
         viewModel.currentSubtitleName.observe(viewLifecycleOwner, updateTextObserver)
-        viewModel.customHueOffsetL.observe(viewLifecycleOwner, updateTextObserver)
-        viewModel.customHueOffsetR.observe(viewLifecycleOwner, updateTextObserver)
-        viewModel.customLeakL.observe(viewLifecycleOwner, updateTextObserver)
-        viewModel.customLeakR.observe(viewLifecycleOwner, updateTextObserver)
-        viewModel.customSpaceLms.observe(viewLifecycleOwner, updateTextObserver)
-        viewModel.isMatrixValid.observe(viewLifecycleOwner, updateTextObserver)
+
+        viewModel.anaglyphDelegate.customHueOffsetL.observe(viewLifecycleOwner, updateTextObserver)
+        viewModel.anaglyphDelegate.customHueOffsetR.observe(viewLifecycleOwner, updateTextObserver)
+        viewModel.anaglyphDelegate.customLeakL.observe(viewLifecycleOwner, updateTextObserver)
+        viewModel.anaglyphDelegate.customLeakR.observe(viewLifecycleOwner, updateTextObserver)
+        viewModel.anaglyphDelegate.customSpaceLms.observe(viewLifecycleOwner, updateTextObserver)
+        viewModel.anaglyphDelegate.isMatrixValid.observe(viewLifecycleOwner, updateTextObserver)
 
         viewModel.cues.observe(viewLifecycleOwner) { cues ->
             ui.subtitleView.setCues(cues)
@@ -482,16 +580,16 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
 
     private fun updateVrParams() {
         stereoRenderer?.setDistortion(
-            viewModel.vrK1.value ?: 0.34f,
-            viewModel.vrK2.value ?: 0.10f,
-            viewModel.vrScale.value ?: 1.2f
+            viewModel.anaglyphDelegate.vrK1.value ?: 0.34f,
+            viewModel.anaglyphDelegate.vrK2.value ?: 0.10f,
+            viewModel.anaglyphDelegate.vrScale.value ?: 1.2f
         )
         updateSettingsText()
     }
 
     private fun updateSettingsText() {
-        if (viewModel.isSettingsPanelVisible.value != true) return
-        val type = viewModel.currentSettingType.value ?: return
+        if (settingsViewModel.isSettingsPanelVisible.value != true) return
+        val type = settingsViewModel.currentSettingType.value ?: return
 
         val valueStr = when(type) {
             SettingType.VIDEO_TYPE -> viewModel.inputType.value?.name?.replace("_", " ") ?: ""
@@ -502,37 +600,37 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
                 if (name.endsWith("_CUSTOM")) "Custom" else name
             }
             SettingType.CUSTOM_HUE_L -> {
-                val offset = viewModel.customHueOffsetL.value ?: 0
-                val color = viewModel.calculatedColorL.value ?: Color.WHITE
+                val offset = viewModel.anaglyphDelegate.customHueOffsetL.value ?: 0
+                val color = viewModel.anaglyphDelegate.calculatedColorL.value ?: Color.WHITE
                 "$offset (${String.format("#%06X", (0xFFFFFF and color))})"
             }
             SettingType.CUSTOM_HUE_R -> {
-                val offset = viewModel.customHueOffsetR.value ?: 0
-                val color = viewModel.calculatedColorR.value ?: Color.WHITE
+                val offset = viewModel.anaglyphDelegate.customHueOffsetR.value ?: 0
+                val color = viewModel.anaglyphDelegate.calculatedColorR.value ?: Color.WHITE
                 "$offset (${String.format("#%06X", (0xFFFFFF and color))})"
             }
-            SettingType.CUSTOM_LEAK_L -> "${(viewModel.customLeakL.value!! * 100).toInt()}%"
-            SettingType.CUSTOM_LEAK_R -> "${(viewModel.customLeakR.value!! * 100).toInt()}%"
-            SettingType.CUSTOM_SPACE -> if (viewModel.customSpaceLms.value == true) "LMS" else "XYZ"
+            SettingType.CUSTOM_LEAK_L -> "${(viewModel.anaglyphDelegate.customLeakL.value!! * 100).toInt()}%"
+            SettingType.CUSTOM_LEAK_R -> "${(viewModel.anaglyphDelegate.customLeakR.value!! * 100).toInt()}%"
+            SettingType.CUSTOM_SPACE -> if (viewModel.anaglyphDelegate.customSpaceLms.value == true) "LMS" else "XYZ"
             SettingType.SWAP_EYES -> if (viewModel.swapEyes.value == true) "R - L" else "L - R"
             SettingType.DEPTH_3D -> viewModel.depth.value.toString()
-            SettingType.SCREEN_SEPARATION -> String.format("%.1f", (viewModel.screenSeparation.value ?: 0f) * 100)
-            SettingType.VR_DISTORTION -> String.format("%.2f", viewModel.vrK1.value)
-            SettingType.VR_ZOOM -> String.format("%.2f", viewModel.vrScale.value)
+            SettingType.SCREEN_SEPARATION -> String.format(Locale.US, "%.1f", (viewModel.screenSeparation.value ?: 0f) * 100)
+            SettingType.VR_DISTORTION -> String.format(Locale.US, "%.2f", viewModel.anaglyphDelegate.vrK1.value)
+            SettingType.VR_ZOOM -> String.format(Locale.US, "%.2f", viewModel.anaglyphDelegate.vrScale.value)
             SettingType.AUDIO_TRACK -> viewModel.currentAudioName.value ?: ""
             SettingType.SUBTITLES -> viewModel.currentSubtitleName.value ?: ""
         }
 
         val color = when(type) {
-            SettingType.CUSTOM_HUE_L -> viewModel.calculatedColorL.value ?: Color.WHITE
-            SettingType.CUSTOM_HUE_R -> viewModel.calculatedColorR.value ?: Color.WHITE
+            SettingType.CUSTOM_HUE_L -> viewModel.anaglyphDelegate.calculatedColorL.value ?: Color.WHITE
+            SettingType.CUSTOM_HUE_R -> viewModel.anaglyphDelegate.calculatedColorR.value ?: Color.WHITE
             else -> Color.WHITE
         }
 
-        ui.updateSettingsText(type, valueStr, viewModel.isMatrixValid.value ?: true, color)
+        ui.updateSettingsText(type, valueStr, viewModel.anaglyphDelegate.isMatrixValid.value ?: true, color)
 
         // список опций
-        val optionsData = viewModel.getOptionsForCurrentSetting()
+        val optionsData = viewModel.getOptionsForSetting(type)
         ui.updateSettingsOptions(optionsData)
     }
 
@@ -596,8 +694,9 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
     private fun setupBackPressedHandler() {
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (viewModel.isSettingsPanelVisible.value == true) {
-                    viewModel.closeSettingsPanel(save = false)
+                if (settingsViewModel.isSettingsPanelVisible.value == true) {
+                    settingsViewModel.closePanel()
+                    viewModel.restoreSettings()
                 } else if (ui.controlsView.isVisible) {
                     ui.hideControls()
                 } else {
@@ -610,7 +709,6 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
 
     override fun onSurfaceReady(surface: Surface) {
         this.glSurface = surface
-        // Если плеер уже есть, привязываем
         viewModel.player?.let {
             if (viewModel.inputType.value != StereoInputType.NONE) {
                 activity?.runOnUiThread { it.setVideoSurface(surface) }
@@ -619,7 +717,9 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
     }
 
     override fun onFpsUpdated(fps: Int) {
-        activity?.runOnUiThread { ui.fpsCounterTextView.text = "FPS: $fps" }
+        activity?.runOnUiThread {
+            ui.fpsCounterTextView.text = getString(R.string.fps_counter_format, fps)
+        }
     }
 
     override fun onResume() {
@@ -627,7 +727,6 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
 
         // Проверяем, нужно ли перезапустить плеер из-за смены настроек
         viewModel.checkSettingsAndRestart()
-
         viewModel.player?.playWhenReady = true
         if (viewModel.inputType.value != StereoInputType.NONE) {
             ui.glSurfaceView.onResume()
@@ -652,7 +751,6 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         stereoRenderer?.release()
         stereoRenderer = null
         glSurface = null
-
         super.onDestroyView()
     }
 

@@ -9,7 +9,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/settings_downmix_config"
+        android:text="@string/pref_downmix_config"
         android:textColor="@color/tv_white"
         android:textSize="20sp"
         android:textStyle="bold"
@@ -26,7 +26,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Пресет:"
+            android:text="@string/pref_downmix_preset"
             android:textColor="@color/text_secondary"
             android:layout_marginEnd="16dp"/>
 
@@ -59,22 +59,37 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Фронт (L/R)"
+                android:text="@string/pref_downmix_front"
                 style="@style/SettingsItemDesc"/>
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
-                <SeekBar android:id="@+id/seek_front" style="@style/Widget.AppCompat.SeekBar.Discrete" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:max="200" android:progress="100"/>
-                <TextView android:id="@+id/val_front" android:layout_width="50dp" android:layout_height="wrap_content" android:text="100%" android:textColor="@color/tv_white" android:gravity="end"/>
+
+                <SeekBar
+                    android:id="@+id/seek_front"
+                    style="@style/Widget.AppCompat.SeekBar.Discrete"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:max="200"
+                    android:progress="100" />
+
+                <TextView
+                    android:id="@+id/val_front"
+                    android:layout_width="50dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="end"
+                    android:text="@string/percent_100"
+                    android:textColor="@color/tv_white" />
             </LinearLayout>
 
             <!-- Center -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Центр (Голос)"
+                android:text="@string/pref_downmix_center"
                 style="@style/SettingsItemDesc"
                 android:layout_marginTop="8dp"/>
             <LinearLayout
@@ -82,15 +97,30 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
-                <SeekBar android:id="@+id/seek_center" style="@style/Widget.AppCompat.SeekBar.Discrete" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:max="200" android:progress="100"/>
-                <TextView android:id="@+id/val_center" android:layout_width="50dp" android:layout_height="wrap_content" android:text="100%" android:textColor="@color/tv_white" android:gravity="end"/>
+
+                <SeekBar
+                    android:id="@+id/seek_center"
+                    style="@style/Widget.AppCompat.SeekBar.Discrete"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:max="200"
+                    android:progress="100" />
+
+                <TextView
+                    android:id="@+id/val_center"
+                    android:layout_width="50dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="end"
+                    android:text="@string/percent_100"
+                    android:textColor="@color/tv_white" />
             </LinearLayout>
 
             <!-- Rear -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Тылы (Surround)"
+                android:text="@string/pref_downmix_rear"
                 style="@style/SettingsItemDesc"
                 android:layout_marginTop="8dp"/>
             <LinearLayout
@@ -98,40 +128,87 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
-                <SeekBar android:id="@+id/seek_rear" style="@style/Widget.AppCompat.SeekBar.Discrete" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:max="200" android:progress="100"/>
-                <TextView android:id="@+id/val_rear" android:layout_width="50dp" android:layout_height="wrap_content" android:text="100%" android:textColor="@color/tv_white" android:gravity="end"/>
+
+                <SeekBar
+                    android:id="@+id/seek_rear"
+                    style="@style/Widget.AppCompat.SeekBar.Discrete"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:max="200"
+                    android:progress="100" />
+
+                <TextView
+                    android:id="@+id/val_rear"
+                    android:layout_width="50dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="end"
+                    android:text="@string/percent_100"
+                    android:textColor="@color/tv_white" />
             </LinearLayout>
 
             <!-- Middle -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Боковые (7.1 Side)"
+                android:text="@string/pref_downmix_middle"
                 style="@style/SettingsItemDesc"
                 android:layout_marginTop="8dp"/>
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-                <SeekBar android:id="@+id/seek_middle" style="@style/Widget.AppCompat.SeekBar.Discrete" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:max="200" android:progress="100"/>
-                <TextView android:id="@+id/val_middle" android:layout_width="50dp" android:layout_height="wrap_content" android:text="100%" android:textColor="@color/tv_white" android:gravity="end"/>
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <SeekBar
+                    android:id="@+id/seek_middle"
+                    style="@style/Widget.AppCompat.SeekBar.Discrete"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:max="200"
+                    android:progress="100" />
+
+                <TextView
+                    android:id="@+id/val_middle"
+                    android:layout_width="50dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="end"
+                    android:text="@string/percent_100"
+                    android:textColor="@color/tv_white" />
             </LinearLayout>
 
             <!-- LFE -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Сабвуфер (LFE)"
+                android:text="@string/pref_downmix_lfe"
                 style="@style/SettingsItemDesc"
                 android:layout_marginTop="8dp"/>
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-                <SeekBar android:id="@+id/seek_lfe" style="@style/Widget.AppCompat.SeekBar.Discrete" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:max="200" android:progress="0"/>
-                <TextView android:id="@+id/val_lfe" android:layout_width="50dp" android:layout_height="wrap_content" android:text="0%" android:textColor="@color/tv_white" android:gravity="end"/>
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <SeekBar
+                    android:id="@+id/seek_lfe"
+                    style="@style/Widget.AppCompat.SeekBar.Discrete"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:max="200"
+                    android:progress="100" />
+
+                <TextView
+                    android:id="@+id/val_lfe"
+                    android:layout_width="50dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="end"
+                    android:text="@string/percent_100"
+                    android:textColor="@color/tv_white" />
             </LinearLayout>
         </LinearLayout>
     </ScrollView>
@@ -145,17 +222,21 @@
 
         <Button
             android:id="@+id/btn_reset"
+            style="?android:attr/buttonBarButtonStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Сброс"
+            android:text="@string/reset"
+            android:padding="8dp"
             android:background="@drawable/bg_crash_btn_secondary"
             android:textColor="@color/selector_settings_secondary"/>
 
         <Button
             android:id="@+id/btn_close"
+            style="?android:attr/buttonBarButtonStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Закрыть"
+            android:text="@string/close"
+            android:padding="8dp"
             android:layout_marginStart="16dp"
             android:background="@drawable/bg_crash_btn_primary"
             android:textColor="@color/selector_settings_primary"/>

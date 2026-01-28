@@ -13,7 +13,6 @@ class App : Application() {
         super.onCreate()
         instance = this
 
-        // Инициализация перехватчика ошибок
         CrashHandler.init(this)
     }
 }

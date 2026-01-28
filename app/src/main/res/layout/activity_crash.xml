@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/black"
@@ -11,14 +11,16 @@
     <ImageView
         android:layout_width="80dp"
         android:layout_height="80dp"
+        android:contentDescription="@string/error"
         android:src="@drawable/ic_error_outline"
-        android:tint="@color/error_red" />
+        android:tint="@color/error_red"
+        tools:ignore="UseAppTint" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="24dp"
-        android:text="Ой, что-то пошло не так!"
+        android:text="@string/error_oh_oh"
         android:textColor="@color/tv_white"
         android:textSize="24sp"
         android:textStyle="bold" />
@@ -28,7 +30,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:gravity="center"
-        android:text="Произошла непредвиденная ошибка.\nЕсли ошибка повторяется, пришлите нам её лог."
+        android:text="@string/error_oh_oh_desc"
         android:textColor="@color/text_secondary"
         android:textSize="16sp" />
 
@@ -40,10 +42,11 @@
 
         <Button
             android:id="@+id/btRestartApp"
+            style="?android:attr/buttonBarButtonStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:background="@drawable/bg_crash_btn_primary"
-            android:text="Перезапустить"
+            android:text="@string/app_restart"
             android:textColor="@color/selector_settings_primary"
             android:padding="16dp"
             android:focusable="true"
@@ -51,11 +54,12 @@
 
         <Button
             android:id="@+id/btShowErrorLogs"
+            style="?android:attr/buttonBarButtonStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
             android:background="@drawable/bg_crash_btn_secondary"
-            android:text="Показать лог"
+            android:text="@string/show_logs"
             android:textColor="@color/selector_settings_secondary"
             android:padding="16dp"
             android:focusable="true"

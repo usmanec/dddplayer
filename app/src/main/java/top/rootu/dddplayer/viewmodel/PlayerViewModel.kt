@@ -19,21 +19,19 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.launch
-import top.rootu.dddplayer.BuildConfig
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
 import top.rootu.dddplayer.data.VideoSettings
 import top.rootu.dddplayer.logic.AnaglyphLogic
 import top.rootu.dddplayer.logic.SettingsMutator
 import top.rootu.dddplayer.logic.TrackLogic
-import top.rootu.dddplayer.logic.UpdateInfo
-import top.rootu.dddplayer.logic.UpdateManager
 import top.rootu.dddplayer.model.MediaItem
 import top.rootu.dddplayer.model.MenuItem
 import top.rootu.dddplayer.model.StereoInputType
 import top.rootu.dddplayer.model.StereoOutputMode
 import top.rootu.dddplayer.player.PlayerManager
 import top.rootu.dddplayer.renderer.StereoRenderer
+import top.rootu.dddplayer.utils.getString
 import top.rootu.dddplayer.utils.StereoTypeDetector
 import androidx.media3.common.MediaItem as Media3MediaItem
 
@@ -68,6 +66,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private val repository = SettingsRepository(application)
 
+    // Делегат для 3D/VR настроек
+    val anaglyphDelegate = AnaglyphDelegate(repository)
+
     // --- LiveData ---
     private val _isPlaying = MutableLiveData<Boolean>()
     val isPlaying: LiveData<Boolean> = _isPlaying
@@ -87,9 +88,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     // Playlist State
     private val _currentPlaylist = MutableLiveData<List<MediaItem>>()
     val currentPlaylist: LiveData<List<MediaItem>> = _currentPlaylist
-    private val _currentWindowIndex = MutableLiveData<Int>(0)
+    private val _currentWindowIndex = MutableLiveData(0)
     val currentWindowIndex: LiveData<Int> = _currentWindowIndex
-    private val _playlistSize = MutableLiveData<Int>(0)
+    private val _playlistSize = MutableLiveData(0)
     val playlistSize: LiveData<Int> = _playlistSize
     private val _hasPrevious = MutableLiveData(false)
     val hasPrevious: LiveData<Boolean> = _hasPrevious
@@ -99,14 +100,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     // Quality & Info
     private val _videoResolution = MutableLiveData<String>()
     val videoResolution: LiveData<String> = _videoResolution
-    private val _videoAspectRatio = MutableLiveData<Float>(1.777f)
+    private val _videoAspectRatio = MutableLiveData(1.777f)
     val videoAspectRatio: LiveData<Float> = _videoAspectRatio
     private val _videoQualityOptions = MutableLiveData<List<VideoQualityOption>>()
     val videoQualityOptions: LiveData<List<VideoQualityOption>> = _videoQualityOptions
-    private val _currentQualityName = MutableLiveData<String>("Auto")
+    private val _currentQualityName = MutableLiveData("Auto")
     val currentQualityName: LiveData<String> = _currentQualityName
 
-    // Renderer Settings
+    // Renderer Settings (Main)
     private val _inputType = MutableLiveData(StereoInputType.NONE)
     val inputType: LiveData<StereoInputType> = _inputType
     private val _outputMode = MutableLiveData(StereoOutputMode.ANAGLYPH)
@@ -124,41 +125,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private val _screenSeparation = MutableLiveData(0f)
     val screenSeparation: LiveData<Float> = _screenSeparation
 
-    // VR Settings
-    private val _vrK1 = MutableLiveData(0.34f)
-    val vrK1: LiveData<Float> = _vrK1
-    private val _vrK2 = MutableLiveData(0.10f)
-    val vrK2: LiveData<Float> = _vrK2
-    private val _vrScale = MutableLiveData(1.2f)
-    val vrScale: LiveData<Float> = _vrScale
-
-    // Custom Anaglyph
-    private val _customHueOffsetL = MutableLiveData(0)
-    val customHueOffsetL: LiveData<Int> = _customHueOffsetL
-    private val _customHueOffsetR = MutableLiveData(0)
-    val customHueOffsetR: LiveData<Int> = _customHueOffsetR
-    private val _customLeakL = MutableLiveData(0.20f)
-    val customLeakL: LiveData<Float> = _customLeakL
-    private val _customLeakR = MutableLiveData(0.20f)
-    val customLeakR: LiveData<Float> = _customLeakR
-    private val _customSpaceLms = MutableLiveData(false)
-    val customSpaceLms: LiveData<Boolean> = _customSpaceLms
-    private val _calculatedColorL = MutableLiveData(0)
-    val calculatedColorL: LiveData<Int> = _calculatedColorL
-    private val _calculatedColorR = MutableLiveData(0)
-    val calculatedColorR: LiveData<Int> = _calculatedColorR
-    private val _currentMatrices = MutableLiveData<Pair<FloatArray, FloatArray>>()
-    val currentMatrices: LiveData<Pair<FloatArray, FloatArray>> = _currentMatrices
-    private val _isMatrixValid = MutableLiveData(true)
-    val isMatrixValid: LiveData<Boolean> = _isMatrixValid
-
     // UI State
     private val _singleFrameSize = MutableLiveData<Pair<Float, Float>>()
     val singleFrameSize: LiveData<Pair<Float, Float>> = _singleFrameSize
-    private val _isSettingsPanelVisible = MutableLiveData(false)
-    val isSettingsPanelVisible: LiveData<Boolean> = _isSettingsPanelVisible
-    private val _currentSettingType = MutableLiveData(SettingType.VIDEO_TYPE)
-    val currentSettingType: LiveData<SettingType> = _currentSettingType
+
+    // Список доступных настроек для OSD (вычисляется здесь, передается в SettingsViewModel)
+    private val _availableSettings = MutableLiveData<List<SettingType>>()
+    val availableSettings: LiveData<List<SettingType>> = _availableSettings
 
     // Tracks & Nav
     private val _audioOutputInfo = MutableLiveData<String>()
@@ -169,12 +142,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     val currentSubtitleName: LiveData<String> = _currentSubtitleName
     private val _videoDisabledError = MutableLiveData<PlaybackException?>()
     val videoDisabledError: LiveData<PlaybackException?> = _videoDisabledError
-    // Для фатальных ошибок (когда плеер остановился)
     private val _fatalError = MutableLiveData<PlaybackException?>()
     val fatalError: LiveData<PlaybackException?> = _fatalError
-    private val _bufferedPercentage = MutableLiveData<Int>(0)
+    private val _bufferedPercentage = MutableLiveData(0)
     val bufferedPercentage: LiveData<Int> = _bufferedPercentage
-    private val _bufferedPosition = MutableLiveData<Long>(0)
+    private val _bufferedPosition = MutableLiveData(0L)
     val bufferedPosition: LiveData<Long> = _bufferedPosition
 
     // Internal
@@ -182,7 +154,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private var subtitleOptions = listOf<TrackOption>()
     private var currentAudioIndex = 0
     private var currentSubtitleIndex = 0
-    private var availableSettings = listOf<SettingType>()
     private var backupSettings: VideoSettings? = null
     private var isSettingsLoadedFromDb = false
     private var currentUri: String? = null
@@ -206,14 +177,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     // Храним хэш настроек при старте
     private var lastSettingsHash = repository.getHardSettingsSignature()
 
-    private val updateManager = UpdateManager(application)
-    private val _updateInfo = MutableLiveData<UpdateInfo?>()
-    val updateInfo: LiveData<UpdateInfo?> = _updateInfo
-    private val _downloadProgress = MutableLiveData<Int>()
-    val downloadProgress: LiveData<Int> = _downloadProgress
-    private val _isCheckingUpdates = MutableLiveData<Boolean>(false)
-    val isCheckingUpdates: LiveData<Boolean> = _isCheckingUpdates
-
     private val progressUpdater = object : Runnable {
         override fun run() {
             val p = playerManager.exoPlayer ?: return
@@ -233,7 +196,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    // Listener вынесен в поле класса
     private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             _isPlaying.value = isPlaying
@@ -336,7 +298,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     init {
-        loadCustomSettingsForCurrentType()
+        // Загружаем кастомные настройки через делегат
+        anaglyphDelegate.loadCustomSettings(_anaglyphType.value!!)
 
         playerManager = PlayerManager(application, playerListener)
 
@@ -363,8 +326,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
         // Инициализируем плеер сразу
         playerManager.initializePlayer()
-
-        checkUpdates()
     }
 
     private fun updateProgressUpdaterState() {
@@ -376,88 +337,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             handler.post(progressUpdater)
         } else {
             handler.removeCallbacks(progressUpdater)
-        }
-    }
-
-    private fun checkUpdates() {
-        viewModelScope.launch {
-            val currentVersion = BuildConfig.VERSION_NAME
-            var hasUpdate = false
-
-            val savedJson = repository.getLastUpdateInfo()
-            if (savedJson != null) {
-                val savedInfo = updateManager.fromJson(savedJson)
-                if (savedInfo != null && updateManager.isNewer(savedInfo.version, currentVersion)) {
-                    _updateInfo.postValue(savedInfo)
-                    hasUpdate = true
-                } else {
-                    updateManager.deleteUpdateFile()
-                    repository.saveUpdateInfo(null)
-                }
-            }
-
-            if (!hasUpdate) {
-                _updateInfo.postValue(null)
-            }
-
-            val lastCheck = repository.getLastUpdateTime()
-            if (System.currentTimeMillis() - lastCheck < 10800000) {
-                return@launch
-            }
-
-            try {
-                val info = updateManager.checkForUpdates(currentVersion)
-                if (info != null) {
-                    _updateInfo.postValue(info)
-                    repository.saveUpdateInfo(updateManager.toJson(info))
-                } else {
-                    repository.saveUpdateInfo(null)
-                    _updateInfo.postValue(null)
-                }
-            } catch (e: Exception) {
-            }
-        }
-    }
-
-    fun forceCheckUpdates() {
-        if (_isCheckingUpdates.value == true) return
-        _isCheckingUpdates.value = true
-
-        viewModelScope.launch {
-            try {
-                val pInfo = getApplication<Application>().packageManager.getPackageInfo(getApplication<Application>().packageName, 0)
-                val currentVersion = pInfo.versionName
-
-                val info = updateManager.checkForUpdates(currentVersion)
-
-                if (info != null) {
-                    _updateInfo.postValue(info)
-                    repository.saveUpdateInfo(updateManager.toJson(info))
-                    _toastMessage.postValue("Найдено обновление: ${info.version}")
-                } else {
-                    repository.saveUpdateInfo(null)
-                    _updateInfo.postValue(null)
-                    _toastMessage.postValue("У вас последняя версия")
-                }
-                repository.setLastUpdateTime(System.currentTimeMillis())
-
-            } catch (e: Exception) {
-                _toastMessage.postValue("Ошибка проверки обновлений")
-            } finally {
-                _isCheckingUpdates.postValue(false)
-            }
-        }
-    }
-
-    fun startUpdate() {
-        val info = _updateInfo.value ?: return
-        viewModelScope.launch {
-            val file = updateManager.downloadApk(info.downloadUrl) { progress ->
-                _downloadProgress.postValue(progress)
-            }
-            if (file != null) {
-                updateManager.installApk(file)
-            }
         }
     }
 
@@ -474,12 +353,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
             if (trackType == C.TRACK_TYPE_VIDEO) {
                 _videoDisabledError.postValue(error)
-                _toastMessage.postValue("Ошибка видео. Переключено в аудио-режим.")
+                _toastMessage.postValue(getString(R.string.error_video_decoder))
             } else if (trackType == C.TRACK_TYPE_AUDIO) {
                 if (audioOptions.size > 1) {
-                    _toastMessage.postValue("Ошибка аудио. Звук отключен.\nПопробуйте другую дорожку.\n${error.errorCodeName}: ${error.message}")
+                    _toastMessage.postValue(getString(R.string.error_audio_disabled_hint, "${error.errorCodeName}: ${error.message}"))
                 } else {
-                    _toastMessage.postValue("Ошибка аудио. Звук отключен.\n${error.errorCodeName}: ${error.message}")
+                    _toastMessage.postValue(getString(R.string.error_audio_disabled, "${error.errorCodeName}: ${error.message}"))
                 }
             }
 
@@ -541,47 +420,20 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     // --- Settings Logic ---
 
-    private fun loadCustomSettingsForCurrentType() {
-        val prefix = AnaglyphLogic.getCustomPrefix(_anaglyphType.value!!)
-        _customHueOffsetL.value = repository.getGlobalInt("${prefix}hue_l", 0)
-        _customHueOffsetR.value = repository.getGlobalInt("${prefix}hue_r", 0)
-        _customLeakL.value = repository.getGlobalFloat("${prefix}leak_l", 0.20f)
-        _customLeakR.value = repository.getGlobalFloat("${prefix}leak_r", 0.20f)
-        _customSpaceLms.value = repository.getGlobalBoolean("${prefix}space_lms", false)
-        updateCalculatedColors()
-    }
-
-    private fun saveCustomSettings() {
-        val prefix = AnaglyphLogic.getCustomPrefix(_anaglyphType.value!!)
-        repository.putGlobalInt("${prefix}hue_l", _customHueOffsetL.value!!)
-        repository.putGlobalInt("${prefix}hue_r", _customHueOffsetR.value!!)
-        repository.putGlobalFloat("${prefix}leak_l", _customLeakL.value!!)
-        repository.putGlobalFloat("${prefix}leak_r", _customLeakR.value!!)
-        repository.putGlobalBoolean("${prefix}space_lms", _customSpaceLms.value!!)
-        updateCalculatedColors()
-        updateAnaglyphMatrix()
-    }
-
-    private fun loadGlobalVrParams() {
-        _screenSeparation.postValue(repository.getGlobalFloat("global_screen_separation_pct", 0f))
-        _vrK1.postValue(repository.getGlobalFloat("vr_k1", 0.34f))
-        _vrK2.postValue(repository.getGlobalFloat("vr_k2", 0.10f))
-        _vrScale.postValue(repository.getGlobalFloat("vr_scale", 1.2f))
-    }
-
     private fun loadGlobalDefaults() {
         val outModeOrd = repository.getGlobalInt("def_output_mode", StereoOutputMode.ANAGLYPH.ordinal)
-        _outputMode.postValue(StereoOutputMode.values()[outModeOrd])
+        _outputMode.postValue(StereoOutputMode.entries[outModeOrd])
 
         val anaTypeOrd = repository.getGlobalInt("def_anaglyph_type", StereoRenderer.AnaglyphType.RC_DUBOIS.ordinal)
-        val type = StereoRenderer.AnaglyphType.values()[anaTypeOrd]
+        val type = StereoRenderer.AnaglyphType.entries[anaTypeOrd]
         _anaglyphType.postValue(type)
 
-        loadGlobalVrParams()
+        _screenSeparation.postValue(repository.getGlobalFloat("global_screen_separation_pct", 0f))
+        anaglyphDelegate.loadGlobalVrParams()
 
-        if (AnaglyphLogic.isCustomType(type)) loadCustomSettingsForCurrentType()
+        if (AnaglyphLogic.isCustomType(type)) anaglyphDelegate.loadCustomSettings(type)
         updateAvailableSettings()
-        updateAnaglyphMatrix()
+        anaglyphDelegate.updateAnaglyphMatrix(type)
     }
 
     fun saveCurrentSettings() {
@@ -595,28 +447,19 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
         repository.saveGlobalDefaults(settings.outputMode, settings.anaglyphType)
         repository.putGlobalFloat("global_screen_separation_pct", _screenSeparation.value!!)
-        repository.putGlobalFloat("vr_k1", _vrK1.value!!)
-        repository.putGlobalFloat("vr_k2", _vrK2.value!!)
-        repository.putGlobalFloat("vr_scale", _vrScale.value!!)
+        anaglyphDelegate.saveGlobalVrParams()
 
         isSettingsLoadedFromDb = true
     }
 
-    fun openSettingsPanel() {
+    fun prepareSettingsPanel() {
         backupSettings = VideoSettings("", 0, _inputType.value!!, _outputMode.value!!, _anaglyphType.value!!, _swapEyes.value!!, _depth.value!!)
         updateAvailableSettings()
-        if (_currentSettingType.value !in availableSettings) {
-            _currentSettingType.value = availableSettings.firstOrNull() ?: SettingType.VIDEO_TYPE
-        }
-        _isSettingsPanelVisible.postValue(true)
     }
 
-    fun closeSettingsPanel(save: Boolean) {
-        if (save) saveCurrentSettings() else {
-            backupSettings?.let { applySettings(it) }
-            loadGlobalVrParams()
-        }
-        _isSettingsPanelVisible.value = false
+    fun restoreSettings() {
+        backupSettings?.let { applySettings(it) }
+        anaglyphDelegate.loadGlobalVrParams()
     }
 
     private fun applySettings(s: VideoSettings) {
@@ -626,63 +469,62 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         _swapEyes.postValue(s.swapEyes)
         _depth.postValue(s.depth)
 
-        loadGlobalVrParams()
+        anaglyphDelegate.loadGlobalVrParams()
 
         handler.post { lastVideoSize?.let { calculateFrameSize(s.inputType, it) } }
-        if (AnaglyphLogic.isCustomType(s.anaglyphType)) loadCustomSettingsForCurrentType()
+        if (AnaglyphLogic.isCustomType(s.anaglyphType)) anaglyphDelegate.loadCustomSettings(s.anaglyphType)
         updateAvailableSettings()
-        updateAnaglyphMatrix()
+        anaglyphDelegate.updateAnaglyphMatrix(s.anaglyphType)
     }
 
     // --- Menu Navigation ---
-    fun onMenuUp() {
-        _currentSettingType.value = SettingsMutator.cycleList(_currentSettingType.value!!, availableSettings, -1)
-    }
-
-    fun onMenuDown() {
-        _currentSettingType.value = SettingsMutator.cycleList(_currentSettingType.value!!, availableSettings, 1)
-    }
-
-    fun onMenuLeft() { changeSettingValue(-1) }
-    fun onMenuRight() { changeSettingValue(1) }
-
-    // Метод для получения главного меню
     fun getMainMenuItems(): List<MenuItem> {
         return listOf(
-            MenuItem("audio", "Аудиодорожка (${audioOptions.size})", currentAudioName.value, R.drawable.ic_audio_track),
-            MenuItem("subtitles", "Субтитры (${subtitleOptions.size - 1})", currentSubtitleName.value, R.drawable.ic_subtitles),
-            MenuItem("quick_settings", "Панель настройки", "3D, параллакс...", R.drawable.ic_settings_3d),
-            MenuItem("global_settings", "Глобальные настройки", "Декодер, язык...", R.drawable.ic_build)
+            MenuItem(
+                "audio",
+                "Аудиодорожка (${audioOptions.size})",
+                currentAudioName.value,
+                R.drawable.ic_audio_track
+            ),
+            MenuItem(
+                "subtitles",
+                "Субтитры (${subtitleOptions.size - 1})",
+                currentSubtitleName.value,
+                R.drawable.ic_subtitles
+            ),
+            MenuItem(
+                "quick_settings",
+                "Панель настройки",
+                "3D, параллакс...",
+                R.drawable.ic_settings_3d
+            ),
+            MenuItem(
+                "global_settings",
+                "Глобальные настройки",
+                "Декодер, язык...",
+                R.drawable.ic_build
+            )
         )
     }
 
-    // Метод для получения меню аудиодорожек
     fun getAudioTrackMenuItems(): List<MenuItem> {
         val options = audioOptions
         val currentIndex = currentAudioIndex
 
         return options.mapIndexed { index, option ->
-            MenuItem(
-                id = index.toString(),
-                title = option.name,
-                isSelected = index == currentIndex
-            )
+            MenuItem(index.toString(), option.name, isSelected = index == currentIndex)
         }
     }
 
-    // Метод для получения меню субтитров
     fun getSubtitleMenuItems(): List<MenuItem> {
         val options = subtitleOptions
         val currentIndex = currentSubtitleIndex
 
         return options.mapIndexed { index, option ->
-            MenuItem(
-                id = index.toString(),
-                title = option.name,
-                isSelected = index == currentIndex
-            )
+            MenuItem(index.toString(), option.name, isSelected = index == currentIndex)
         }
     }
+
     fun selectTrackByIndex(trackType: Int, index: Int) {
         val options = if (trackType == C.TRACK_TYPE_AUDIO) audioOptions else subtitleOptions
 
@@ -717,8 +559,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             }
         }
     }
-    private fun changeSettingValue(direction: Int) {
-        when (_currentSettingType.value) {
+
+    // Логика изменения настроек (вызывается из Fragment по команде SettingsViewModel)
+    fun changeSettingValue(settingType: SettingType, direction: Int) {
+        when (settingType) {
             SettingType.VIDEO_TYPE -> setInputType(SettingsMutator.cycleEnum(_inputType.value!!, direction))
             SettingType.OUTPUT_FORMAT -> {
                 _outputMode.value = SettingsMutator.cycleEnum(_outputMode.value!!, direction)
@@ -728,9 +572,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 val currentGroup = AnaglyphLogic.getGlassesGroup(_anaglyphType.value!!)
                 val nextGroup = SettingsMutator.cycleEnum(currentGroup, direction)
                 _anaglyphType.value = getPreferredFilter(nextGroup)
-                if (AnaglyphLogic.isCustomType(_anaglyphType.value!!)) loadCustomSettingsForCurrentType()
+                if (AnaglyphLogic.isCustomType(_anaglyphType.value!!)) anaglyphDelegate.loadCustomSettings(_anaglyphType.value!!)
                 updateAvailableSettings()
-                updateAnaglyphMatrix()
+                anaglyphDelegate.updateAnaglyphMatrix(_anaglyphType.value!!)
             }
             SettingType.FILTER_MODE -> {
                 val currentGroup = AnaglyphLogic.getGlassesGroup(_anaglyphType.value!!)
@@ -738,35 +582,35 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 val nextFilter = SettingsMutator.cycleList(_anaglyphType.value!!, filters, direction)
                 _anaglyphType.value = nextFilter
                 savePreferredFilter(nextFilter)
-                if (AnaglyphLogic.isCustomType(nextFilter)) loadCustomSettingsForCurrentType()
+                if (AnaglyphLogic.isCustomType(nextFilter)) anaglyphDelegate.loadCustomSettings(nextFilter)
                 updateAvailableSettings()
-                updateAnaglyphMatrix()
+                anaglyphDelegate.updateAnaglyphMatrix(nextFilter)
             }
             SettingType.CUSTOM_HUE_L -> {
-                _customHueOffsetL.value = SettingsMutator.modifyInt(_customHueOffsetL.value!!, direction, 1, -100, 100)
-                saveCustomSettings()
+                anaglyphDelegate.setCustomHueL(SettingsMutator.modifyInt(anaglyphDelegate.customHueOffsetL.value!!, direction, 1, -100, 100))
+                anaglyphDelegate.saveCustomSettings(_anaglyphType.value!!)
             }
             SettingType.CUSTOM_HUE_R -> {
-                _customHueOffsetR.value = SettingsMutator.modifyInt(_customHueOffsetR.value!!, direction, 1, -100, 100)
-                saveCustomSettings()
+                anaglyphDelegate.setCustomHueR(SettingsMutator.modifyInt(anaglyphDelegate.customHueOffsetR.value!!, direction, 1, -100, 100))
+                anaglyphDelegate.saveCustomSettings(_anaglyphType.value!!)
             }
             SettingType.CUSTOM_LEAK_L -> {
-                _customLeakL.value = SettingsMutator.modifyFloat(_customLeakL.value!!, direction, 0.01f, 0f, 0.5f)
-                saveCustomSettings()
+                anaglyphDelegate.setCustomLeakL(SettingsMutator.modifyFloat(anaglyphDelegate.customLeakL.value!!, direction, 0.01f, 0f, 0.5f))
+                anaglyphDelegate.saveCustomSettings(_anaglyphType.value!!)
             }
             SettingType.CUSTOM_LEAK_R -> {
-                _customLeakR.value = SettingsMutator.modifyFloat(_customLeakR.value!!, direction, 0.01f, 0f, 0.5f)
-                saveCustomSettings()
+                anaglyphDelegate.setCustomLeakR(SettingsMutator.modifyFloat(anaglyphDelegate.customLeakR.value!!, direction, 0.01f, 0f, 0.5f))
+                anaglyphDelegate.saveCustomSettings(_anaglyphType.value!!)
             }
             SettingType.CUSTOM_SPACE -> {
-                _customSpaceLms.value = !_customSpaceLms.value!!
-                saveCustomSettings()
+                anaglyphDelegate.setCustomSpaceLms(!anaglyphDelegate.customSpaceLms.value!!)
+                anaglyphDelegate.saveCustomSettings(_anaglyphType.value!!)
             }
             SettingType.SWAP_EYES -> _swapEyes.value = !_swapEyes.value!!
             SettingType.DEPTH_3D -> _depth.value = SettingsMutator.modifyInt(_depth.value!!, direction, 1, -50, 50)
             SettingType.SCREEN_SEPARATION -> _screenSeparation.value = SettingsMutator.modifyFloat(_screenSeparation.value!!, direction, 0.005f, -0.15f, 0.15f)
-            SettingType.VR_DISTORTION -> _vrK1.value = SettingsMutator.modifyFloat(_vrK1.value!!, direction, 0.02f, 0.0f, 2.0f)
-            SettingType.VR_ZOOM -> _vrScale.value = SettingsMutator.modifyFloat(_vrScale.value!!, direction, 0.05f, 0.5f, 3.0f)
+            SettingType.VR_DISTORTION -> anaglyphDelegate.setVrK1(SettingsMutator.modifyFloat(anaglyphDelegate.vrK1.value!!, direction, 0.02f, 0.0f, 2.0f))
+            SettingType.VR_ZOOM -> anaglyphDelegate.setVrScale(SettingsMutator.modifyFloat(anaglyphDelegate.vrScale.value!!, direction, 0.05f, 0.5f, 3.0f))
             SettingType.AUDIO_TRACK -> {
                 val options = audioOptions
                 if (options.isNotEmpty()) {
@@ -781,33 +625,50 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     selectTrackByIndex(C.TRACK_TYPE_TEXT, nextIndex)
                 }
             }
-            else -> {}
         }
     }
 
     // --- Helpers ---
-    fun getOptionsForCurrentSetting(): Pair<List<String>, Int>? {
-        return when (_currentSettingType.value) {
+    fun getOptionsForSetting(type: SettingType): Pair<List<String>, Int>? {
+        return when (type) {
             SettingType.VIDEO_TYPE -> {
-                val values = StereoInputType.values()
-                val list = values.map { it.name.replace("_", " ") }
+                val values = StereoInputType.entries.toTypedArray()
+                val list = values.map {
+                    val resId = when (it) {
+                        StereoInputType.NONE -> R.string.stereo_mode_mono
+                        StereoInputType.SIDE_BY_SIDE -> R.string.stereo_mode_sbs
+                        StereoInputType.TOP_BOTTOM -> R.string.stereo_mode_tb
+                        StereoInputType.INTERLACED -> R.string.stereo_mode_interlaced
+                        StereoInputType.TILED_1080P -> R.string.stereo_mode_tiled
+                    }
+                    getString(resId)
+                }
                 Pair(list, _inputType.value!!.ordinal)
             }
             SettingType.OUTPUT_FORMAT -> {
-                val values = StereoOutputMode.values()
-                val list = values.map { it.name.replace("_", " ") }
+                val values = StereoOutputMode.entries.toTypedArray()
+                val list = values.map {
+                    val resId = when (it) {
+                        StereoOutputMode.ANAGLYPH -> R.string.output_mode_anaglyph
+                        StereoOutputMode.LEFT_ONLY -> R.string.output_mode_left
+                        StereoOutputMode.RIGHT_ONLY -> R.string.output_mode_right
+                        StereoOutputMode.CARDBOARD_VR -> R.string.output_mode_vr
+                    }
+                    getString(resId)
+                }
                 Pair(list, _outputMode.value!!.ordinal)
             }
             SettingType.GLASSES_TYPE -> {
                 val currentGroup = AnaglyphLogic.getGlassesGroup(_anaglyphType.value!!)
-                val groups = GlassesGroup.values()
+                val groups = GlassesGroup.entries.toTypedArray()
                 val list = groups.map {
-                    when(it) {
-                        GlassesGroup.RED_CYAN -> "Red - Cyan"
-                        GlassesGroup.YELLOW_BLUE -> "Yellow - Blue"
-                        GlassesGroup.GREEN_MAGENTA -> "Green - Magenta"
-                        GlassesGroup.RED_BLUE -> "Red - Blue"
+                    val resId = when(it) {
+                        GlassesGroup.RED_CYAN -> R.string.glasses_rc
+                        GlassesGroup.YELLOW_BLUE -> R.string.glasses_yb
+                        GlassesGroup.GREEN_MAGENTA -> R.string.glasses_gm
+                        GlassesGroup.RED_BLUE -> R.string.glasses_rb
                     }
+                    getString(resId)
                 }
                 Pair(list, currentGroup.ordinal)
             }
@@ -815,7 +676,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 val currentGroup = AnaglyphLogic.getGlassesGroup(_anaglyphType.value!!)
                 val filters = AnaglyphLogic.getFiltersForGroup(currentGroup)
                 val list = filters.map {
-                    if (it.name.endsWith("_CUSTOM")) "Custom" else it.name
+                    if (it.name.endsWith("_CUSTOM"))
+                        getString(R.string.val_custom)
+                    else it.name
                 }
                 val index = filters.indexOf(_anaglyphType.value!!)
                 Pair(list, index)
@@ -863,7 +726,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun showAutoDetectToast(type: StereoInputType) {
         val typeName = type.name.replace("_", " ")
-        _toastMessage.value = "Автоопределение: $typeName"
+        _toastMessage.value = getString(R.string.msg_auto_detect, typeName)
     }
 
     private fun updateAvailableSettings() {
@@ -888,10 +751,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
         if (audioOptions.size > 1) list.add(SettingType.AUDIO_TRACK)
         if (subtitleOptions.size > 1) list.add(SettingType.SUBTITLES)
-        availableSettings = list
-        if (_isSettingsPanelVisible.value == true && _currentSettingType.value !in list) {
-            _currentSettingType.value = list.first()
-        }
+
+        _availableSettings.value = list
     }
 
     private fun calculateFrameSize(inputType: StereoInputType, videoSize: VideoSize) {
@@ -926,31 +787,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private fun getPreferredFilter(group: GlassesGroup): StereoRenderer.AnaglyphType {
         val savedOrdinal = repository.getGlobalInt("pref_filter_${group.name}", -1)
         if (savedOrdinal != -1) {
-            val values = StereoRenderer.AnaglyphType.values()
+            val values = StereoRenderer.AnaglyphType.entries.toTypedArray()
             if (savedOrdinal in values.indices) {
                 val savedType = values[savedOrdinal]
                 if (AnaglyphLogic.getGlassesGroup(savedType) == group) return savedType
             }
         }
         return AnaglyphLogic.getFiltersForGroup(group).first()
-    }
-
-    private fun updateCalculatedColors() {
-        val (baseL, baseR) = AnaglyphLogic.getBaseColors(_anaglyphType.value!!)
-        _calculatedColorL.value = AnaglyphLogic.applyHueOffset(baseL, _customHueOffsetL.value!!)
-        _calculatedColorR.value = AnaglyphLogic.applyHueOffset(baseR, _customHueOffsetR.value!!)
-    }
-
-    private fun updateAnaglyphMatrix() {
-        val type = _anaglyphType.value ?: return
-        val matrices = AnaglyphLogic.calculateMatrix(
-            type,
-            _customHueOffsetL.value!!, _customHueOffsetR.value!!,
-            _customLeakL.value!!, _customLeakR.value!!,
-            _customSpaceLms.value!!
-        )
-        _currentMatrices.value = Pair(matrices.left, matrices.right)
-        _isMatrixValid.value = matrices.isValid
     }
 
     // --- Hot Restart Logic ---

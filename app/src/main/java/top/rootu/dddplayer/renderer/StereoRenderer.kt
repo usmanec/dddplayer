@@ -28,7 +28,7 @@ class StereoRenderer(
     private val fpsUpdatedListener: OnFpsUpdatedListener
 ) : GLSurfaceView.Renderer, SurfaceTexture.OnFrameAvailableListener {
 
-    private val TAG = "StereoRenderer"
+    private val tAG = "StereoRenderer"
     private var program: Int = 0
 
     // Handles
@@ -248,7 +248,7 @@ class StereoRenderer(
         val linkStatus = IntArray(1)
         GLES20.glGetProgramiv(program, GLES20.GL_LINK_STATUS, linkStatus, 0)
         if (linkStatus[0] == 0) {
-            Log.e(TAG, "Could not link program: " + GLES20.glGetProgramInfoLog(program))
+            Log.e(tAG, "Could not link program: " + GLES20.glGetProgramInfoLog(program))
             GLES20.glDeleteProgram(program)
             program = 0
             return
@@ -292,7 +292,7 @@ class StereoRenderer(
         val compileStatus = IntArray(1)
         GLES20.glGetShaderiv(shader, GLES20.GL_COMPILE_STATUS, compileStatus, 0)
         if (compileStatus[0] == 0) {
-            Log.e(TAG, "Could not compile shader $type: " + GLES20.glGetShaderInfoLog(shader))
+            Log.e(tAG, "Could not compile shader $type: " + GLES20.glGetShaderInfoLog(shader))
             GLES20.glDeleteShader(shader)
             return 0
         }
@@ -325,7 +325,7 @@ class StereoRenderer(
         glSurfaceView.requestRender()
     }
 
-    fun setVideoDimensions(width: Int, height: Int) {
+    fun setVideoDimensions(width: Int, height: Int) { // todo удалить если не пригодиться
         videoWidth = width
         videoHeight = height
         glSurfaceView.requestRender()

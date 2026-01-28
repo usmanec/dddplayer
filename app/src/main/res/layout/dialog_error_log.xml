@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/bg_scrim_overlay"
+    android:baselineAligned="false"
     android:orientation="horizontal"
     android:padding="32dp"
     android:weightSum="2">
@@ -19,7 +21,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Лог ошибки"
+            android:text="@string/error_logs"
             android:textColor="@color/tv_white"
             android:textSize="20sp"
             android:textStyle="bold"
@@ -32,7 +34,8 @@
             android:background="@drawable/bg_error_details"
             android:padding="8dp"
             android:focusable="true"
-            android:nextFocusRight="@+id/btnUpload">
+            android:nextFocusRight="@+id/btnUpload"
+            tools:ignore="NestedWeights">
 
             <TextView
                 android:id="@+id/tvErrorLogs"
@@ -58,7 +61,7 @@
             android:id="@+id/btnClose"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Закрыть"
+            android:text="@string/close"
             android:background="@drawable/bg_crash_btn_secondary"
             android:textColor="@color/selector_settings_secondary"
             android:padding="16dp"
@@ -70,7 +73,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="Загрузить лог (Termbin)"
+            android:text="@string/error_log_upload"
             android:background="@drawable/bg_crash_btn_primary"
             android:textColor="@color/selector_settings_primary"
             android:padding="16dp"
@@ -100,6 +103,7 @@
             android:layout_width="200dp"
             android:layout_height="200dp"
             android:layout_marginTop="16dp"
+            android:contentDescription="@string/qr_code"
             android:visibility="gone"
             android:background="@color/white"
             android:padding="8dp"/>

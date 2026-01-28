@@ -44,7 +44,7 @@ object AudioMixerLogic {
 
     fun createMatrices(repo: SettingsRepository): List<ChannelMixingMatrix> {
         val presetId = repo.getMixPreset()
-        val preset = MixPreset.values().find { it.id == presetId } ?: MixPreset.STANDARD
+        val preset = MixPreset.entries.find { it.id == presetId } ?: MixPreset.STANDARD
         val params = getParamsForPreset(preset, repo)
 
         val matrices = mutableListOf<ChannelMixingMatrix>()
@@ -67,70 +67,70 @@ object AudioMixerLogic {
 
         return when (inputChannels) {
             1 -> { // Mono -> Stereo
-                val coeffs = floatArrayOf(p.center * SQRT2_INV, p.center * SQRT2_INV)
-                ChannelMixingMatrix(1, 2, coeffs)
+                val matrix = floatArrayOf(p.center * SQRT2_INV, p.center * SQRT2_INV)
+                ChannelMixingMatrix(1, 2, matrix)
             }
             2 -> { // Stereo -> Stereo
-                val coeffs = floatArrayOf(p.front, 0f, 0f, p.front)
-                ChannelMixingMatrix(2, 2, coeffs)
+                val matrix = floatArrayOf(p.front, 0f, 0f, p.front)
+                ChannelMixingMatrix(2, 2, matrix)
             }
             3 -> { // L, R, C -> Stereo (RFC Fig 4)
                 val norm = 1f / (1f + SQRT2_INV)
                 val cFL = 1f * norm * p.front
                 val cFC = SQRT2_INV * norm * p.center
-                val coeffs = floatArrayOf(cFL, 0f, 0f, cFL, cFC, cFC)
-                ChannelMixingMatrix(3, 2, coeffs)
+                val matrix = floatArrayOf(cFL, 0f, 0f, cFL, cFC, cFC)
+                ChannelMixingMatrix(3, 2, matrix)
             }
             4 -> { // Quad -> Stereo (RFC Fig 5)
                 val norm = 1f / (1f + SQRT3_HALF + 0.5f)
                 val cFL = 1f * norm * p.front
-                val cBL_L = SQRT3_HALF * norm * p.rear
-                val cBL_R = 0.5f * norm * p.rear
-                val coeffs = floatArrayOf(cFL, 0f, 0f, cFL, cBL_L, cBL_R, cBL_R, cBL_L)
-                ChannelMixingMatrix(4, 2, coeffs)
+                val cBLL = SQRT3_HALF * norm * p.rear
+                val cBLR = 0.5f * norm * p.rear
+                val matrix = floatArrayOf(cFL, 0f, 0f, cFL, cBLL, cBLR, cBLR, cBLL)
+                ChannelMixingMatrix(4, 2, matrix)
             }
             5 -> { // 5.0 -> Stereo (RFC Fig 6)
                 val norm = 2f / (1f + SQRT2_INV + SQRT3_HALF + 0.5f)
                 val cFL = 1f * norm * p.front
                 val cFC = SQRT2_INV * norm * p.center
-                val cBL_L = SQRT3_HALF * norm * p.rear
-                val cBL_R = 0.5f * norm * p.rear
-                val coeffs = floatArrayOf(cFL, 0f, 0f, cFL, cFC, cFC, cBL_L, cBL_R, cBL_R, cBL_L)
-                ChannelMixingMatrix(5, 2, coeffs)
+                val cBLL = SQRT3_HALF * norm * p.rear
+                val cBLR = 0.5f * norm * p.rear
+                val matrix = floatArrayOf(cFL, 0f, 0f, cFL, cFC, cFC, cBLL, cBLR, cBLR, cBLL)
+                ChannelMixingMatrix(5, 2, matrix)
             }
             6 -> { // 5.1 -> Stereo (RFC Fig 7)
                 val norm = 2f / (1f + SQRT2_INV + SQRT3_HALF + 0.5f + SQRT2_INV)
                 val cFL = 1f * norm * p.front
                 val cFC = SQRT2_INV * norm * p.center
                 val cLFE = SQRT2_INV * norm * p.lfe
-                val cBL_L = SQRT3_HALF * norm * p.rear
-                val cBL_R = 0.5f * norm * p.rear
-                val coeffs = floatArrayOf(cFL, 0f, 0f, cFL, cFC, cFC, cLFE, cLFE, cBL_L, cBL_R, cBL_R, cBL_L)
-                ChannelMixingMatrix(6, 2, coeffs)
+                val cBLL = SQRT3_HALF * norm * p.rear
+                val cBLR = 0.5f * norm * p.rear
+                val matrix = floatArrayOf(cFL, 0f, 0f, cFL, cFC, cFC, cLFE, cLFE, cBLL, cBLR, cBLR, cBLL)
+                ChannelMixingMatrix(6, 2, matrix)
             }
             7 -> { // 6.1 -> Stereo (RFC Fig 8)
                 val norm = 2f / (1f + SQRT2_INV + SQRT3_HALF + 0.5f + (SQRT3_HALF / SQRT2_INV) + SQRT2_INV)
                 val cFL = 1f * norm * p.front
                 val cFC = SQRT2_INV * norm * p.center
                 val cLFE = SQRT2_INV * norm * p.lfe
-                val cBC_L = (SQRT3_HALF / SQRT2_INV) * norm * p.rear // Back Center
-                val cBC_R = (SQRT3_HALF / SQRT2_INV) * norm * p.rear
-                val cSL_L = SQRT3_HALF * norm * p.middle
-                val cSL_R = 0.5f * norm * p.middle
-                val coeffs = floatArrayOf(cFL, 0f, 0f, cFL, cFC, cFC, cLFE, cLFE, cBC_L, cBC_R, cSL_L, cSL_R, cSL_R, cSL_L)
-                ChannelMixingMatrix(7, 2, coeffs)
+                val cBCL = (SQRT3_HALF / SQRT2_INV) * norm * p.rear // Back Center
+                val cBCR = (SQRT3_HALF / SQRT2_INV) * norm * p.rear
+                val cSLL = SQRT3_HALF * norm * p.middle
+                val cSLR = 0.5f * norm * p.middle
+                val matrix = floatArrayOf(cFL, 0f, 0f, cFL, cFC, cFC, cLFE, cLFE, cBCL, cBCR, cSLL, cSLR, cSLR, cSLL)
+                ChannelMixingMatrix(7, 2, matrix)
             }
             8 -> { // 7.1 -> Stereo (RFC Fig 9)
                 val norm = 2f / (2f + 2f * SQRT2_INV + SQRT3_HALF)
                 val cFL = 1f * norm * p.front
                 val cFC = SQRT2_INV * norm * p.center
                 val cLFE = SQRT2_INV * norm * p.lfe
-                val cBL_L = SQRT3_HALF * norm * p.rear
-                val cBL_R = 0.5f * norm * p.rear
-                val cSL_L = SQRT3_HALF * norm * p.middle
-                val cSL_R = 0.5f * norm * p.middle
-                val coeffs = floatArrayOf(cFL, 0f, 0f, cFL, cFC, cFC, cLFE, cLFE, cBL_L, cBL_R, cBL_R, cBL_L, cSL_L, cSL_R, cSL_R, cSL_L)
-                ChannelMixingMatrix(8, 2, coeffs)
+                val cBLL = SQRT3_HALF * norm * p.rear
+                val cBLR = 0.5f * norm * p.rear
+                val cSLL = SQRT3_HALF * norm * p.middle
+                val cSLR = 0.5f * norm * p.middle
+                val matrix = floatArrayOf(cFL, 0f, 0f, cFL, cFC, cFC, cLFE, cLFE, cBLL, cBLR, cBLR, cBLL, cSLL, cSLR, cSLR, cSLL)
+                ChannelMixingMatrix(8, 2, matrix)
             }
             else -> null
         }
