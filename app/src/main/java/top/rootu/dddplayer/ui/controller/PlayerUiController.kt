@@ -189,7 +189,9 @@ class PlayerUiController(private val rootView: View) {
             }
 
             optionsRecycler.isVisible = true
-            optionsAdapter.submitList(list)
+
+            // Используем submitData для преобразования строк в уникальные элементы
+            optionsAdapter.submitData(list)
             optionsAdapter.setSelection(index)
 
             // 2. Скроллим

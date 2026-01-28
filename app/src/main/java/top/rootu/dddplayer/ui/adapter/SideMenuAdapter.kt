@@ -6,20 +6,15 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.core.view.isVisible
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.model.MenuItem
 
 class SideMenuAdapter(
     var onItemClick: (MenuItem) -> Unit
-) : RecyclerView.Adapter<SideMenuAdapter.ViewHolder>() {
-
-    private var items: List<MenuItem> = emptyList()
-
-    fun submitList(newItems: List<MenuItem>) {
-        items = newItems
-        notifyDataSetChanged()
-    }
+) : ListAdapter<MenuItem, SideMenuAdapter.ViewHolder>(MenuItemDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context)
@@ -28,10 +23,8 @@ class SideMenuAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(items[position])
+        holder.bind(getItem(position))
     }
-
-    override fun getItemCount(): Int = items.size
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val icon: ImageView = itemView.findViewById(R.id.item_icon)
@@ -40,8 +33,9 @@ class SideMenuAdapter(
 
         init {
             itemView.setOnClickListener {
-                if (adapterPosition != RecyclerView.NO_POSITION) {
-                    onItemClick(items[adapterPosition])
+                val pos = bindingAdapterPosition
+                if (pos != RecyclerView.NO_POSITION) {
+                    onItemClick(getItem(pos))
                 }
             }
         }
@@ -64,6 +58,16 @@ class SideMenuAdapter(
             }
 
             itemView.isSelected = item.isSelected
+        }
+    }
+
+    class MenuItemDiffCallback : DiffUtil.ItemCallback<MenuItem>() {
+        override fun areItemsTheSame(oldItem: MenuItem, newItem: MenuItem): Boolean {
+            return oldItem.id == newItem.id
+        }
+
+        override fun areContentsTheSame(oldItem: MenuItem, newItem: MenuItem): Boolean {
+            return oldItem == newItem
         }
     }
 }
