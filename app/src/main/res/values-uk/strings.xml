@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DDD Video Player</string>
+
+    <!-- Загальні рядки -->
+    <string name="close">Закрити</string>
+    <string name="reset">Скинути</string>
+    <string name="error">Помилка</string>
+    <string name="track_off">Вимк.</string>
+    <string name="track_unknown">Невідомо</string>
+    <string name="percent_100">100%</string>
+    <string name="pic">зображення</string>
+
+    <!-- Екран плеєра -->
+    <string name="seek_delta_format">%1$s %2$s</string>
+    <string name="fps_counter_format">FPS: %d</string>
+    <string name="audio_badge_format">%1$s > %2$s</string>
+    <string name="time_ends_at">Кінець о %s</string>
+    <string name="top_panel_help_text">▲▼ вибір • OK збер. • BACK скасув.</string>
+
+    <!-- Режими 3D -->
+    <string name="stereo_mode_mono">Звичайне 2D</string>
+    <string name="stereo_mode_sbs">Горизонтальна стереопара (SBS)</string>
+    <string name="stereo_mode_tb">Вертикальна стереопара (OU)</string>
+    <string name="stereo_mode_interlaced">Черезрядкова стереопара (Interlaced)</string>
+    <string name="stereo_mode_tiled">3D(z) Tiled (720p у 1080p)</string>
+    <string name="output_mode_anaglyph">Анагліф (Окуляри)</string>
+    <string name="output_mode_left">Тільки ліве</string>
+    <string name="output_mode_right">Тільки праве</string>
+    <string name="output_mode_vr">Cardboard VR</string>
+    <string name="glasses_rc">Red - Cyan</string>
+    <string name="glasses_yb">Yellow - Blue</string>
+    <string name="glasses_gm">Green - Magenta</string>
+    <string name="glasses_rb">Red - Blue</string>
+
+    <!-- Заголовки налаштувань OSD -->
+    <string name="setting_video_type">Тип відео</string>
+    <string name="setting_output_format">Режим перегляду</string>
+    <string name="setting_glasses_type">Тип окулярів</string>
+    <string name="setting_filter">Алгоритм</string>
+    <string name="setting_swap_eyes">Поміняти очі</string>
+    <string name="setting_depth">Паралакс</string>
+    <string name="setting_screen_separation">Розділення (IPD)</string>
+    <string name="setting_vr_distortion">Спотворення (K1)</string>
+    <string name="setting_vr_zoom">Масштаб VR</string>
+    <string name="setting_audio_track">Аудіодоріжка</string>
+    <string name="setting_subtitles">Субтитри</string>
+    <string name="setting_hue_l">Відтінок (Ліве)</string>
+    <string name="setting_hue_r">Відтінок (Праве)</string>
+    <string name="setting_leak_l">Витік (Ліве)</string>
+    <string name="setting_leak_r">Витік (Праве)</string>
+    <string name="setting_space">Простір</string>
+
+    <!-- Значення налаштувань OSD -->
+    <string name="val_custom">Користув.</string>
+    <string name="val_swap_rl">П - Л</string>
+    <string name="val_swap_lr">Л - П</string>
+
+    <!-- Бічне меню -->
+    <string name="menu_main_title">Налаштування</string>
+    <string name="menu_audio_title">Аудіодоріжка (%d)</string>
+    <string name="menu_subtitle_title">Субтитри (%d)</string>
+    <string name="menu_quick_settings_title">Панель налаштувань</string>
+    <string name="menu_quick_settings_desc">3D, паралакс, окуляри…</string>
+    <string name="menu_global_settings_title">Глобальні налаштування</string>
+    <string name="menu_global_settings_desc">Декодер, мова, інтерфейс…</string>
+    <string name="playlist">Плейлист</string>
+    <string name="Settings">Налаштування</string>
+
+    <!-- Повідомлення та помилки в плеєрі -->
+    <string name="error_playback_title">Помилка відтворення</string>
+    <string name="error_video_decoder">Помилка відеодекодера.\nВідтворюється тільки аудіо.</string>
+    <string name="error_audio_disabled">Помилка аудіо. Звук вимкнено.\n%s</string>
+    <string name="error_audio_disabled_hint">Помилка аудіо. Звук вимкнено.\nСпробуйте іншу доріжку.\n%s</string>
+    <string name="msg_playlist_empty">Плейлист порожній</string>
+    <string name="msg_auto_detect">Автовизначення: %s</string>
+    <string name="press_back_exit">Натисніть НАЗАД для виходу</string>
+
+    <!-- Глобальні налаштування -->
+    <string name="pref_title">Налаштування</string>
+    <string name="pref_title_desc">Глобальні параметри плеєра</string>
+    <string name="exit">Вихід</string>
+    <string name="pref_general_header">Відтворення</string>
+    <string name="pref_decoder_priority">Пріоритет декодера</string>
+    <string name="pref_decoder_priority_prefer_device">Надавати перевагу декодерам пристрою (за замовчуванням) HW+SW</string>
+    <string name="pref_decoder_priority_prefer_app">Надавати перевагу декодерам програми (AV1 + FFmpeg) SW+HW</string>
+    <string name="pref_decoder_priority_only_device">Тільки декодери пристрою</string>
+    <string name="pref_downmix">Downmix у стерео</string>
+    <string name="pref_downmix_desc">При використанні SW декодера, дозволяє перетворити багатоканальний звук у правильно¹ зміксоване стерео, що вирішує проблему з відсутністю голосу/перекладу (зазвичай на центральному каналі).\n¹ - Матриці для downmix розраховані аналогічно RFC 7845 (Section 5.1.1.5).</string>
+    <string name="pref_downmix_config">Корекція Downmix</string>
+    <string name="pref_downmix_config_desc">Ви можете змінити налаштування гучності аудіоканалів (фронт, центр, тили, бічні, сабвуфер) при downmix на свій смак.</string>
+    <string name="pref_downmix_preset">Пресет:</string>
+    <string name="pref_downmix_front">Фронт (L/R)</string>
+    <string name="pref_downmix_center">Центр (Голос)</string>
+    <string name="pref_downmix_rear">Тили (Surround)</string>
+    <string name="pref_downmix_middle">Бічні (7.1 Side)</string>
+    <string name="pref_downmix_lfe">Сабвуфер (LFE)</string>
+    <string name="pref_tunneling">Тунельне відтворення</string>
+    <string name="pref_tunneling_summary">Тунелювання забезпечує кращу підтримку контенту 4K/HDR, але може працювати не на всіх пристроях</string>
+    <string name="pref_framerate_matching">Автоматичне узгодження частоти кадрів</string>
+    <string name="pref_skip_silence">Пропускати тишу</string>
+    <string name="pref_audio_boost">Посилення гучності (Boost)</string>
+    <string name="pref_sec_lang_and_sub">Мова та Субтитри</string>
+    <string name="pref_language_audio">Звукова доріжка за замовчуванням</string>
+    <string name="pref_language_audio_desc">Бажана доріжка при старті відео</string>
+    <string name="pref_language_track_default">За замовчуванням (з файлу)</string>
+    <string name="pref_language_track_device">Мови пристрою</string>
+    <string name="pref_sub_lang_default">Мова субтитрів за замовчуванням</string>
+    <string name="pref_sub_lang_default_desc">Бажані субтитри (якщо є)</string>
+    <string name="pref_calibration_3d">Калібрування 3D</string>
+    <string name="pref_cardboard_vr">Налаштування Cardboard VR</string>
+    <string name="pref_anaglyph">Налаштування Анагліфа</string>
+    <string name="pref_sec_app">Програма</string>
+    <string name="pref_up_action">Дія кнопки \'Вгору\'</string>
+    <string name="pref_up_action_desc">Що відкривати при натисканні \'Вгору\' в плеєрі</string>
+    <string name="pref_up_action_osd">Панель налаштувань</string>
+    <string name="pref_up_action_menu">Меню налаштувань (Бічне)</string>
+    <string name="pref_up_action_none">Нічого</string>
+
+    <!-- Оновлення -->
+    <string name="update_btn_check">Перевірити оновлення</string>
+    <string name="update_btn_checking">Перевірка…</string>
+    <string name="update_title">Оновлення %s</string>
+    <string name="update_btn_update_fmt">Оновити до %s</string>
+    <string name="update_current_version">Поточна версія: v%s</string>
+    <string name="update_loading">Завантаження… %d%%</string>
+    <string name="update_found">Знайдено оновлення: %s</string>
+    <string name="update_latest">У вас остання версія</string>
+    <string name="update_error">Помилка перевірки оновлень</string>
+    <string name="update_exist">Доступне оновлення</string>
+    <string name="update_desc">Список змін…</string>
+    <string name="loading">Завантаження…</string>
+    <string name="cancel_uppercase">СКАСУВАТИ</string>
+    <string name="update_btn">ОНОВИТИ</string>
+
+    <!-- Екран помилки -->
+    <string name="error_oh_oh">Ой, щось пішло не так!</string>
+    <string name="error_oh_oh_desc">Сталася непередбачена помилка.\nЯкщо помилка повторюється, надішліть нам її лог.</string>
+    <string name="app_restart">Перезапустити</string>
+    <string name="show_logs">Показати лог</string>
+    <string name="error_logs">Лог помилки</string>
+    <string name="error_log_upload">Завантажити лог (Termbin)</string>
+    <string name="qr_code">QR-код</string>
+
+    <!-- VR Config -->
+    <string name="vr_config_title">Налаштування VR</string>
+    <string name="vr_config_success">Профіль Cardboard успішно застосовано!\n\nK1: %1$.3f\nK2: %2$.3f</string>
+    <string name="vr_config_error">Помилка читання профілю Cardboard.</string>
+</resources>

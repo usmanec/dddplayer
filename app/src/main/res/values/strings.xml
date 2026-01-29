@@ -1,200 +1,172 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">DDD Video Player</string>
 
-    <!-- ========================================== -->
-    <!-- СТРОКИ ДЛЯ КОДА (Внедряются скриптом)      -->
-    <!-- ========================================== -->
+    <!-- Common Strings -->
+    <string name="close">Close</string>
+    <string name="reset">Reset</string>
+    <string name="error">Error</string>
+    <string name="track_off">Off</string>
+    <string name="track_unknown">Unknown</string>
+    <string name="percent_100" translatable="false">100%</string>
+    <string name="pic">picture</string>
 
-    <string name="seek_delta_format">%1$s %2$s</string>
-    <string name="percentage_int_format">%d%%</string>
-    <string name="fps_counter_format">FPS: %d</string>
-    <string name="audio_badge_format">%1$s > %2$s</string>
-    <string name="custom_hue_format">%1$d (%2$s)</string>
-    <string name="custom_leak_format">%d%%</string>
-    <string name="screen_separation_format">%.1f</string>
-    <string name="vr_distortion_format">%.2f</string>
-    <string name="vr_zoom_format">%.2f</string>
-    <string name="loudness_boost_format">+%d dB</string>
-    <string name="language_code_format">%1$s (%2$s)</string>
+    <!-- Player Screen -->
+    <string name="seek_delta_format" translatable="false">%1$s %2$s</string>
+    <string name="percentage_int_format" translatable="false">%d%%</string>
+    <string name="fps_counter_format" translatable="false">FPS: %d</string>
+    <string name="audio_badge_format" translatable="false">%1$s > %2$s</string>
+    <string name="time_ends_at">Ends at %s</string>
+    <string name="top_panel_help_text">▲▼ select • OK save • BACK cancel</string>
 
-    <!-- Режимы видео (Input) -->
-    <string name="stereo_mode_mono">Обычное 2D</string>
-    <string name="stereo_mode_sbs">Горизонтальная стереопара (SBS)</string>
-    <string name="stereo_mode_tb">Вертикальная стереопара (OU)</string>
-    <string name="stereo_mode_interlaced">Чересстрочная стереопара (Interlaced)</string>
-    <string name="stereo_mode_tiled">3D(z) Tiled (720p в 1080p)</string>
-
-    <!-- Режимы вывода (Output) -->
-    <string name="output_mode_anaglyph">Анаглиф (Очки)</string>
-    <string name="output_mode_left">Только левый</string>
-    <string name="output_mode_right">Только правый</string>
+    <!-- 3D Modes -->
+    <string name="stereo_mode_mono">Normal 2D</string>
+    <string name="stereo_mode_sbs">Side-by-Side (SBS)</string>
+    <string name="stereo_mode_tb">Over-Under (OU)</string>
+    <string name="stereo_mode_interlaced">Interlaced</string>
+    <string name="stereo_mode_tiled">3D(z) Tiled (720p in 1080p)</string>
+    <string name="output_mode_anaglyph">Anaglyph (Glasses)</string>
+    <string name="output_mode_left">Left Only</string>
+    <string name="output_mode_right">Right Only</string>
     <string name="output_mode_vr">Cardboard VR</string>
-
-    <!-- Группы очков -->
     <string name="glasses_rc">Red - Cyan</string>
     <string name="glasses_yb">Yellow - Blue</string>
     <string name="glasses_gm">Green - Magenta</string>
     <string name="glasses_rb">Red - Blue</string>
 
-    <!-- Настройки OSD (Заголовки) -->
-    <string name="setting_video_type">Тип видео</string>
-    <string name="setting_output_format">Режим просмотра</string>
-    <string name="setting_glasses_type">Тип очков</string>
-    <string name="setting_filter">Алгоритм</string>
-    <string name="setting_swap_eyes">Поменять глаза</string>
-    <string name="setting_depth">Параллакс</string>
-    <string name="setting_screen_separation">Разделение (IPD)</string>
-    <string name="setting_vr_distortion">Искажение (K1)</string>
-    <string name="setting_vr_zoom">Масштаб VR</string>
-    <string name="setting_audio_track">Аудиодорожка</string>
-    <string name="setting_subtitles">Субтитры</string>
+    <!-- OSD Settings Titles -->
+    <string name="setting_video_type">Video Type</string>
+    <string name="setting_output_format">View Mode</string>
+    <string name="setting_glasses_type">Glasses Type</string>
+    <string name="setting_filter">Algorithm</string>
+    <string name="setting_swap_eyes">Swap Eyes</string>
+    <string name="setting_depth">Parallax</string>
+    <string name="setting_screen_separation">Separation (IPD)</string>
+    <string name="setting_vr_distortion">Distortion (K1)</string>
+    <string name="setting_vr_zoom">VR Zoom</string>
+    <string name="setting_audio_track">Audio Track</string>
+    <string name="setting_subtitles">Subtitles</string>
+    <string name="setting_hue_l">Hue (Left)</string>
+    <string name="setting_hue_r">Hue (Right)</string>
+    <string name="setting_leak_l">Leak (Left)</string>
+    <string name="setting_leak_r">Leak (Right)</string>
+    <string name="setting_space">Space</string>
 
-    <string name="setting_hue_l">Оттенок (Левый)</string>
-    <string name="setting_hue_r">Оттенок (Правый)</string>
-    <string name="setting_leak_l">Утечка (Левый)</string>
-    <string name="setting_leak_r">Утечка (Правый)</string>
-    <string name="setting_space">Пространство</string>
+    <!-- OSD Settings Values -->
+    <string name="val_custom">Custom</string>
+    <string name="val_swap_rl">R - L</string>
+    <string name="val_swap_lr">L - R</string>
+    <string name="custom_hue_format" translatable="false">%1$d (%2$s)</string>
+    <string name="custom_leak_format" translatable="false">%d%%</string>
+    <string name="screen_separation_format" translatable="false">%.1f</string>
+    <string name="vr_distortion_format" translatable="false">%.2f</string>
+    <string name="vr_zoom_format" translatable="false">%.2f</string>
 
-    <!-- Значения настроек -->
-    <string name="val_custom">Пользов.</string>
-    <string name="val_swap_rl">П - Л</string>
-    <string name="val_swap_lr">Л - П</string>
+    <!-- Side Menu -->
+    <string name="menu_main_title">Settings</string>
+    <string name="menu_audio_title">Audio Track (%d)</string>
+    <string name="menu_subtitle_title">Subtitles (%d)</string>
+    <string name="menu_quick_settings_title">Quick Settings Panel</string>
+    <string name="menu_quick_settings_desc">3D, parallax, glasses…</string>
+    <string name="menu_global_settings_title">Global Settings</string>
+    <string name="menu_global_settings_desc">Decoder, language, interface…</string>
+    <string name="playlist">Playlist</string>
+    <string name="Settings">Settings</string>
 
-    <!-- Меню и Навигация -->
-    <string name="menu_main_title">Настройки</string>
-    <string name="menu_audio_title">Аудиодорожка (%d)</string>
-    <string name="menu_subtitle_title">Субтитры (%d)</string>
-    <string name="menu_quick_settings_title">Панель настройки</string>
-    <string name="menu_quick_settings_desc">3D, параллакс, очки…</string>
-    <string name="menu_global_settings_title">Глобальные настройки</string>
-    <string name="menu_global_settings_desc">Декодер, язык, интерфейс…</string>
+    <!-- Player Messages & Errors -->
+    <string name="error_playback_title">Playback Error</string>
+    <string name="playback_error">Playback Error</string>
+    <string name="error_video_decoder">Video decoder error.\nPlaying audio only.</string>
+    <string name="error_audio_disabled">Audio error. Sound is disabled.\n%s</string>
+    <string name="error_audio_disabled_hint">Audio error. Sound is disabled.\nTry another track.\n%s</string>
+    <string name="msg_playlist_empty">Playlist is empty</string>
+    <string name="msg_auto_detect">Auto-detect: %s</string>
+    <string name="press_back_exit">Press BACK to exit</string>
 
-    <!-- Ошибки и Сообщения -->
-    <string name="error_playback_title">Ошибка воспроизведения</string>
-    <string name="error_video_decoder">Ошибка видео декодера.\nВоспроизводится только звук.</string>
-    <string name="error_audio_disabled">Ошибка аудио. Звук отключен.\n%s</string>
-    <string name="error_audio_disabled_hint">Ошибка аудио. Звук отключен.\nПопробуйте другую дорожку.\n%s</string>
+    <!-- Global Settings -->
+    <string name="pref_title">Settings</string>
+    <string name="pref_title_desc">Global player parameters</string>
+    <string name="close_settings">Close settings</string>
+    <string name="exit">Exit</string>
+    <string name="pref_general_header">Playback</string>
+    <string name="pref_decoder_priority">Decoder Priority</string>
+    <string name="pref_decoder_priority_prefer_device">Prefer device decoders (default) HW+SW</string>
+    <string name="pref_decoder_priority_prefer_app" tools:ignore="Typos">Prefer app decoders (AV1 + Ffmpeg) SW+HW</string>
+    <string name="pref_decoder_priority_only_device">Device decoders only</string>
+    <string name="pref_decoder_sw_desc">¹ - SW includes AV1 and Ffmpeg decoders (built with audio codecs: vorbis, opus, flac, alac, pcm_mulaw, pcm_alaw, mp3, amrnb, amrwb, aac, ac3, eac3, dca(DTS), mlp, truehd)</string>
+    <string name="pref_downmix">Downmix to Stereo</string>
+    <string name="pref_downmix_desc">When using the SW decoder, this allows converting multi-channel audio into a properly¹ mixed stereo, which can solve the problem of missing voice/translation (usually present on the center channel).\n¹ - The downmix matrices are calculated similarly to RFC 7845 (Section 5.1.1.5).</string>
+    <string name="pref_downmix_config">Downmix Correction</string>
+    <string name="pref_downmix_config_desc">You can adjust the volume of audio channels (front, center, rear, side, subwoofer) for the downmix to your liking.</string>
+    <string name="pref_downmix_preset">Preset:</string>
+    <string name="pref_downmix_front">Front (L/R)</string>
+    <string name="pref_downmix_center">Center (Voice)</string>
+    <string name="pref_downmix_rear">Rear (Surround)</string>
+    <string name="pref_downmix_middle">Side (7.1)</string>
+    <string name="pref_downmix_lfe">Subwoofer (LFE)</string>
+    <string name="pref_tunneling">Tunneled Playback</string>
+    <string name="pref_tunneling_summary">Tunneling provides better support for 4K/HDR content but may not work on all devices</string>
+    <string name="pref_map_dv7">Dolby Vision Profile 7 Fallback</string>
+    <string name="pref_map_dv7_on">Play Dolby Vision profile 7 content on HDR displays (HEVC)</string>
+    <string name="pref_map_dv7_off">Play UHD Blu-ray content containing Dolby Vision as is</string>
+    <string name="pref_framerate_matching">Auto Frame Rate Matching</string>
+    <string name="pref_framerate_matching_on">Switch display refresh rate to match video frame rate</string>
+    <string name="pref_framerate_matching_off">Do not change display refresh rate</string>
+    <string name="pref_skip_silence">Skip Silence</string>
+    <string name="pref_skip_silence_on">Skip silent parts in the audio stream</string>
+    <string name="pref_skip_silence_off">Play as is</string>
+    <string name="pref_audio_boost">Volume Boost</string>
+    <string name="pref_audio_boost_desc">Useful for quiet movies. The main goal is to make quiet sounds louder without causing hard clipping (distortion) at peaks.</string>
+    <string name="loudness_boost_format" translatable="false">+%d dB</string>
+    <string name="pref_sec_lang_and_sub">Language &amp; Subtitles</string>
+    <string name="pref_language_audio">Default Audio Track</string>
+    <string name="pref_language_audio_desc">Preferred track when starting a video</string>
+    <string name="pref_language_track_default">Default (from file)</string>
+    <string name="pref_language_track_device">Device languages</string>
+    <string name="language_code_format" translatable="false">%1$s (%2$s)</string>
+    <string name="pref_sub_lang_default">Default Subtitle Language</string>
+    <string name="pref_sub_lang_default_desc">Preferred subtitles (if available)</string>
+    <string name="pref_calibration_3d">3D Calibration</string>
+    <string name="pref_cardboard_vr">Cardboard VR Setup</string>
+    <string name="pref_cardboard_vr_desc">Wizard for lens, zoom, and IPD settings</string>
+    <string name="pref_anaglyph">Anaglyph Setup</string>
+    <string name="pref_anaglyph_desc">Glasses type detection and color correction</string>
+    <string name="pref_sec_app">Application</string>
+    <string name="pref_up_action">\'Up\' Button Action</string>
+    <string name="pref_up_action_desc">What to open when pressing \'Up\' in the player</string>
+    <string name="pref_up_action_osd">Quick Settings Panel</string>
+    <string name="pref_up_action_menu">Settings Menu (Side)</string>
+    <string name="pref_up_action_none">Nothing</string>
 
-    <string name="msg_playlist_empty">Плейлист пуст</string>
-    <string name="msg_auto_detect">Автоопределение: %s</string>
+    <!-- Updates -->
+    <string name="version" translatable="false">v%s</string>
+    <string name="pref_update_check">Check for updates</string>
+    <string name="update_btn_check">Check for updates</string>
+    <string name="update_btn_checking">Checking…</string>
+    <string name="update_title">Update %s</string>
+    <string name="update_btn_update_fmt">Update to %s</string>
+    <string name="update_current_version">Current version: v%s</string>
+    <string name="update_loading">Downloading… %d%%</string>
+    <string name="update_found">Update found: %s</string>
+    <string name="update_latest">You have the latest version</string>
+    <string name="update_error">Error checking for updates</string>
+    <string name="update_exist">Update available</string>
+    <string name="update_desc">Changelog…</string>
+    <string name="loading">Downloading…</string>
+    <string name="cancel_uppercase" tools:ignore="ButtonCase">CANCEL</string>
+    <string name="update_btn">UPDATE</string>
 
-    <!-- Обновления (Код + Layout) -->
-    <string name="version">v%s</string>
-    <string name="update_btn_check">Проверить обновление</string>
-    <string name="update_btn_checking">Проверка…</string>
-    <string name="update_title">Обновление %s</string>
-    <string name="update_btn_update_fmt">Обновить до %s</string>
-    <string name="update_current_version">Текущая версия: v%s</string>
-    <string name="update_loading">Скачивание… %d%%</string>
-    <string name="update_found">Найдено обновление: %s</string>
-    <string name="update_latest">У вас последняя версия</string>
-    <string name="update_error">Ошибка проверки обновлений</string>
+    <!-- Crash Screen -->
+    <string name="error_oh_oh">Oops, something went wrong!</string>
+    <string name="error_oh_oh_desc">An unexpected error occurred.\nIf the error persists, please send us the error log.</string>
+    <string name="app_restart">Restart</string>
+    <string name="show_logs">Show Log</string>
+    <string name="error_logs">Error Log</string>
+    <string name="error_log_upload">Upload Log (Termbin)</string>
+    <string name="qr_code">QR Code</string>
 
-    <!-- VR Config Activity -->
-    <string name="vr_config_title">Настройка VR</string>
-    <string name="vr_config_success">Профиль Cardboard успешно применен!\n\nK1: %1$.3f\nK2: %2$.3f</string>
-    <string name="vr_config_error">Ошибка чтения профиля Cardboard.</string>
-
-    <!-- Прочее (Код) -->
-    <string name="time_ends_at">Конец в %s</string>
-    <string name="track_off">Выкл.</string>
-    <string name="track_unknown">Неизвестно</string>
-
-    <!-- ========================================== -->
-    <!-- СТРОКИ ДЛЯ LAYOUT (XML)                    -->
-    <!-- ========================================== -->
-
-    <!-- Global Settings Activity -->
-    <string name="pref_title">Настройки</string>
-    <string name="pref_title_desc">Глобальные параметры плеера</string>
-    <string name="close_settings">Закрыть настройки</string>
-    <string name="exit">Выход</string>
-
-    <string name="pref_general_header">Воспроизведение</string>
-
-    <string name="pref_decoder_priority">Приоритет декодера</string>
-    <string name="pref_decoder_priority_prefer_device">Предпочитать декодеры устройства (по умолчанию) HW+SW</string>
-    <string name="pref_decoder_priority_prefer_app">Предпочитать декодеры приложения (AV1 + FFmpeg) SW+HW</string>
-    <string name="pref_decoder_priority_only_device">Только декодеры устройства</string>
-    <string name="pref_decoder_sw_desc">¹ - SW содержит декодеры AV1 и FFmpeg (собран с аудиокодеками: vorbis, opus, flac, alac, pcm_mulaw, pcm_alaw, mp3, amrnb, amrwb, aac, ac3, eac3, dca(DTS), mlp, truehd)</string>
-
-    <string name="pref_downmix">Downmix в стерео</string>
-    <string name="pref_downmix_desc">При использовании SW декодера, позволяет преобразовать многоканальный звук в правильно¹ смиксированное стерео, что позволяет решить проблему с отсутствием голоса/перевода (обычно присутствуют на центральном канале).\n¹ - Матрицы для downmix рассчитаны аналогично RFC 7845 (Section 5.1.1.5).</string>
-    <string name="pref_downmix_config">Коррекция Downmix</string>
-    <string name="pref_downmix_config_desc">Вы можете изменить настройки громкости аудиоканалов (фронт, центр, тылы, боковые, сабвуфер) при downmix на свой вкус.</string>
-
-    <string name="pref_tunneling">Туннельное воспроизведение</string>
-    <string name="pref_tunneling_summary">Туннелирование обеспечивает лучшую поддержку контента 4K/HDR, но может работать не на всех устройствах</string>
-
-    <string name="pref_map_dv7">Резервный вариант профиля 7 Dolby Vision</string>
-    <string name="pref_map_dv7_on">Воспроизведение контента Dolby Vision profile 7 на дисплеях HDR (HEVC)</string>
-    <string name="pref_map_dv7_off">Воспроизведение содержимого UHD Blu-ray, содержащего Dolby Vision, как есть</string>
-
-    <string name="pref_framerate_matching">Автоматическое согласование частоты кадров</string>
-    <string name="pref_framerate_matching_on">Переключать частоту обновления экрана в соответствии с частотой кадров видеосигнала</string>
-    <string name="pref_framerate_matching_off">Не изменять частоту обновления экрана</string>
-
-    <string name="pref_skip_silence">Пропускать тишину</string>
-    <string name="pref_skip_silence_on">Пропускать фрагменты с тишиной в аудиопотоке</string>
-    <string name="pref_skip_silence_off">Воспроизводить как есть</string>
-
-    <string name="pref_audio_boost">Усиление громкости (Boost)</string>
-    <string name="pref_audio_boost_desc">Полезно для тихих фильмов. Главная цель — сделать тихий звук громче, не вызывая жесткого клиппинга (хрипа) на пиках.</string>
-
-    <string name="pref_sec_lang_and_sub">Язык и Субтитры</string>
-    <string name="pref_language_audio">Звуковая дорожка по умолчанию</string>
-    <string name="pref_language_audio_desc">Предпочитаемая дорожка при старте видео</string>
-    <string name="pref_language_track_default">По умолчанию (из файла)</string>
-    <string name="pref_language_track_device">Языки устройства</string>
-
-    <string name="pref_sub_lang_default">Язык субтитров по умолчанию</string>
-    <string name="pref_sub_lang_default_desc">Предпочитаемые субтитры (если есть)</string>
-
-    <string name="pref_calibration_3d">Калибровка 3D</string>
-    <string name="pref_cardboard_vr">Настройка Cardboard VR</string>
-    <string name="pref_cardboard_vr_desc">Мастер настройки линз, масштаба и IPD</string>
-    <string name="pref_anaglyph">Настройка Анаглифа</string>
-    <string name="pref_anaglyph_desc">Определение типа очков и цветокоррекция</string>
-
-    <string name="pref_sec_app">Приложение</string>
-
-    <string name="pref_update_check">Проверить обновление</string>
-
-    <!-- Значения для настройки кнопки "Вверх" -->
-    <string name="pref_up_action">Действие кнопки \'Вверх\'</string>
-    <string name="pref_up_action_desc">Что открывать при нажатии \'Вверх\' в плеере</string>
-    <string name="pref_up_action_osd">Панель настройки</string>
-    <string name="pref_up_action_menu">Меню настроек (Боковое)</string>
-    <string name="pref_up_action_none">Ничего</string>
-    <string name="pref_downmix_preset">Пресет:</string>
-    <string name="pref_downmix_front">Фронт (L/R)</string>
-    <string name="pref_downmix_center">Центр (Голос)</string>
-    <string name="pref_downmix_rear">Тылы (Surround)</string>
-    <string name="pref_downmix_middle">Боковые (7.1 Side)</string>
-    <string name="pref_downmix_lfe">Сабвуфер (LFE)</string>
-
-    <string name="close">Закрыть</string>
-    <string name="reset">Сброс</string>
-    <string name="percent_100">100%</string>
-    <string name="error">Ошибка</string>
-    <string name="error_oh_oh">Ой, что-то пошло не так!</string>
-    <string name="error_oh_oh_desc">Произошла непредвиденная ошибка.\nЕсли ошибка повторяется, пришлите нам её лог.</string>
-    <string name="app_restart">Перезапустить</string>
-    <string name="show_logs">Показать лог</string>
-    <string name="error_logs">Лог ошибки</string>
-    <string name="error_log_upload">Загрузить лог (Termbin)</string>
-    <string name="qr_code">QR-код</string>
-    <string name="playlist">Плейлист</string>
-    <string name="Settings">Настройки</string>
-    <string name="update_exist">Доступно обновление</string>
-    <string name="update_desc">Список изменений…</string>
-    <string name="loading">Скачивание…</string>
-    <string name="cancel_uppercase">ОТМЕНА</string>
-    <string name="update_btn">ОБНОВИТЬ</string>
-    <string name="pic">картинка</string>
-    <string name="top_panel_help_text">▲▼ выбор • OK сохр • BACK отмена</string>
-    <string name="press_back_exit">Нажмите НАЗАД для выхода</string>
-    <string name="playback_error">Ошибка воспроизведения</string>
-
+    <!-- VR Config -->
+    <string name="vr_config_title">VR Setup</string>
+    <string name="vr_config_success">Cardboard profile applied successfully!\n\nK1: %1$.3f\nK2: %2$.3f</string>
+    <string name="vr_config_error">Error reading Cardboard profile.</string>
 </resources>
