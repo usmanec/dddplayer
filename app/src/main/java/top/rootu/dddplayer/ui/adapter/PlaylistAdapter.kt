@@ -7,15 +7,16 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.core.graphics.toColorInt
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import coil.dispose
 import coil.load
 import coil.transform.RoundedCornersTransformation
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.model.MediaItem
-import androidx.core.graphics.toColorInt
 
 class PlaylistAdapter(
     private val onItemClick: (Int) -> Unit
@@ -78,32 +79,43 @@ class PlaylistAdapter(
             // 3. Постер и Номер
             val numberText = (position + 1).toString()
 
-            if (item.posterUri != null) {
-                poster.isVisible = true
-                placeholder.isVisible = false
+            // Важно: очищаем слушатели предыдущего запроса
+            poster.dispose()
 
-                // Показываем бейдж в углу
-                numberBadge.text = numberText
-                numberBadge.isVisible = true
+            if (item.posterUri != null) {
+                // Сразу ставим заглушку, чтобы пользователь видел номер
+                placeholder.text = numberText
+                placeholder.isVisible = true
+                numberBadge.isVisible = false
+
+                // Постер делаем невидимым, но оставляем в layout (INVISIBLE)
+                poster.setImageDrawable(null)
+                poster.isVisible = true // Пусть будет виден, но пуст
 
                 poster.load(item.posterUri) {
                     crossfade(true)
                     transformations(RoundedCornersTransformation(4f))
-                    error(android.R.color.transparent)
-                    listener(onError = { _, _ ->
-                        // Ошибка загрузки: скрываем постер и бейдж, показываем заглушку
-                        poster.isVisible = false
-                        numberBadge.isVisible = false
-                        placeholder.isVisible = true
-                    })
+                    listener(
+                        onSuccess = { _, _ ->
+                            // Картинка есть -> скрываем заглушку, показываем бейдж
+                            placeholder.isVisible = false
+                            numberBadge.text = numberText
+                            numberBadge.isVisible = true
+                        },
+                        onError = { _, _ ->
+                            // Ошибка -> убеждаемся, что заглушка видна
+                            placeholder.isVisible = true
+                            numberBadge.isVisible = false
+                        }
+                    )
                 }
             } else {
+                // Нет URI: просто показываем заглушку
+                placeholder.text = numberText
+                placeholder.isVisible = true
                 poster.isVisible = false
                 numberBadge.isVisible = false
-
-                // Показываем заглушку по центру
-                placeholder.isVisible = true
-                placeholder.text = numberText
+                poster.setImageDrawable(null)
             }
 
             // 4. Прогресс

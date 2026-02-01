@@ -1,6 +1,7 @@
 package top.rootu.dddplayer.viewmodel
 
 import android.app.Application
+import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import androidx.lifecycle.AndroidViewModel
@@ -8,6 +9,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.C
+import androidx.media3.common.Format
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
@@ -45,7 +47,9 @@ enum class SettingType {
 enum class GlassesGroup { RED_CYAN, YELLOW_BLUE, GREEN_MAGENTA, RED_BLUE }
 
 data class TrackOption(
-    val name: String,
+    val format: Format?, // null для пункта "Off"
+    val nameFromMeta: String?,
+    val index: Int, // Порядковый номер (для генерации "Track 1")
     val group: Tracks.Group?,
     val trackIndex: Int,
     val isOff: Boolean = false
@@ -136,10 +140,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     // Tracks & Nav
     private val _audioOutputInfo = MutableLiveData<String>()
     val audioOutputInfo: LiveData<String> = _audioOutputInfo
-    private val _currentAudioName = MutableLiveData<String>()
-    val currentAudioName: LiveData<String> = _currentAudioName
-    private val _currentSubtitleName = MutableLiveData<String>()
-    val currentSubtitleName: LiveData<String> = _currentSubtitleName
+    private val _currentAudioTrack = MutableLiveData<TrackOption?>()
+    val currentAudioTrack: LiveData<TrackOption?> = _currentAudioTrack
+
+    private val _currentSubtitleTrack = MutableLiveData<TrackOption?>()
+    val currentSubtitleTrack: LiveData<TrackOption?> = _currentSubtitleTrack
     private val _videoDisabledError = MutableLiveData<PlaybackException?>()
     val videoDisabledError: LiveData<PlaybackException?> = _videoDisabledError
     private val _fatalError = MutableLiveData<PlaybackException?>()
@@ -385,14 +390,24 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         val (audio, audioIdx) = TrackLogic.extractAudioTracks(tracks, metadata)
         audioOptions = audio
         currentAudioIndex = audioIdx
-        if (audioOptions.isNotEmpty()) _currentAudioName.postValue(audioOptions[currentAudioIndex].name)
 
-        val (subs, subIdx) = TrackLogic.extractSubtitleTracks(tracks, getApplication(), metadata)
+        // Обновляем LiveData
+        if (audioOptions.isNotEmpty() && currentAudioIndex in audioOptions.indices) {
+            _currentAudioTrack.postValue(audioOptions[currentAudioIndex])
+        } else {
+            _currentAudioTrack.postValue(null)
+        }
+
+        val (subs, subIdx) = TrackLogic.extractSubtitleTracks(tracks, metadata)
         subtitleOptions = subs
         currentSubtitleIndex = subIdx
-        _currentSubtitleName.postValue(subtitleOptions[currentSubtitleIndex].name)
 
-        _videoQualityOptions.postValue(TrackLogic.extractVideoTracks(tracks))
+        if (subtitleOptions.isNotEmpty() && currentSubtitleIndex in subtitleOptions.indices) {
+            _currentSubtitleTrack.postValue(subtitleOptions[currentSubtitleIndex])
+        } else {
+            _currentSubtitleTrack.postValue(null)
+        }
+
         updateAvailableSettings()
     }
 
@@ -478,50 +493,48 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     // --- Menu Navigation ---
-    fun getMainMenuItems(): List<MenuItem> {
+    fun getMainMenuItems(context: Context): List<MenuItem> {
+        val currentAudioName = currentAudioTrack.value?.let { TrackLogic.buildTrackLabel(it, context) } ?: ""
+        val currentSubtitleName = currentSubtitleTrack.value?.let { TrackLogic.buildTrackLabel(it, context) } ?: ""
         return listOf(
             MenuItem(
                 "audio",
-                "Аудиодорожка (${audioOptions.size})",
-                currentAudioName.value,
+                context.getString(R.string.menu_audio_title, audioOptions.size.coerceAtLeast(0)),
+                currentAudioName,
                 R.drawable.ic_audio_track
             ),
             MenuItem(
                 "subtitles",
-                "Субтитры (${subtitleOptions.size - 1})",
-                currentSubtitleName.value,
+                context.getString(R.string.menu_subtitle_title, (subtitleOptions.size - 1).coerceAtLeast(0)),
+                currentSubtitleName,
                 R.drawable.ic_subtitles
             ),
             MenuItem(
                 "quick_settings",
-                "Панель настройки",
-                "3D, параллакс...",
+                context.getString(R.string.menu_quick_settings_title),
+                context.getString(R.string.menu_quick_settings_desc),
                 R.drawable.ic_settings_3d
             ),
             MenuItem(
                 "global_settings",
-                "Глобальные настройки",
-                "Декодер, язык...",
+                context.getString(R.string.menu_global_settings_title),
+                context.getString(R.string.menu_global_settings_desc),
                 R.drawable.ic_build
             )
         )
     }
 
-    fun getAudioTrackMenuItems(): List<MenuItem> {
-        val options = audioOptions
-        val currentIndex = currentAudioIndex
-
-        return options.mapIndexed { index, option ->
-            MenuItem(index.toString(), option.name, isSelected = index == currentIndex)
+    fun getAudioTrackMenuItems(context: Context): List<MenuItem> {
+        return audioOptions.mapIndexed { index, option ->
+            val name = TrackLogic.buildTrackLabel(option, context)
+            MenuItem(index.toString(), name, isSelected = index == currentAudioIndex)
         }
     }
 
-    fun getSubtitleMenuItems(): List<MenuItem> {
-        val options = subtitleOptions
-        val currentIndex = currentSubtitleIndex
-
-        return options.mapIndexed { index, option ->
-            MenuItem(index.toString(), option.name, isSelected = index == currentIndex)
+    fun getSubtitleMenuItems(context: Context): List<MenuItem> {
+        return subtitleOptions.mapIndexed { index, option ->
+            val name = TrackLogic.buildTrackLabel(option, context)
+            MenuItem(index.toString(), name, isSelected = index == currentSubtitleIndex)
         }
     }
 
@@ -533,10 +546,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
             if (trackType == C.TRACK_TYPE_AUDIO) {
                 currentAudioIndex = index
-                _currentAudioName.value = option.name
+                _currentAudioTrack.value = option
             } else {
                 currentSubtitleIndex = index
-                _currentSubtitleName.value = option.name
+                _currentSubtitleTrack.value = option
             }
 
             // Общая логика применения
@@ -629,7 +642,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     // --- Helpers ---
-    fun getOptionsForSetting(type: SettingType): Pair<List<String>, Int>? {
+    fun getOptionsForSetting(type: SettingType, context: Context): Pair<List<String>, Int>? {
         return when (type) {
             SettingType.VIDEO_TYPE -> {
                 val values = StereoInputType.entries.toTypedArray()
@@ -685,13 +698,15 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             }
             SettingType.AUDIO_TRACK -> {
                 if (audioOptions.isNotEmpty()) {
-                    val list = audioOptions.map { it.name }
+                    // Генерируем строки "здесь и сейчас" используя актуальный контекст
+                    val list = audioOptions.map { TrackLogic.buildTrackLabel(it, context) }
                     Pair(list, currentAudioIndex)
                 } else null
             }
             SettingType.SUBTITLES -> {
                 if (subtitleOptions.isNotEmpty()) {
-                    val list = subtitleOptions.map { it.name }
+                    // Генерируем строки "здесь и сейчас"
+                    val list = subtitleOptions.map { TrackLogic.buildTrackLabel(it, context) }
                     Pair(list, currentSubtitleIndex)
                 } else null
             }

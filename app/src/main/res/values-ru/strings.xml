@@ -10,17 +10,13 @@
     <string name="error">Ошибка</string>
     <string name="track_off">Выкл.</string>
     <string name="track_unknown">Неизвестно</string>
-    <string name="percent_100">100%</string>
     <string name="pic">картинка</string>
+    <string name="develop_tost">Извините, это всё ещё в разработке.</string>
 
     <!-- ==================================================== -->
     <!-- Экран плеера (OSD, меню, сообщения)                  -->
     <!-- ==================================================== -->
     <!-- Форматирование -->
-    <string name="seek_delta_format">%1$s %2$s</string>
-    <string name="percentage_int_format">%d%%</string>
-    <string name="fps_counter_format">FPS: %d</string>
-    <string name="audio_badge_format">%1$s > %2$s</string>
     <string name="time_ends_at">Конец в %s</string>
     <string name="top_panel_help_text">▲▼ выбор • OK сохр • BACK отмена</string>
 
@@ -61,11 +57,6 @@
     <string name="val_custom">Пользов.</string>
     <string name="val_swap_rl">П - Л</string>
     <string name="val_swap_lr">Л - П</string>
-    <string name="custom_hue_format">%1$d (%2$s)</string>
-    <string name="custom_leak_format">%d%%</string>
-    <string name="screen_separation_format">%.1f</string>
-    <string name="vr_distortion_format">%.2f</string>
-    <string name="vr_zoom_format">%.2f</string>
 
     <!-- Боковое меню -->
     <string name="menu_main_title">Настройки</string>
@@ -124,13 +115,11 @@
     <string name="pref_skip_silence_off">Воспроизводить как есть</string>
     <string name="pref_audio_boost">Усиление громкости (Boost)</string>
     <string name="pref_audio_boost_desc">Полезно для тихих фильмов. Главная цель — сделать тихий звук громче, не вызывая жесткого клиппинга (хрипа) на пиках.</string>
-    <string name="loudness_boost_format">+%d dB</string>
     <string name="pref_sec_lang_and_sub">Язык и Субтитры</string>
     <string name="pref_language_audio">Звуковая дорожка по умолчанию</string>
     <string name="pref_language_audio_desc">Предпочитаемая дорожка при старте видео</string>
     <string name="pref_language_track_default">По умолчанию (из файла)</string>
     <string name="pref_language_track_device">Языки устройства</string>
-    <string name="language_code_format">%1$s (%2$s)</string>
     <string name="pref_sub_lang_default">Язык субтитров по умолчанию</string>
     <string name="pref_sub_lang_default_desc">Предпочитаемые субтитры (если есть)</string>
     <string name="pref_calibration_3d">Калибровка 3D</string>
@@ -139,16 +128,22 @@
     <string name="pref_anaglyph">Настройка Анаглифа</string>
     <string name="pref_anaglyph_desc">Определение типа очков и цветокоррекция</string>
     <string name="pref_sec_app">Приложение</string>
+    <string name="pref_language_system">Язык системы</string>
     <string name="pref_up_action">Действие кнопки \'Вверх\'</string>
     <string name="pref_up_action_desc">Что открывать при нажатии \'Вверх\' в плеере</string>
     <string name="pref_up_action_osd">Панель настройки</string>
     <string name="pref_up_action_menu">Меню настроек (Боковое)</string>
     <string name="pref_up_action_none">Ничего</string>
 
+    <!-- Global Settings - Audio Mix Dialog -->
+    <string name="mix_preset_standard">Стандарт - RFC 7845 (Section 5.1.1.5)</string>
+    <string name="mix_preset_boost_center">Усиление голоса</string>
+    <string name="mix_preset_night_mode">Ночной (Тихие эффекты)</string>
+    <string name="mix_preset_custom">Пользовательский</string>
+
     <!-- ==================================================== -->
     <!-- Обновления (Код + Layout)                            -->
     <!-- ==================================================== -->
-    <string name="version">v%s</string>
     <string name="pref_update_check">Проверить обновление</string>
     <string name="update_btn_check">Проверить обновление</string>
     <string name="update_btn_checking">Проверка…</string>
@@ -182,5 +177,6 @@
     <string name="vr_config_title">Настройка VR</string>
     <string name="vr_config_success">Профиль Cardboard успешно применен!\n\nK1: %1$.3f\nK2: %2$.3f</string>
     <string name="vr_config_error">Ошибка чтения профиля Cardboard.</string>
+    <string name="pref_app_language_desc">Изменить язык приложения. Изменение требует перезапуск приложения.</string>
 
 </resources>

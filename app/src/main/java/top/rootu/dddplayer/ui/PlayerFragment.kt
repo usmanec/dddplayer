@@ -27,6 +27,7 @@ import androidx.recyclerview.widget.RecyclerView
 import top.rootu.dddplayer.BuildConfig
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
+import top.rootu.dddplayer.logic.TrackLogic
 import top.rootu.dddplayer.model.MenuItem
 import top.rootu.dddplayer.model.StereoInputType
 import top.rootu.dddplayer.renderer.OnFpsUpdatedListener
@@ -222,7 +223,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
      * @param focusId ID элемента, на который нужно установить фокус.
      */
     private fun showMainMenu(focusId: String? = null) {
-        val menuItems = viewModel.getMainMenuItems()
+        val menuItems = viewModel.getMainMenuItems(requireContext())
 
         showSideMenu(getString(R.string.menu_main_title), menuItems, focusId) { selected ->
             if (selected == null) return@showSideMenu
@@ -244,11 +245,13 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
     }
 
     private fun showAudioTrackMenu() {
-        // Запрашиваем готовый список
-        val menuItems = viewModel.getAudioTrackMenuItems()
+        val menuItems = viewModel.getAudioTrackMenuItems(requireContext())
         if (menuItems.isEmpty()) return
 
-        showSideMenu(getString(R.string.menu_audio_title, menuItems.size), menuItems) { selected ->
+        showSideMenu(getString(
+            R.string.menu_audio_title,
+            menuItems.size.coerceAtLeast(0)
+        ), menuItems) { selected ->
             if (selected == null) {
                 // Возврат в главное меню с фокусом на "audio"
                 showMainMenu("audio")
@@ -261,10 +264,14 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
     }
 
     private fun showSubtitlesMenu() {
-        val menuItems = viewModel.getSubtitleMenuItems()
+        val menuItems = viewModel.getSubtitleMenuItems(requireContext())
         if (menuItems.isEmpty()) return
 
-        showSideMenu(getString(R.string.menu_subtitle_title, menuItems.size - 1), menuItems) { selected ->
+        showSideMenu(
+            getString(R.string.menu_subtitle_title,
+                (menuItems.size - 1).coerceAtLeast(0)),
+            menuItems
+        ) { selected ->
             if (selected == null) {
                 // Возврат в главное меню с фокусом на "subtitles"
                 showMainMenu("subtitles")
@@ -358,10 +365,15 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
 
                 // Скроллим и фокусируемся
                 recycler.scrollToPosition(targetIndex)
-                recycler.postDelayed({
-                    val vh = recycler.findViewHolderForAdapterPosition(targetIndex)
-                    vh?.itemView?.requestFocus()
-                }, 50)
+                val vh = recycler.findViewHolderForAdapterPosition(targetIndex)
+                if (vh?.itemView == null) {
+                    recycler.postDelayed({
+                        val vh = recycler.findViewHolderForAdapterPosition(targetIndex)
+                        vh?.itemView?.requestFocus()
+                    }, 50)
+                } else {
+                    vh.itemView.requestFocus()
+                }
             }
         }
 
@@ -470,9 +482,16 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
 
         viewModel.videoResolution.observe(viewLifecycleOwner) { ui.badgeResolution.text = it }
         viewModel.videoAspectRatio.observe(viewLifecycleOwner) { ui.setAspectRatio(it) }
-        viewModel.currentAudioName.observe(viewLifecycleOwner) { updateAudioBadge() }
         viewModel.audioOutputInfo.observe(viewLifecycleOwner) { updateAudioBadge() }
-        viewModel.currentSubtitleName.observe(viewLifecycleOwner) { ui.badgeSubtitle.text = it }
+        viewModel.currentAudioTrack.observe(viewLifecycleOwner) { trackOption ->
+            updateAudioBadge()
+            updateSettingsText()
+        }
+        viewModel.currentSubtitleTrack.observe(viewLifecycleOwner) { trackOption ->
+            val name = trackOption?.let { TrackLogic.buildTrackLabel(it, requireContext()) } ?: ""
+            ui.badgeSubtitle.text = name
+            updateSettingsText()
+        }
 
         viewModel.isBuffering.observe(viewLifecycleOwner) { isBuffering ->
             val percent = viewModel.bufferedPercentage.value ?: 0
@@ -554,8 +573,6 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         viewModel.swapEyes.observe(viewLifecycleOwner, updateTextObserver)
         viewModel.depth.observe(viewLifecycleOwner, updateTextObserver)
         viewModel.screenSeparation.observe(viewLifecycleOwner, updateTextObserver)
-        viewModel.currentAudioName.observe(viewLifecycleOwner, updateTextObserver)
-        viewModel.currentSubtitleName.observe(viewLifecycleOwner, updateTextObserver)
 
         viewModel.anaglyphDelegate.customHueOffsetL.observe(viewLifecycleOwner, updateTextObserver)
         viewModel.anaglyphDelegate.customHueOffsetR.observe(viewLifecycleOwner, updateTextObserver)
@@ -590,6 +607,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
     private fun updateSettingsText() {
         if (settingsViewModel.isSettingsPanelVisible.value != true) return
         val type = settingsViewModel.currentSettingType.value ?: return
+        val context = requireContext()
 
         val valueStr = when(type) {
             SettingType.VIDEO_TYPE -> viewModel.inputType.value?.name?.replace("_", " ") ?: ""
@@ -617,8 +635,14 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
             SettingType.SCREEN_SEPARATION -> String.format(Locale.US, "%.1f", (viewModel.screenSeparation.value ?: 0f) * 100)
             SettingType.VR_DISTORTION -> String.format(Locale.US, "%.2f", viewModel.anaglyphDelegate.vrK1.value)
             SettingType.VR_ZOOM -> String.format(Locale.US, "%.2f", viewModel.anaglyphDelegate.vrScale.value)
-            SettingType.AUDIO_TRACK -> viewModel.currentAudioName.value ?: ""
-            SettingType.SUBTITLES -> viewModel.currentSubtitleName.value ?: ""
+            SettingType.AUDIO_TRACK -> {
+                val track = viewModel.currentAudioTrack.value
+                track?.let { TrackLogic.buildTrackLabel(it, context) } ?: ""
+            }
+            SettingType.SUBTITLES -> {
+                val track = viewModel.currentSubtitleTrack.value
+                track?.let { TrackLogic.buildTrackLabel(it, context) } ?: ""
+            }
         }
 
         val color = when(type) {
@@ -630,12 +654,14 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         ui.updateSettingsText(type, valueStr, viewModel.anaglyphDelegate.isMatrixValid.value ?: true, color)
 
         // список опций
-        val optionsData = viewModel.getOptionsForSetting(type)
+        val optionsData = viewModel.getOptionsForSetting(type, context)
         ui.updateSettingsOptions(optionsData)
     }
 
     private fun updateAudioBadge() {
-        val res = viewModel.currentAudioName.value ?: ""
+        val track = viewModel.currentAudioTrack.value
+        // Формируем имя трека
+        val res = track?.let { TrackLogic.buildTrackLabel(it, requireContext()) } ?: ""
         val audioOut = viewModel.audioOutputInfo.value ?: ""
 
         val text = if (audioOut.isNotEmpty()) "$res > $audioOut" else res

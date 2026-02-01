@@ -27,7 +27,6 @@
             android:contentDescription="@string/pic"
             android:scaleType="fitCenter"
             android:src="@drawable/tv_banner"
-            app:tint="@color/tv_white"
             tools:src="@tools:sample/backgrounds/scenic" />
 
         <!-- Заглушка (Большой номер по центру) -->

@@ -15,6 +15,7 @@ class SettingsRepository(context: Context) {
     companion object {
         const val TRACK_DEFAULT = ""
         const val TRACK_DEVICE = "device"
+        const val LANG_SYSTEM_DEFAULT = "system"
     }
 
     suspend fun getVideoSettings(uri: String): VideoSettings? {
@@ -30,14 +31,14 @@ class SettingsRepository(context: Context) {
     }
 
     // --- Global Player Preferences ---
-    fun getDecoderPriority(): Int = prefs.getInt("decoder_priority", DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+    fun getDecoderPriority(): Int = prefs.getInt("decoder_priority", DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
     fun setDecoderPriority(mode: Int) = prefs.edit { putInt("decoder_priority", mode) }
 
     fun isTunnelingEnabled(): Boolean = prefs.getBoolean("tunneling_enabled", false)
     fun setTunnelingEnabled(enabled: Boolean) = prefs.edit { putBoolean("tunneling_enabled", enabled) }
 
     // Принудительный Downmix в стерео
-    fun isStereoDownmixEnabled(): Boolean = prefs.getBoolean("stereo_downmix", false)
+    fun isStereoDownmixEnabled(): Boolean = prefs.getBoolean("stereo_downmix", true)
     fun setStereoDownmixEnabled(enabled: Boolean) = prefs.edit { putBoolean("stereo_downmix", enabled) }
 
     fun getMixPreset(): Int = prefs.getInt("mix_preset", 0)
@@ -75,6 +76,9 @@ class SettingsRepository(context: Context) {
 
     fun getLoudnessBoost(): Int = prefs.getInt("loudness_boost", 0)
     fun setLoudnessBoost(boost: Int) = prefs.edit { putInt("loudness_boost", boost) }
+
+    fun getAppLanguage(): String = prefs.getString("app_language", LANG_SYSTEM_DEFAULT) ?: LANG_SYSTEM_DEFAULT
+    fun setAppLanguage(langCode: String) = prefs.edit { putString("app_language", langCode) }
 
     // Действие кнопки "Вверх" ( 0 = Nothing, 1 = OSD, 2 = Side Menu)
     fun getUpButtonAction(): Int = prefs.getInt("up_button_action", 1)

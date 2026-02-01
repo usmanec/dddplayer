@@ -7,9 +7,9 @@ import androidx.media3.common.Format
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.Tracks
 import top.rootu.dddplayer.R
+import top.rootu.dddplayer.utils.LocaleUtils
 import top.rootu.dddplayer.viewmodel.TrackOption
 import top.rootu.dddplayer.viewmodel.VideoQualityOption
-import java.util.Locale
 
 object TrackLogic {
 
@@ -73,13 +73,15 @@ object TrackLogic {
                         nameFromMeta = audioMetadata[audioTrackCounter].name
                     }
 
-                    // 3. Строим красивое название
-                    val name = buildTrackLabel(format, nameFromMeta, audioTrackCounter + 1)
-
+                    // 3. Добавляем
                     if (group.isTrackSelected(i)) selectedAudioIdx = audioList.size
-                    audioList.add(TrackOption(name, group, i))
-
-                    audioTrackCounter++
+                    audioList.add(TrackOption(
+                        format = format,
+                        nameFromMeta = nameFromMeta,
+                        index = ++audioTrackCounter,
+                        group = group,
+                        trackIndex = i
+                    ))
                 }
             }
         }
@@ -88,14 +90,13 @@ object TrackLogic {
 
     fun extractSubtitleTracks(
         tracks: Tracks,
-        context: Context,
         metadata: Map<Int, UnifiedMetadataReader.TrackInfo>
     ): Pair<List<TrackOption>, Int> {
         val subList = mutableListOf<TrackOption>()
-        subList.add(TrackOption(context.getString(R.string.track_off), null, -1, true))
+        // Добавляем пункт "Off"
+        subList.add(TrackOption(null, null, -1, null, -1, true))
         var selectedSubIdx = 0
 
-        // Аналогично для субтитров
         val subMetadata = metadata.values
             .filter { it.type == UnifiedMetadataReader.TrackType.SUBTITLE }
             .sortedBy { it.trackId }
@@ -114,25 +115,27 @@ object TrackLogic {
                         nameFromMeta = subMetadata[subTrackCounter].name
                     }
 
-                    val name = buildTrackLabel(format, nameFromMeta, subTrackCounter + 1)
-
                     if (group.isTrackSelected(i)) selectedSubIdx = subList.size
-                    subList.add(TrackOption(name, group, i))
-
-                    subTrackCounter++
+                    subList.add(TrackOption(
+                        format = format,
+                        nameFromMeta = nameFromMeta,
+                        index = ++subTrackCounter,
+                        group = group,
+                        trackIndex = i
+                    ))
                 }
             }
         }
         return Pair(subList, selectedSubIdx)
     }
 
-    private fun buildTrackLabel(
-        format: Format,
-        metaName: String?,
-        index: Int
-    ): String {
+    fun buildTrackLabel(option: TrackOption, context: Context): String {
+        if (option.isOff) return context.getString(R.string.track_off)
+
+        val format = option.format ?: return context.getString(R.string.track_unknown)
+
         // Приоритет: Имя из метаданных -> Label из ExoPlayer -> Язык
-        var title = metaName?.trim()
+        var title = option.nameFromMeta?.trim()
 
         if (title.isNullOrEmpty()) {
             title = format.label
@@ -144,23 +147,14 @@ object TrackLogic {
 
         // Если названия всё ещё нет, используем язык
         if (title.isNullOrEmpty()) {
-            val displayLang = getDisplayLanguage(langCode, index)
-            return "$displayLang$techInfoStr ($langCode)"
+            title =
+                if (langCode == "und" || langCode == "ext")
+                    "Track ${option.index}"
+                else
+                    LocaleUtils.getFormattedLanguageName(langCode, context)
         }
 
         return "$title$techInfoStr ($langCode)"
-    }
-
-    private fun getDisplayLanguage(langCode: String, index: Int): String {
-        if (langCode == "und") return "Track $index"
-
-        val locale = Locale.forLanguageTag(langCode)
-        val display = locale.displayLanguage
-        return if (display.isNotEmpty()) {
-            display.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
-        } else {
-            langCode.uppercase()
-        }
     }
 
     private fun getTechInfo(format: Format): String {
@@ -190,7 +184,7 @@ object TrackLogic {
                 2 -> "2.0"
                 3 -> "2.1"
                 4 -> "4.0"
-                5 -> "4.1"
+                5 -> "5.0"
                 6 -> "5.1"
                 7 -> "6.1"
                 8 -> "7.1"

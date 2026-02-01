@@ -8,13 +8,9 @@
     <string name="error">Помилка</string>
     <string name="track_off">Вимк.</string>
     <string name="track_unknown">Невідомо</string>
-    <string name="percent_100">100%</string>
     <string name="pic">зображення</string>
 
     <!-- Екран плеєра -->
-    <string name="seek_delta_format">%1$s %2$s</string>
-    <string name="fps_counter_format">FPS: %d</string>
-    <string name="audio_badge_format">%1$s > %2$s</string>
     <string name="time_ends_at">Кінець о %s</string>
     <string name="top_panel_help_text">▲▼ вибір • OK збер. • BACK скасув.</string>
 
@@ -111,6 +107,7 @@
     <string name="pref_cardboard_vr">Налаштування Cardboard VR</string>
     <string name="pref_anaglyph">Налаштування Анагліфа</string>
     <string name="pref_sec_app">Програма</string>
+    <string name="pref_language_system">Мова системи</string>
     <string name="pref_up_action">Дія кнопки \'Вгору\'</string>
     <string name="pref_up_action_desc">Що відкривати при натисканні \'Вгору\' в плеєрі</string>
     <string name="pref_up_action_osd">Панель налаштувань</string>
@@ -146,4 +143,5 @@
     <string name="vr_config_title">Налаштування VR</string>
     <string name="vr_config_success">Профіль Cardboard успішно застосовано!\n\nK1: %1$.3f\nK2: %2$.3f</string>
     <string name="vr_config_error">Помилка читання профілю Cardboard.</string>
+    <string name="pref_app_language_desc">Змінити мову програми. Зміна вимагає перезапуску програми.</string>
 </resources>

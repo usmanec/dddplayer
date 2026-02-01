@@ -1,7 +1,10 @@
 <resources>
     <!-- Base application theme. -->
-    <style name="AppTheme" parent="Theme.Leanback">
-        <!-- Customize your theme here. -->
+    <style name="AppTheme" parent="Theme.AppCompat.NoActionBar">
+        <!-- Устанавливаем полноэкранный режим -->
+        <item name="android:windowFullscreen">true</item>
+        <!-- Убираем фон окна, так как у нас свой черный фон в layout -->
+<!--        <item name="android:windowBackground">@android:color/transparent</item>-->
     </style>
 
     <style name="PlayerControlButton">
@@ -105,5 +108,19 @@
         <item name="android:layout_marginStart">16dp</item>
         <!-- Важно: дублируем состояние родителя -->
         <item name="android:duplicateParentState">true</item>
+    </style>
+
+    <!-- Базовый стиль для всех кастомных диалогов в приложении -->
+    <style name="Theme.App.Dialog" parent="Theme.AppCompat.Dialog">
+        <!-- Убираем стандартный фон окна -->
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <!-- Убираем стандартную рамку -->
+        <item name="android:windowFrame">@null</item>
+        <!-- Убираем заголовок -->
+        <item name="android:windowNoTitle">true</item>
+        <!-- Позволяет фону быть полупрозрачным -->
+        <item name="android:windowIsTranslucent">true</item>
+        <!-- Отключаем затемнение фона за диалогом (у нас свой полупрозрачный фон) -->
+        <item name="android:backgroundDimEnabled">false</item>
     </style>
 </resources>

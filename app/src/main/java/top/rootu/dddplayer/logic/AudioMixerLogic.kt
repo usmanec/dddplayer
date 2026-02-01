@@ -1,18 +1,17 @@
 package top.rootu.dddplayer.logic
 
 import androidx.media3.common.audio.ChannelMixingMatrix
-import androidx.media3.common.util.UnstableApi
+import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
 import kotlin.math.sqrt
 
-@UnstableApi
 object AudioMixerLogic {
 
-    enum class MixPreset(val id: Int, val title: String) {
-        STANDARD(0, "Стандарт - RFC 7845 (Section 5.1.1.5)"),
-        BOOST_CENTER(1, "Усиление голоса"),
-        NIGHT_MODE(2, "Ночной (Тихие эффекты)"),
-        CUSTOM(3, "Пользовательский")
+    enum class MixPreset(val id: Int, val titleResId: Int) {
+        STANDARD(0, R.string.mix_preset_standard),
+        BOOST_CENTER(1, R.string.mix_preset_boost_center),
+        NIGHT_MODE(2, R.string.mix_preset_night_mode),
+        CUSTOM(3, R.string.mix_preset_custom)
     }
 
     data class MixParams(

@@ -2,11 +2,8 @@ package top.rootu.dddplayer.ui
 
 import android.annotation.SuppressLint
 import android.app.Dialog
-import android.graphics.Color
 import android.os.Bundle
-import android.view.Gravity
 import android.view.View
-import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
@@ -20,16 +17,20 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.widget.SwitchCompat
-import androidx.core.graphics.drawable.toDrawable
+import androidx.core.os.LocaleListCompat
 import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import top.rootu.dddplayer.BuildConfig
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
 import top.rootu.dddplayer.logic.AudioMixerLogic
 import top.rootu.dddplayer.logic.UpdateInfo
+import top.rootu.dddplayer.ui.adapter.ChoiceAdapter
+import top.rootu.dddplayer.utils.LocaleUtils
 import top.rootu.dddplayer.viewmodel.UpdateViewModel
-import java.util.Locale
 
 class GlobalSettingsActivity : AppCompatActivity() {
 
@@ -80,9 +81,11 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var textUpdate: TextView
     private lateinit var textUpdateDesc: TextView
     private lateinit var scrollView: ScrollView
+    private lateinit var itemAppLanguage: LinearLayout
+    private lateinit var textAppLanguageValue: TextView
 
-    // Список популярных языков для перебора (ISO 639-1)
-    private val languages = listOf(
+    // Список языков для выбора аудио/субтитров (ISO 639-1)
+    private val trackLanguages = listOf(
         SettingsRepository.TRACK_DEFAULT,
         SettingsRepository.TRACK_DEVICE,
         "en",   // English
@@ -100,6 +103,16 @@ class GlobalSettingsActivity : AppCompatActivity() {
         "ro",   // Română (Молдова)
         // Остальной мир
         "de", "fr", "es", "it", "ja", "ko", "zh"
+    )
+
+    // Список языков для интерфейса приложения (ISO 639-1)
+    private val appLanguageCodes = listOf(
+        SettingsRepository.LANG_SYSTEM_DEFAULT,
+        "en",
+        "ru",
+        "be",
+        "uk",
+        "zh"
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -186,6 +199,9 @@ class GlobalSettingsActivity : AppCompatActivity() {
         itemUpdate = findViewById(R.id.item_update)
         textUpdate = findViewById(R.id.text_update)
         textUpdateDesc = findViewById(R.id.text_update_desc)
+
+        itemAppLanguage = findViewById(R.id.item_app_language)
+        textAppLanguageValue = findViewById(R.id.text_app_language_value)
     }
 
     private fun setupLogic() {
@@ -269,30 +285,13 @@ class GlobalSettingsActivity : AppCompatActivity() {
             updateBoostUI()
         }
 
-        // Languages
-        updateLangUI(textAudioLangValue, repo.getPreferredAudioLang())
-        itemAudioLang.setOnClickListener {
-            val current = repo.getPreferredAudioLang()
-            val next = getNextLanguage(current)
-            repo.setPreferredAudioLang(next)
-            updateLangUI(textAudioLangValue, next)
-        }
-
-        updateLangUI(textSubLangValue, repo.getPreferredSubLang())
-        itemSubLang.setOnClickListener {
-            val current = repo.getPreferredSubLang()
-            val next = getNextLanguage(current)
-            repo.setPreferredSubLang(next)
-            updateLangUI(textSubLangValue, next)
-        }
-
         // Calibration
         itemCalibrateVr.setOnClickListener {
-            Toast.makeText(this, "Мастер настройки VR: Скоро будет", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.develop_tost), Toast.LENGTH_SHORT).show()
         }
 
         itemCalibrateAnaglyph.setOnClickListener {
-            Toast.makeText(this, "Мастер настройки Анаглифа: Скоро будет", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.develop_tost), Toast.LENGTH_SHORT).show()
         }
 
         var crashCounter = 0
@@ -324,6 +323,52 @@ class GlobalSettingsActivity : AppCompatActivity() {
                 updateViewModel.forceCheckUpdates()
             }
         }
+        // Languages
+        updateLangUI(textAudioLangValue, repo.getPreferredAudioLang())
+        itemAudioLang.setOnClickListener {
+            showLanguageSelectionDialog(
+                title = getString(R.string.pref_language_audio),
+                languageCodes = trackLanguages,
+                currentCode = repo.getPreferredAudioLang()
+            ) { selectedCode ->
+                // В колбэке сохраняем результат и обновляем UI
+                repo.setPreferredAudioLang(selectedCode)
+                updateLangUI(textAudioLangValue, selectedCode)
+                itemAudioLang.requestFocus()
+            }
+        }
+
+        updateLangUI(textSubLangValue, repo.getPreferredSubLang())
+        itemSubLang.setOnClickListener {
+            showLanguageSelectionDialog(
+                title = getString(R.string.pref_sub_lang_default),
+                languageCodes = trackLanguages,
+                currentCode = repo.getPreferredSubLang()
+            ) { selectedCode ->
+                repo.setPreferredSubLang(selectedCode)
+                updateLangUI(textSubLangValue, selectedCode)
+                itemSubLang.requestFocus()
+            }
+        }
+
+        // Язык приложения
+        updateLangUI(textAppLanguageValue, repo.getAppLanguage())
+        itemAppLanguage.setOnClickListener {
+            showLanguageSelectionDialog(
+                title = getString(R.string.pref_app_language),
+                languageCodes = appLanguageCodes,
+                currentCode = repo.getAppLanguage()
+            ) { selectedCode ->
+                repo.setAppLanguage(selectedCode)
+                val appLocale = if (selectedCode == SettingsRepository.LANG_SYSTEM_DEFAULT) {
+                    LocaleListCompat.getEmptyLocaleList()
+                } else {
+                    LocaleListCompat.forLanguageTags(selectedCode)
+                }
+                AppCompatDelegate.setApplicationLocales(appLocale)
+                // UI обновится автоматически после пересоздания Activity
+            }
+        }
 
         // Наблюдаем за состоянием обновления
         updateViewModel.updateInfo.observe(this) { updateUpdateUI() }
@@ -351,13 +396,8 @@ class GlobalSettingsActivity : AppCompatActivity() {
     }
 
     private fun showUpdateDialog(info: UpdateInfo) {
-        updateDialog = Dialog(this, android.R.style.Theme_Translucent_NoTitleBar)
+        updateDialog = Dialog(this, R.style.Theme_App_Dialog)
         updateDialog?.setContentView(R.layout.dialog_update)
-        updateDialog?.window?.apply {
-            setLayout(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            setGravity(Gravity.CENTER)
-            setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
-        }
 
         val title = updateDialog?.findViewById<TextView>(R.id.update_title)
         val desc = updateDialog?.findViewById<TextView>(R.id.update_desc)
@@ -411,9 +451,8 @@ class GlobalSettingsActivity : AppCompatActivity() {
     }
 
     private fun showAudioMixDialog() {
-        val dialog = Dialog(this)
+        val dialog = Dialog(this, R.style.Theme_App_Dialog)
         dialog.setContentView(R.layout.dialog_audio_mix)
-        dialog.window?.setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
 
         // --- UI Elements ---
         val spinner = dialog.findViewById<Spinner>(R.id.spinner_preset)
@@ -491,7 +530,7 @@ class GlobalSettingsActivity : AppCompatActivity() {
         // --- Init Logic ---
 
         val presets = AudioMixerLogic.MixPreset.entries.toTypedArray()
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, presets.map { it.title })
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, presets.map { getString(it.titleResId) })
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinner.adapter = adapter
 
@@ -535,6 +574,44 @@ class GlobalSettingsActivity : AppCompatActivity() {
         spinner.requestFocus()
     }
 
+    private fun showLanguageSelectionDialog(
+        title: String,
+        languageCodes: List<String>,
+        currentCode: String,
+        onLanguageSelected: (String) -> Unit
+    ) {
+        val languageItems = languageCodes.map { langCode ->
+            langCode to LocaleUtils.getFormattedLanguageName(langCode, this)
+        }
+
+        val languageNames = languageItems.map { it.second }
+        val currentIndex = languageItems.indexOfFirst { it.first == currentCode }.coerceAtLeast(0)
+
+        val dialog = Dialog(this, R.style.Theme_App_Dialog)
+        dialog.setContentView(R.layout.dialog_list_choice)
+
+        val titleView = dialog.findViewById<TextView>(R.id.dialog_title)
+        val recyclerView = dialog.findViewById<RecyclerView>(R.id.dialog_recycler_view)
+
+        titleView.text = title
+        recyclerView.layoutManager = LinearLayoutManager(this)
+        recyclerView.adapter = ChoiceAdapter(languageNames, currentIndex) { which ->
+            val selectedCode = languageItems[which].first
+            onLanguageSelected(selectedCode)
+            dialog.dismiss()
+        }
+
+        recyclerView.post {
+            (recyclerView.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(currentIndex, 0)
+            recyclerView.postDelayed({
+                val viewHolder = recyclerView.findViewHolderForAdapterPosition(currentIndex)
+                viewHolder?.itemView?.requestFocus()
+            }, 50)
+        }
+
+        dialog.show()
+    }
+
     @SuppressLint("SetTextI18n")
     private fun updateDecoderUI() {
         val mode = repo.getDecoderPriority()
@@ -571,24 +648,8 @@ class GlobalSettingsActivity : AppCompatActivity() {
         }
     }
 
-    private fun getNextLanguage(current: String): String {
-        val idx = languages.indexOf(current)
-        val nextIdx = (idx + 1) % languages.size
-        return languages[nextIdx]
-    }
-
     private fun updateLangUI(textView: TextView, langCode: String) {
-        when (langCode) {
-            SettingsRepository.TRACK_DEVICE -> textView.text = getString(R.string.pref_language_track_device)
-            SettingsRepository.TRACK_DEFAULT -> textView.text = getString(R.string.pref_language_track_default)
-            else -> {
-                val loc = Locale.forLanguageTag(langCode)
-                val name = loc.displayLanguage.replaceFirstChar {
-                    if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
-                }
-                textView.text = getString(R.string.language_code_format, name, langCode)
-            }
-        }
+        textView.text = LocaleUtils.getFormattedLanguageName(langCode, this)
     }
 
     override fun onDestroy() {

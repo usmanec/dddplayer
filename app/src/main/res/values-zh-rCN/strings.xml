@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">DDD 视频播放器</string>
 
     <!-- 通用字符串 -->
@@ -8,13 +8,10 @@
     <string name="error">错误</string>
     <string name="track_off">关闭</string>
     <string name="track_unknown">未知</string>
-    <string name="percent_100">100%</string>
     <string name="pic">图片</string>
+    <string name="develop_tost">抱歉，此功能仍在开发中。</string>
 
-    <!-- 播放器屏幕 -->
-    <string name="seek_delta_format">%1$s %2$s</string>
-    <string name="fps_counter_format">帧率: %d</string>
-    <string name="audio_badge_format">%1$s > %2$s</string>
+    <!-- 播放器界面 -->
     <string name="time_ends_at">结束于 %s</string>
     <string name="top_panel_help_text">▲▼ 选择 • OK 保存 • BACK 取消</string>
 
@@ -23,7 +20,7 @@
     <string name="stereo_mode_sbs">左右格式 (SBS)</string>
     <string name="stereo_mode_tb">上下格式 (OU)</string>
     <string name="stereo_mode_interlaced">交错格式</string>
-    <string name="stereo_mode_tiled">3D(z) Tiled (720p 转 1080p)</string>
+    <string name="stereo_mode_tiled">3D(z) 平铺 (1080p 中的 720p)</string>
     <string name="output_mode_anaglyph">红蓝眼镜</string>
     <string name="output_mode_left">仅左眼</string>
     <string name="output_mode_right">仅右眼</string>
@@ -61,79 +58,100 @@
     <string name="menu_audio_title">音轨 (%d)</string>
     <string name="menu_subtitle_title">字幕 (%d)</string>
     <string name="menu_quick_settings_title">快捷设置面板</string>
-    <string name="menu_quick_settings_desc">3D, 视差, 眼镜…</string>
+    <string name="menu_quick_settings_desc">3D、视差、眼镜…</string>
     <string name="menu_global_settings_title">全局设置</string>
-    <string name="menu_global_settings_desc">解码器, 语言, 界面…</string>
+    <string name="menu_global_settings_desc">解码器、语言、界面…</string>
     <string name="playlist">播放列表</string>
     <string name="Settings">设置</string>
 
     <!-- 播放器消息和错误 -->
     <string name="error_playback_title">播放错误</string>
+    <string name="playback_error">播放错误</string>
     <string name="error_video_decoder">视频解码器错误。\n仅播放音频。</string>
     <string name="error_audio_disabled">音频错误。声音已禁用。\n%s</string>
     <string name="error_audio_disabled_hint">音频错误。声音已禁用。\n请尝试其他音轨。\n%s</string>
     <string name="msg_playlist_empty">播放列表为空</string>
-    <string name="msg_auto_detect">自动检测: %s</string>
-    <string name="press_back_exit">按“返回”退出</string>
+    <string name="msg_auto_detect">自动检测：%s</string>
+    <string name="press_back_exit">按返回键退出</string>
 
     <!-- 全局设置 -->
     <string name="pref_title">设置</string>
     <string name="pref_title_desc">全局播放器参数</string>
+    <string name="close_settings">关闭设置</string>
     <string name="exit">退出</string>
     <string name="pref_general_header">播放</string>
     <string name="pref_decoder_priority">解码器优先级</string>
-    <string name="pref_decoder_priority_prefer_device">优先使用设备解码器 (默认) HW+SW</string>
-    <string name="pref_decoder_priority_prefer_app">优先使用应用解码器 (AV1 + FFmpeg) SW+HW</string>
+    <string name="pref_decoder_priority_prefer_device">优先使用设备解码器（默认）HW+SW</string>
+    <string name="pref_decoder_priority_prefer_app" tools:ignore="Typos">优先使用应用解码器（AV1 + Ffmpeg）SW+HW</string>
     <string name="pref_decoder_priority_only_device">仅使用设备解码器</string>
-    <string name="pref_downmix">缩混为立体声</string>
-    <string name="pref_downmix_desc">使用SW解码器时，可将多声道音频转换为正确¹混合的立体声，解决无声/无翻译（通常在中央声道）的问题。\n¹ - 缩混矩阵的计算方式类似于RFC 7845 (Section 5.1.1.5)。</string>
+    <string name="pref_decoder_sw_desc">¹ - SW 包括 AV1 和 Ffmpeg 解码器（内置音频编解码器：vorbis、opus、flac、alac、pcm_mulaw、pcm_alaw、mp3、amrnb、amrwb、aac、ac3、eac3、dca(DTS)、mlp、truehd）</string>
+    <string name="pref_downmix">缩混至立体声</string>
+    <string name="pref_downmix_desc">使用 SW 解码器时，可将多声道音频正确¹混合为立体声，解决人声/配音缺失问题（通常存在于中置声道）。\n¹ - 缩混矩阵的计算类似于 RFC 7845（第 5.1.1.5 节）。</string>
     <string name="pref_downmix_config">缩混校正</string>
-    <string name="pref_downmix_config_desc">您可以根据自己的喜好调整缩混时各声道（前置、中置、后置、侧置、低音炮）的音量。</string>
-    <string name="pref_downmix_preset">预设:</string>
+    <string name="pref_downmix_config_desc">您可以根据喜好调整缩混的音频声道音量（前置、中置、后置、侧置、低音炮）。</string>
+    <string name="pref_downmix_preset">预设：</string>
     <string name="pref_downmix_front">前置 (L/R)</string>
-    <string name="pref_downmix_center">中置 (人声)</string>
-    <string name="pref_downmix_rear">后置 (环绕)</string>
+    <string name="pref_downmix_center">中置（人声）</string>
+    <string name="pref_downmix_rear">后置（环绕）</string>
     <string name="pref_downmix_middle">侧置 (7.1)</string>
     <string name="pref_downmix_lfe">低音炮 (LFE)</string>
     <string name="pref_tunneling">隧道播放</string>
-    <string name="pref_tunneling_summary">隧道模式能更好地支持4K/HDR内容，但可能不适用于所有设备</string>
+    <string name="pref_tunneling_summary">隧道模式为 4K/HDR 内容提供更好的支持，但可能不适用于所有设备</string>
+    <string name="pref_map_dv7">杜比视界 Profile 7 回退</string>
+    <string name="pref_map_dv7_on">在 HDR 显示器上播放杜比视界 profile 7 内容（HEVC）</string>
+    <string name="pref_map_dv7_off">按原样播放包含杜比视界的 UHD 蓝光内容</string>
     <string name="pref_framerate_matching">自动帧率匹配</string>
+    <string name="pref_framerate_matching_on">切换显示刷新率以匹配视频帧率</string>
+    <string name="pref_framerate_matching_off">不改变显示刷新率</string>
     <string name="pref_skip_silence">跳过静音</string>
+    <string name="pref_skip_silence_on">跳过音频流中的静音部分</string>
+    <string name="pref_skip_silence_off">按原样播放</string>
     <string name="pref_audio_boost">音量增强</string>
+    <string name="pref_audio_boost_desc">适用于安静的电影。主要目标是在不导致峰值硬削波（失真）的情况下使安静的声音更响。</string>
     <string name="pref_sec_lang_and_sub">语言和字幕</string>
     <string name="pref_language_audio">默认音轨</string>
     <string name="pref_language_audio_desc">开始播放视频时的首选音轨</string>
-    <string name="pref_language_track_default">默认 (来自文件)</string>
+    <string name="pref_language_track_default">默认（来自文件）</string>
     <string name="pref_language_track_device">设备语言</string>
     <string name="pref_sub_lang_default">默认字幕语言</string>
-    <string name="pref_sub_lang_default_desc">首选字幕 (如果可用)</string>
+    <string name="pref_sub_lang_default_desc">首选字幕（如果可用）</string>
     <string name="pref_calibration_3d">3D 校准</string>
     <string name="pref_cardboard_vr">Cardboard VR 设置</string>
+    <string name="pref_cardboard_vr_desc">镜头、缩放和 IPD 设置向导</string>
     <string name="pref_anaglyph">红蓝眼镜设置</string>
+    <string name="pref_anaglyph_desc">眼镜类型检测和色彩校正</string>
     <string name="pref_sec_app">应用</string>
-    <string name="pref_up_action">“上”键操作</string>
-    <string name="pref_up_action_desc">在播放器中按“上”键时打开什么</string>
+    <string name="pref_language_system">使用系统语言</string>
+    <string name="pref_up_action">"上"键操作</string>
+    <string name="pref_up_action_desc">在播放器中按"上"键时打开什么</string>
     <string name="pref_up_action_osd">快捷设置面板</string>
-    <string name="pref_up_action_menu">设置菜单 (侧边)</string>
+    <string name="pref_up_action_menu">设置菜单（侧边）</string>
     <string name="pref_up_action_none">无操作</string>
 
+    <!-- 全局设置 - 音频混音对话框 -->
+    <string name="mix_preset_standard">标准 - RFC 7845</string>
+    <string name="mix_preset_boost_center">人声增强</string>
+    <string name="mix_preset_night_mode">夜间模式（安静效果）</string>
+    <string name="mix_preset_custom">自定义</string>
+
     <!-- 更新 -->
+    <string name="pref_update_check">检查更新</string>
     <string name="update_btn_check">检查更新</string>
     <string name="update_btn_checking">检查中…</string>
     <string name="update_title">更新 %s</string>
     <string name="update_btn_update_fmt">更新至 %s</string>
-    <string name="update_current_version">当前版本: v%s</string>
+    <string name="update_current_version">当前版本：v%s</string>
     <string name="update_loading">下载中… %d%%</string>
-    <string name="update_found">发现新版本: %s</string>
+    <string name="update_found">发现新版本：%s</string>
     <string name="update_latest">您使用的是最新版本</string>
     <string name="update_error">检查更新失败</string>
     <string name="update_exist">有可用更新</string>
     <string name="update_desc">更新日志…</string>
     <string name="loading">下载中…</string>
-    <string name="cancel_uppercase">取消</string>
+    <string name="cancel_uppercase" tools:ignore="ButtonCase">取消</string>
     <string name="update_btn">更新</string>
 
-    <!-- 崩溃屏幕 -->
+    <!-- 崩溃界面 -->
     <string name="error_oh_oh">糟糕，出错了！</string>
     <string name="error_oh_oh_desc">发生意外错误。\n如果错误持续出现，请将错误日志发送给我们。</string>
     <string name="app_restart">重启</string>
@@ -146,4 +164,5 @@
     <string name="vr_config_title">VR 设置</string>
     <string name="vr_config_success">Cardboard 配置文件已成功应用！\n\nK1: %1$.3f\nK2: %2$.3f</string>
     <string name="vr_config_error">读取 Cardboard 配置文件时出错。</string>
+    <string name="pref_app_language_desc">切换应用语言。此更改需要重启应用。</string>
 </resources>

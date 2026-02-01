@@ -10,6 +10,7 @@
     <string name="track_unknown">Unknown</string>
     <string name="percent_100" translatable="false">100%</string>
     <string name="pic">picture</string>
+    <string name="develop_tost">Sorry, this is still in development.</string>
 
     <!-- Player Screen -->
     <string name="seek_delta_format" translatable="false">%1$s %2$s</string>
@@ -132,6 +133,10 @@
     <string name="pref_anaglyph">Anaglyph Setup</string>
     <string name="pref_anaglyph_desc">Glasses type detection and color correction</string>
     <string name="pref_sec_app">Application</string>
+    <string name="pref_app_language" translatable="false">Application Language</string>
+    <string name="pref_app_language_desc">Change app language. Restart required.</string>
+    <string name="pref_language_dialog_title" translatable="false">Language</string>
+    <string name="pref_language_system">System Default</string>
     <string name="pref_up_action">\'Up\' Button Action</string>
     <string name="pref_up_action_desc">What to open when pressing \'Up\' in the player</string>
     <string name="pref_up_action_osd">Quick Settings Panel</string>
@@ -155,6 +160,12 @@
     <string name="loading">Downloading…</string>
     <string name="cancel_uppercase" tools:ignore="ButtonCase">CANCEL</string>
     <string name="update_btn">UPDATE</string>
+
+    <!-- Global Settings - Audio Mix Dialog -->
+    <string name="mix_preset_standard">Standard - RFC 7845</string>
+    <string name="mix_preset_boost_center">Voice Boost</string>
+    <string name="mix_preset_night_mode">Night Mode (Quiet Effects)</string>
+    <string name="mix_preset_custom">Custom</string>
 
     <!-- Crash Screen -->
     <string name="error_oh_oh">Oops, something went wrong!</string>

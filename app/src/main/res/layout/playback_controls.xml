@@ -83,7 +83,6 @@
             android:background="@drawable/bg_selector_menu_item"
             android:textSize="14sp"
             android:visibility="visible"
-            app:drawableStartCompat="@drawable/ic_update"
             android:focusable="true"
             android:clickable="true"
             tools:visibility="visible" />

@@ -8,11 +8,11 @@ import android.os.Bundle
 import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.viewModels
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.fragment.app.FragmentActivity
 import androidx.media3.common.util.UnstableApi
 import top.rootu.dddplayer.BuildConfig
 import top.rootu.dddplayer.R
@@ -20,7 +20,7 @@ import top.rootu.dddplayer.utils.IntentUtils
 import top.rootu.dddplayer.viewmodel.PlayerViewModel
 
 @UnstableApi
-class PlayerActivity : FragmentActivity() {
+class PlayerActivity : AppCompatActivity() {
 
     private var playerFragment: PlayerFragment? = null
     private val viewModel: PlayerViewModel by viewModels()
