@@ -90,6 +90,7 @@ class PlayerInputHandler(
                     onShowControls()
                     return true
                 }
+                // Если фокус на кнопках управления, переходим в плейлист
                 if (currentFocus?.id in listOf(
                         R.id.button_play_pause, R.id.button_rewind,
                         R.id.button_ffwd, R.id.button_prev, R.id.button_next
@@ -179,7 +180,6 @@ class PlayerInputHandler(
 
         // Базовый шаг: очень маленький, зависит от длины видео
         // Для 2-часового фильма: (7200000 / 200 / 8) = 4500 мс (4.5 сек)
-        // Для 5-минутного ролика: (300000 / 200 / 8) = 187 мс -> coerce -> 250 мс
         val baseStep = (duration / 200 / 8).coerceIn(250, 10000)
 
         // Множитель ускорения
@@ -196,8 +196,8 @@ class PlayerInputHandler(
 
         // Определяем текущую базу для перемотки
         // Если мы уже мотаем (pendingSeekPosition != -1), то мотаем оттуда.
-        // Если это первое нажатие, мотаем от текущей позиции плеера.
-        val startPos = if (pendingSeekPosition != -1L) pendingSeekPosition else ui.seekBar.progress.toLong()
+        // Иначе берем текущую позицию плеера как источник истины.
+        val startPos = if (pendingSeekPosition != -1L) pendingSeekPosition else viewModel.player?.currentPosition ?: ui.seekBar.progress.toLong()
 
         val target = if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT)
             (startPos - step).coerceAtLeast(0)
@@ -208,7 +208,7 @@ class PlayerInputHandler(
         pendingSeekPosition = target
 
         // Считаем общую дельту от реальной позиции плеера (для оверлея)
-        val realPos = viewModel.player!!.currentPosition
+        val realPos = viewModel.player?.currentPosition ?: 0L
         pendingSeekDelta = target - realPos
 
         // Обновляем UI (но не плеер!)
@@ -220,9 +220,6 @@ class PlayerInputHandler(
         // Планируем выполнение seek через 500мс (как сброс ускорения)
         // Если пользователь нажмет еще раз до этого времени, таймер сбросится
         performSeekHandler.postDelayed(performSeekRunnable, delayMillis)
-
-        // Сброс флага взаимодействия происходит во фрагменте через Handler,
-        // здесь мы просто обновляем UI
     }
 
     fun cleanup() {

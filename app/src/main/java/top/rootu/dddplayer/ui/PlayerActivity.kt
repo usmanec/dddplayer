@@ -108,17 +108,21 @@ class PlayerActivity : AppCompatActivity() {
         shouldReturnResult = intent.getBooleanExtra("return_result", false)
 
         val (playlist, startIndex) = IntentUtils.parseIntent(intent)
-        if (playlist.isNotEmpty()) {
-            viewModel.loadPlaylist(playlist, startIndex)
-        } else {
-            // Дефолтное видео для теста (сейчас по умолчанию загружаются глобальные настройки)
-            if (BuildConfig.DEBUG) {
+        when {
+            playlist.isNotEmpty() -> {
+                viewModel.loadPlaylist(playlist, startIndex)
+            }
+            BuildConfig.DEBUG -> {
+                // Дефолтное видео для теста (только в DEBUG)
                 val defaultUri = "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
 //                val defaultUri = "http://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8"
                 viewModel.loadPlaylist(
                     listOf(top.rootu.dddplayer.model.MediaItem(defaultUri.toUri())),
                     0
                 )
+            }
+            else -> {
+                // В релизе, если нет данных, ничего не делаем.
             }
         }
     }

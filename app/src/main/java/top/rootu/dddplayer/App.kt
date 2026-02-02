@@ -12,6 +12,7 @@ import java.util.concurrent.TimeUnit
 
 class App : Application(), ImageLoaderFactory {
     companion object {
+        const val USER_AGENT = "DDDPlayer/${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
         lateinit var instance: App
             private set
     }
@@ -37,7 +38,6 @@ class App : Application(), ImageLoaderFactory {
     }
 
     override fun newImageLoader(): ImageLoader {
-        val ua = "DDDPlayer/${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
         return ImageLoader.Builder(this)
             .okHttpClient {
                 OkHttpClient.Builder()
@@ -49,7 +49,7 @@ class App : Application(), ImageLoaderFactory {
                     .readTimeout(15, TimeUnit.SECONDS)
                     .addInterceptor { chain ->
                         val request = chain.request().newBuilder()
-                            .header("User-Agent", ua)
+                            .header("User-Agent", USER_AGENT)
                             .build()
                         chain.proceed(request)
                      }

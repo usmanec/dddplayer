@@ -16,20 +16,21 @@ import android.widget.PopupMenu
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
-import androidx.core.graphics.drawable.toDrawable
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.media3.common.C
-import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.common.Player
 import androidx.recyclerview.widget.RecyclerView
 import top.rootu.dddplayer.BuildConfig
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
+import top.rootu.dddplayer.logic.AnaglyphLogic
 import top.rootu.dddplayer.logic.TrackLogic
 import top.rootu.dddplayer.model.MenuItem
 import top.rootu.dddplayer.model.StereoInputType
+import top.rootu.dddplayer.model.StereoOutputMode
 import top.rootu.dddplayer.renderer.OnFpsUpdatedListener
 import top.rootu.dddplayer.renderer.OnSurfaceReadyListener
 import top.rootu.dddplayer.renderer.StereoRenderer
@@ -41,7 +42,6 @@ import top.rootu.dddplayer.viewmodel.PlayerViewModel
 import top.rootu.dddplayer.viewmodel.SettingType
 import top.rootu.dddplayer.viewmodel.SettingsViewModel
 import top.rootu.dddplayer.viewmodel.UpdateViewModel
-import java.util.Locale
 
 class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener {
 
@@ -72,15 +72,19 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
                 if (settingsViewModel.isSettingsPanelVisible.value == true) {
                     settingsViewModel.closePanel()
                     viewModel.restoreSettings()
+                    // Фокус на корневой контейнер после закрытия OSD
                     view.findViewById<View>(R.id.root_container)?.requestFocus()
                 }
             },
             clockView = ui.textClock
         )
 
+        // Используем Application Context для репозитория, чтобы избежать утечек
+        val settingsRepo = SettingsRepository(requireContext().applicationContext)
+
         inputHandler = PlayerInputHandler(
             viewModel, settingsViewModel, ui,
-            SettingsRepository(requireContext()),
+            settingsRepo,
             onShowMainMenu = { showMainMenu() },
             onShowControls = { ui.showControls(); timerController.resetControlsTimer() },
             onHideControls = { ui.hideControls() },
@@ -114,7 +118,8 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         }
     }
 
-    private fun attachSurfaceToPlayer(player: ExoPlayer) {
+    private fun attachSurfaceToPlayer(player: Player) {
+        // Проверяем текущий режим, чтобы привязать нужную поверхность
         if (viewModel.inputType.value != StereoInputType.NONE) {
             // 3D режим -> GL Surface
             if (glSurface != null) {
@@ -229,15 +234,15 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
             if (selected == null) return@showSideMenu
 
             when (selected.id) {
-                "audio" -> showAudioTrackMenu() // Переход в подменю (диалог не закрываем)
-                "subtitles" -> showSubtitlesMenu() // Переход в подменю
+                "audio" -> showAudioTrackMenu()
+                "subtitles" -> showSubtitlesMenu()
                 "quick_settings" -> {
-                    sideMenuDialog?.dismiss() // Закрываем явно
+                    sideMenuDialog?.dismiss()
                     viewModel.prepareSettingsPanel()
                     settingsViewModel.openPanel(viewModel.availableSettings.value ?: emptyList())
                 }
                 "global_settings" -> {
-                    sideMenuDialog?.dismiss() // Закрываем явно
+                    sideMenuDialog?.dismiss()
                     startActivity(Intent(requireContext(), GlobalSettingsActivity::class.java))
                 }
             }
@@ -253,10 +258,8 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
             menuItems.size.coerceAtLeast(0)
         ), menuItems) { selected ->
             if (selected == null) {
-                // Возврат в главное меню с фокусом на "audio"
                 showMainMenu("audio")
             } else {
-                // Выбрали пункт -> применяем и закрываем
                 viewModel.selectTrackByIndex(C.TRACK_TYPE_AUDIO, selected.id.toInt())
                 sideMenuDialog?.dismiss()
             }
@@ -265,18 +268,16 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
 
     private fun showSubtitlesMenu() {
         val menuItems = viewModel.getSubtitleMenuItems(requireContext())
-        if (menuItems.isEmpty()) return
+        // -1, потому что первый элемент - "Off"
+        val subtitleCount = (menuItems.size - 1).coerceAtLeast(0)
 
         showSideMenu(
-            getString(R.string.menu_subtitle_title,
-                (menuItems.size - 1).coerceAtLeast(0)),
+            getString(R.string.menu_subtitle_title, subtitleCount),
             menuItems
         ) { selected ->
             if (selected == null) {
-                // Возврат в главное меню с фокусом на "subtitles"
                 showMainMenu("subtitles")
             } else {
-                // Выбрали пункт -> применяем и закрываем
                 viewModel.selectTrackByIndex(C.TRACK_TYPE_TEXT, selected.id.toInt())
                 sideMenuDialog?.dismiss()
             }
@@ -300,27 +301,25 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         ui.hideControls()
 
         if (sideMenuDialog == null) {
-            sideMenuDialog = Dialog(requireContext(), android.R.style.Theme_Translucent_NoTitleBar)
+            // Используем кастомный стиль для бокового меню
+            sideMenuDialog = Dialog(requireContext(), R.style.Theme_App_SideMenuDialog)
             sideMenuDialog?.setContentView(R.layout.dialog_side_menu)
             sideMenuDialog?.setCanceledOnTouchOutside(true)
             sideMenuDialog?.window?.apply {
                 setLayout(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT)
                 setGravity(Gravity.END)
-                setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
             }
         }
 
-        // Флаг, чтобы понять, был ли выбор или просто закрытие
         var isSelectionMade = false
 
         sideMenuDialog?.setOnDismissListener {
             timerController.resetControlsTimer()
-
-            // Если закрыли не через выбор пункта (назад или тап мимо)
             if (!isSelectionMade) {
                 onItemSelected(null)
             } else {
-                sideMenuAdapter?.submitList(emptyList()) // Очистка списка
+                // Очистка списка, чтобы избежать утечек и проблем с DiffUtil при следующем открытии
+                sideMenuAdapter?.submitList(emptyList())
             }
         }
 
@@ -330,50 +329,36 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         val recycler = sideMenuDialog?.findViewById<RecyclerView>(R.id.menu_recycler)
         if (sideMenuAdapter == null) {
             sideMenuAdapter = SideMenuAdapter { item ->
-                // Пользователь выбрал пункт
                 isSelectionMade = true
-                // ВАЖНО: Мы НЕ закрываем диалог здесь автоматически.
-                // Мы передаем управление в колбек. Если это подменю, диалог останется открытым.
-                // Если это конечное действие, колбек сам вызовет dismiss().
                 onItemSelected(item)
             }
             recycler?.adapter = sideMenuAdapter
         } else {
-            // Обновляем клик-листенер адаптера, так как он захватывает текущий onItemSelected
             sideMenuAdapter?.onItemClick = { item ->
                 isSelectionMade = true
                 onItemSelected(item)
             }
         }
 
-        // Используем callback submitList для установки фокуса после обновления
         sideMenuAdapter?.submitList(items) {
-        recycler?.post {
-                // 1. Ищем индекс по ID
+            recycler?.post {
                 var targetIndex = -1
                 if (initialFocusId != null) {
                     targetIndex = items.indexOfFirst { it.id == initialFocusId }
                 }
 
-                // 2. Если не нашли или ID не передан, ищем по isSelected
                 if (targetIndex == -1) {
                     targetIndex = items.indexOfFirst { it.isSelected }
                 }
 
-                // 3. Fallback на 0
                 if (targetIndex == -1) targetIndex = 0
 
                 // Скроллим и фокусируемся
                 recycler.scrollToPosition(targetIndex)
-                val vh = recycler.findViewHolderForAdapterPosition(targetIndex)
-                if (vh?.itemView == null) {
-                    recycler.postDelayed({
-                        val vh = recycler.findViewHolderForAdapterPosition(targetIndex)
-                        vh?.itemView?.requestFocus()
-                    }, 50)
-                } else {
-                    vh.itemView.requestFocus()
-                }
+                recycler.postDelayed({
+                    val vh = recycler.findViewHolderForAdapterPosition(targetIndex)
+                    vh?.itemView?.requestFocus()
+                }, 50)
             }
         }
 
@@ -463,12 +448,13 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         }
         viewModel.videoTitle.observe(viewLifecycleOwner) { title ->
             ui.videoTitleTextView.text = title
-            val p = viewModel.player ?: return@observe
-            val posterUri = p.mediaMetadata.artworkUri
-            val index = p.currentMediaItemIndex
-            val size = p.mediaItemCount
+            viewModel.player?.let { p ->
+                val posterUri = p.mediaMetadata.artworkUri
+                val index = p.currentMediaItemIndex
+                val size = p.mediaItemCount
 
-            ui.loadPoster(posterUri, index, size)
+                ui.loadPoster(posterUri, index, size)
+            }
         }
 
         viewModel.hasPrevious.observe(viewLifecycleOwner) {
@@ -512,13 +498,15 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         viewModel.inputType.observe(viewLifecycleOwner) { type ->
             val isStereo = type != StereoInputType.NONE
             ui.setSurfaceMode(isStereo)
-            if (isStereo) {
-                ui.glSurfaceView.onResume()
-                stereoRenderer?.setInputType(type)
-                if (glSurface != null) viewModel.player?.setVideoSurface(glSurface)
-            } else {
-                ui.glSurfaceView.onPause()
-                viewModel.player?.setVideoSurfaceView(ui.standardSurfaceView)
+            viewModel.player?.let { player ->
+                if (isStereo) {
+                    ui.glSurfaceView.onResume()
+                    stereoRenderer?.setInputType(type)
+                    if (glSurface != null) player.setVideoSurface(glSurface)
+                } else {
+                    ui.glSurfaceView.onPause()
+                    player.setVideoSurfaceView(ui.standardSurfaceView)
+                }
             }
             ui.updateStereoLayout(viewModel.outputMode.value, viewModel.screenSeparation.value ?: 0f)
             ui.updateInputModeIcon(type, viewModel.swapEyes.value ?: false)
@@ -590,7 +578,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         viewModel.toastMessage.observe(viewLifecycleOwner) { msg ->
             if (msg != null) {
                 Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                viewModel.clearToastMessage()
+                updateViewModel.clearToast()
             }
         }
     }
@@ -610,31 +598,41 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         val context = requireContext()
 
         val valueStr = when(type) {
-            SettingType.VIDEO_TYPE -> viewModel.inputType.value?.name?.replace("_", " ") ?: ""
-            SettingType.OUTPUT_FORMAT -> viewModel.outputMode.value?.name?.replace("_", " ") ?: ""
-            SettingType.GLASSES_TYPE -> getGlassesGroupName(viewModel.anaglyphType.value!!)
+            SettingType.VIDEO_TYPE -> {
+                val inputType = viewModel.inputType.value ?: StereoInputType.NONE
+                // Получаем список локализованных строк из ViewModel (которая теперь использует контекст Fragment)
+                viewModel.getOptionsForSetting(type, context)?.first?.getOrNull(inputType.ordinal) ?: inputType.name.replace("_", " ")
+            }
+            SettingType.OUTPUT_FORMAT -> {
+                val outputMode = viewModel.outputMode.value ?: StereoOutputMode.ANAGLYPH
+                viewModel.getOptionsForSetting(type, context)?.first?.getOrNull(outputMode.ordinal) ?: outputMode.name.replace("_", " ")
+            }
+            SettingType.GLASSES_TYPE -> {
+                val group = AnaglyphLogic.getGlassesGroup(viewModel.anaglyphType.value!!)
+                viewModel.getOptionsForSetting(type, context)?.first?.getOrNull(group.ordinal) ?: group.name.replace("_", " ")
+            }
             SettingType.FILTER_MODE -> {
                 val name = viewModel.anaglyphType.value?.name ?: ""
-                if (name.endsWith("_CUSTOM")) "Custom" else name
+                if (name.endsWith("_CUSTOM")) getString(R.string.val_custom) else name
             }
             SettingType.CUSTOM_HUE_L -> {
                 val offset = viewModel.anaglyphDelegate.customHueOffsetL.value ?: 0
                 val color = viewModel.anaglyphDelegate.calculatedColorL.value ?: Color.WHITE
-                "$offset (${String.format("#%06X", (0xFFFFFF and color))})"
+                getString(R.string.custom_hue_format, offset, String.format("#%06X", (0xFFFFFF and color)))
             }
             SettingType.CUSTOM_HUE_R -> {
                 val offset = viewModel.anaglyphDelegate.customHueOffsetR.value ?: 0
                 val color = viewModel.anaglyphDelegate.calculatedColorR.value ?: Color.WHITE
-                "$offset (${String.format("#%06X", (0xFFFFFF and color))})"
+                getString(R.string.custom_hue_format, offset, String.format("#%06X", (0xFFFFFF and color)))
             }
-            SettingType.CUSTOM_LEAK_L -> "${(viewModel.anaglyphDelegate.customLeakL.value!! * 100).toInt()}%"
-            SettingType.CUSTOM_LEAK_R -> "${(viewModel.anaglyphDelegate.customLeakR.value!! * 100).toInt()}%"
+            SettingType.CUSTOM_LEAK_L -> getString(R.string.custom_leak_format, (viewModel.anaglyphDelegate.customLeakL.value!! * 100).toInt())
+            SettingType.CUSTOM_LEAK_R -> getString(R.string.custom_leak_format, (viewModel.anaglyphDelegate.customLeakR.value!! * 100).toInt())
             SettingType.CUSTOM_SPACE -> if (viewModel.anaglyphDelegate.customSpaceLms.value == true) "LMS" else "XYZ"
-            SettingType.SWAP_EYES -> if (viewModel.swapEyes.value == true) "R - L" else "L - R"
+            SettingType.SWAP_EYES -> if (viewModel.swapEyes.value == true) getString(R.string.val_swap_rl) else getString(R.string.val_swap_lr)
             SettingType.DEPTH_3D -> viewModel.depth.value.toString()
-            SettingType.SCREEN_SEPARATION -> String.format(Locale.US, "%.1f", (viewModel.screenSeparation.value ?: 0f) * 100)
-            SettingType.VR_DISTORTION -> String.format(Locale.US, "%.2f", viewModel.anaglyphDelegate.vrK1.value)
-            SettingType.VR_ZOOM -> String.format(Locale.US, "%.2f", viewModel.anaglyphDelegate.vrScale.value)
+            SettingType.SCREEN_SEPARATION -> getString(R.string.screen_separation_format, (viewModel.screenSeparation.value ?: 0f) * 100)
+            SettingType.VR_DISTORTION -> getString(R.string.vr_distortion_format, viewModel.anaglyphDelegate.vrK1.value)
+            SettingType.VR_ZOOM -> getString(R.string.vr_zoom_format, viewModel.anaglyphDelegate.vrScale.value)
             SettingType.AUDIO_TRACK -> {
                 val track = viewModel.currentAudioTrack.value
                 track?.let { TrackLogic.buildTrackLabel(it, context) } ?: ""
@@ -660,28 +658,17 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
 
     private fun updateAudioBadge() {
         val track = viewModel.currentAudioTrack.value
-        // Формируем имя трека
         val res = track?.let { TrackLogic.buildTrackLabel(it, requireContext()) } ?: ""
         val audioOut = viewModel.audioOutputInfo.value ?: ""
 
-        val text = if (audioOut.isNotEmpty()) "$res > $audioOut" else res
+        val text = if (audioOut.isNotEmpty()) getString(R.string.audio_badge_format, res, audioOut) else res
         ui.badgeAudio.text = text
-    }
-
-    private fun getGlassesGroupName(type: StereoRenderer.AnaglyphType): String {
-        return when {
-            type.name.startsWith("RC_") -> "Red - Cyan"
-            type.name.startsWith("YB_") -> "Yellow - Blue"
-            type.name.startsWith("GM_") -> "Green - Magenta"
-            type.name.startsWith("RB_") -> "Red - Blue"
-            else -> "Unknown"
-        }
     }
 
     private fun showPlaylist() {
         val playlist = viewModel.currentPlaylist.value ?: emptyList()
         if (playlist.isEmpty()) {
-            Toast.makeText(context, "Плейлист пуст", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, getString(R.string.msg_playlist_empty), Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -735,9 +722,9 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
 
     override fun onSurfaceReady(surface: Surface) {
         this.glSurface = surface
-        viewModel.player?.let {
+        viewModel.player?.let { player ->
             if (viewModel.inputType.value != StereoInputType.NONE) {
-                activity?.runOnUiThread { it.setVideoSurface(surface) }
+                activity?.runOnUiThread { player.setVideoSurface(surface) }
             }
         }
     }

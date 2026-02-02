@@ -29,7 +29,7 @@ import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import androidx.media3.extractor.ts.TsExtractor
 import androidx.media3.session.MediaSession
 import okhttp3.OkHttpClient
-import top.rootu.dddplayer.BuildConfig
+import top.rootu.dddplayer.App.Companion.USER_AGENT
 import top.rootu.dddplayer.data.SettingsRepository
 import top.rootu.dddplayer.logic.AudioMixerLogic
 import top.rootu.dddplayer.logic.UnifiedMetadataReader
@@ -87,7 +87,7 @@ class PlayerManager(
         .build()
 
     private val baseHttpFactory = OkHttpDataSource.Factory(okHttpClient)
-        .setUserAgent("DDDPlayer/${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+        .setUserAgent(USER_AGENT)
 
     private val parsingDataSourceFactory = ParsingDataSourceFactory(
         upstreamFactory = baseHttpFactory,
