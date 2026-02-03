@@ -24,6 +24,7 @@ import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.model.MediaItem
+import top.rootu.dddplayer.model.ResizeMode
 import top.rootu.dddplayer.model.StereoInputType
 import top.rootu.dddplayer.model.StereoOutputMode
 import top.rootu.dddplayer.renderer.StereoGLSurfaceView
@@ -85,6 +86,8 @@ class PlayerUiController(private val rootView: View) {
     val timeCurrentTextView: TextView = controlsView.findViewById(R.id.time_current)
     val timeDurationTextView: TextView = controlsView.findViewById(R.id.time_duration)
     val buttonQuality: TextView = controlsView.findViewById(R.id.button_quality)
+    val buttonSpeed: TextView = controlsView.findViewById(R.id.button_speed)
+    val buttonResize: ImageButton = controlsView.findViewById(R.id.button_resize)
     val buttonPlaylist: ImageButton = controlsView.findViewById(R.id.button_playlist)
     val buttonAudio: ImageButton = controlsView.findViewById(R.id.button_audio)
     val buttonSubs: ImageButton = controlsView.findViewById(R.id.button_subs)
@@ -247,6 +250,31 @@ class PlayerUiController(private val rootView: View) {
 
     fun setAspectRatio(ratio: Float) {
         aspectRatioFrame.setAspectRatio(ratio)
+    }
+
+    /**
+     * Устанавливает режим масштабирования для AspectRatioFrameLayout.
+     * В режиме ZOOM использует RESIZE_MODE_FIT и применяет ручное масштабирование.
+     */
+    fun setResizeMode(mode: ResizeMode, scalePercent: Int) {
+        val resizeMode = when (mode) {
+            ResizeMode.FIT, ResizeMode.SCALE -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+            ResizeMode.ZOOM -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+            ResizeMode.FILL -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+        }
+        aspectRatioFrame.resizeMode = resizeMode
+
+        // Применяем ручное масштабирование только в режиме SCALE
+        if (mode == ResizeMode.SCALE) {
+            // Масштаб: 1.0 (100%) до 2.0 (200%)
+            val scale = scalePercent / 100f
+            aspectRatioFrame.scaleX = scale
+            aspectRatioFrame.scaleY = scale
+        } else {
+            // Сбрасываем масштабирование для всех остальных режимов
+            aspectRatioFrame.scaleX = 1.0f
+            aspectRatioFrame.scaleY = 1.0f
+        }
     }
 
     fun showControls(focusOnSeekBar: Boolean = false) {

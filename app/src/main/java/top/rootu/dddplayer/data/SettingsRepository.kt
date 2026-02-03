@@ -30,6 +30,10 @@ class SettingsRepository(context: Context) {
         db.videoSettingsDao().deleteOldSettings(System.currentTimeMillis() - 2592000000L)
     }
 
+    // Custom Video Zoom Scale
+    fun getZoomScalePercent(): Int = prefs.getInt("video_zoom_scale", 115)
+    fun setZoomScalePercent(percent: Int) = prefs.edit { putInt("video_zoom_scale", percent) }
+
     // --- Global Player Preferences ---
     fun getDecoderPriority(): Int = prefs.getInt("decoder_priority", DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
     fun setDecoderPriority(mode: Int) = prefs.edit { putInt("decoder_priority", mode) }

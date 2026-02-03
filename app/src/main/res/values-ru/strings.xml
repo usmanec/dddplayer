@@ -58,6 +58,21 @@
     <string name="val_swap_rl">П - Л</string>
     <string name="val_swap_lr">Л - П</string>
 
+    <!-- Управление воспроизведением -->
+    <string name="playback_speed">Скорость</string>
+    <string name="playback_zoom">Масштабирование</string>
+    <string name="playback_zoom_scale">Увеличение %d%%</string>
+    <string name="playback_zoom_percent">Масштаб: %d%%</string>
+
+    <!-- Режимы масштабирования -->
+    <string name="resize_mode_fit">Вписать</string>
+    <string name="resize_mode_fit_desc">По умолчанию</string>
+    <string name="resize_mode_zoom">Подогнать под экран</string>
+    <string name="resize_mode_zoom_desc">Обрезает черные полосы</string>
+    <string name="resize_mode_scale">Увеличить</string>
+    <string name="resize_mode_fill">Растянуть</string>
+    <string name="resize_mode_fill_desc">Полный экран с игнорированием пропорций</string>
+
     <!-- Боковое меню -->
     <string name="menu_main_title">Настройки</string>
     <string name="menu_audio_title">Аудиодорожка (%d)</string>

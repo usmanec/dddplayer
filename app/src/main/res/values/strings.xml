@@ -20,6 +20,21 @@
     <string name="time_ends_at">Ends at %s</string>
     <string name="top_panel_help_text">▲▼ select • OK save • BACK cancel</string>
 
+    <!-- Playback Controls -->
+    <string name="playback_speed">Speed</string>
+    <string name="playback_zoom">Zoom</string>
+    <string name="playback_zoom_percent">Zoom: %d%%</string>
+    <string name="playback_zoom_scale">Scale %d%%</string>
+
+    <!-- Zoom modes -->
+    <string name="resize_mode_fit">Fit</string>
+    <string name="resize_mode_fit_desc">Default</string>
+    <string name="resize_mode_zoom">Zoom to fill</string>
+    <string name="resize_mode_zoom_desc">Crops black bars</string>
+    <string name="resize_mode_scale">Scale up</string>
+    <string name="resize_mode_fill">Stretch</string>
+    <string name="resize_mode_fill_desc">Full screen (ignores aspect ratio)</string>
+
     <!-- 3D Modes -->
     <string name="stereo_mode_mono">Normal 2D</string>
     <string name="stereo_mode_sbs">Side-by-Side (SBS)</string>

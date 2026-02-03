@@ -15,6 +15,21 @@
     <string name="time_ends_at">结束于 %s</string>
     <string name="top_panel_help_text">▲▼ 选择 • OK 保存 • BACK 取消</string>
 
+    <!-- 播放控制 -->
+    <string name="playback_speed">播放速度</string>
+    <string name="playback_zoom">缩放</string>
+    <string name="playback_zoom_scale">放大 %d%%</string>
+    <string name="playback_zoom_percent">缩放比例: %d%%</string>
+
+    <!-- 缩放模式 -->
+    <string name="resize_mode_fit">适合屏幕</string>
+    <string name="resize_mode_fit_desc">默认</string>
+    <string name="resize_mode_zoom">缩放至全屏</string>
+    <string name="resize_mode_zoom_desc">裁剪黑边</string>
+    <string name="resize_mode_scale">放大</string>
+    <string name="resize_mode_fill">拉伸</string>
+    <string name="resize_mode_fill_desc">全屏填充（忽略比例）</string>
+
     <!-- 3D 模式 -->
     <string name="stereo_mode_mono">普通 2D</string>
     <string name="stereo_mode_sbs">左右格式 (SBS)</string>

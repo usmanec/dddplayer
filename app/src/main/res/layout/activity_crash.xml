@@ -1,69 +1,77 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/bg_app"
-    android:gravity="center"
-    android:orientation="vertical"
-    android:padding="32dp">
-
-    <ImageView
-        android:layout_width="80dp"
-        android:layout_height="80dp"
-        android:contentDescription="@string/error"
-        android:src="@drawable/ic_error_outline"
-        android:tint="@color/error_red"
-        tools:ignore="UseAppTint" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:text="@string/error_oh_oh"
-        android:textColor="@color/tv_white"
-        android:textSize="24sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:gravity="center"
-        android:text="@string/error_oh_oh_desc"
-        android:textColor="@color/text_secondary"
-        android:textSize="16sp" />
+    android:fillViewport="true"
+    android:padding="32dp"
+    android:scrollbarStyle="outsideOverlay"
+    android:scrollbars="none">
 
     <LinearLayout
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="48dp"
-        android:orientation="horizontal">
+        android:gravity="center"
+        android:orientation="vertical">
 
-        <Button
-            android:id="@+id/btRestartApp"
-            style="?android:attr/buttonBarButtonStyle"
+        <ImageView
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:contentDescription="@string/error"
+            android:src="@drawable/ic_error_outline"
+            android:tint="@color/error_red"
+            tools:ignore="UseAppTint" />
+
+        <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:background="@drawable/bg_crash_btn_primary"
-            android:text="@string/app_restart"
-            android:textColor="@color/selector_settings_primary"
-            android:padding="16dp"
-            android:focusable="true"
-            android:nextFocusRight="@+id/btShowErrorLogs" />
+            android:layout_marginTop="24dp"
+            android:text="@string/error_oh_oh"
+            android:textColor="@color/tv_white"
+            android:textSize="24sp"
+            android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/btShowErrorLogs"
-            style="?android:attr/buttonBarButtonStyle"
+        <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:background="@drawable/bg_crash_btn_secondary"
-            android:text="@string/show_logs"
-            android:textColor="@color/selector_settings_secondary"
-            android:padding="16dp"
-            android:focusable="true"
-            android:nextFocusLeft="@+id/btRestartApp" />
+            android:layout_marginTop="16dp"
+            android:gravity="center"
+            android:text="@string/error_oh_oh_desc"
+            android:textColor="@color/text_secondary"
+            android:textSize="16sp" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="48dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btRestartApp"
+                style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_crash_btn_primary"
+                android:text="@string/app_restart"
+                android:textColor="@color/selector_settings_primary"
+                android:padding="16dp"
+                android:focusable="true"
+                android:nextFocusRight="@+id/btShowErrorLogs" />
+
+            <Button
+                android:id="@+id/btShowErrorLogs"
+                style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:background="@drawable/bg_crash_btn_secondary"
+                android:text="@string/show_logs"
+                android:textColor="@color/selector_settings_secondary"
+                android:padding="16dp"
+                android:focusable="true"
+                android:nextFocusLeft="@+id/btRestartApp" />
+        </LinearLayout>
+
     </LinearLayout>
-
-</LinearLayout>
+</ScrollView>

@@ -29,6 +29,8 @@ import top.rootu.dddplayer.data.SettingsRepository
 import top.rootu.dddplayer.logic.AnaglyphLogic
 import top.rootu.dddplayer.logic.TrackLogic
 import top.rootu.dddplayer.model.MenuItem
+import top.rootu.dddplayer.model.PlaybackSpeed
+import top.rootu.dddplayer.model.ResizeMode
 import top.rootu.dddplayer.model.StereoInputType
 import top.rootu.dddplayer.model.StereoOutputMode
 import top.rootu.dddplayer.renderer.OnFpsUpdatedListener
@@ -45,6 +47,7 @@ import top.rootu.dddplayer.viewmodel.UpdateViewModel
 
 class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener {
 
+    private var zoomDialog: Dialog? = null
     private val viewModel: PlayerViewModel by activityViewModels()
     private val settingsViewModel: SettingsViewModel by viewModels()
     private val updateViewModel: UpdateViewModel by viewModels()
@@ -176,6 +179,16 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         ui.prevButton.setOnClickListener { viewModel.prevTrack() }
         ui.nextButton.setOnClickListener { viewModel.nextTrack() }
 
+        ui.buttonSpeed.setOnClickListener {
+            ui.hideControls()
+            showPlaybackSpeedMenu()
+        }
+
+        ui.buttonResize.setOnClickListener {
+            ui.hideControls()
+            showResizeMenu()
+        }
+
         ui.buttonAudio.setOnClickListener {
             ui.hideControls()
             showAudioTrackMenu()
@@ -236,6 +249,8 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
             when (selected.id) {
                 "audio" -> showAudioTrackMenu()
                 "subtitles" -> showSubtitlesMenu()
+                "speed" -> showPlaybackSpeedMenu()
+                "resize" -> showResizeMenu()
                 "quick_settings" -> {
                     sideMenuDialog?.dismiss()
                     viewModel.prepareSettingsPanel()
@@ -282,6 +297,116 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
                 sideMenuDialog?.dismiss()
             }
         }
+    }
+
+    private fun showPlaybackSpeedMenu() {
+        val menuItems = viewModel.getPlaybackSpeedMenuItems()
+
+        showSideMenu(getString(R.string.playback_speed), menuItems) { selected ->
+            if (selected == null) {
+                showMainMenu("speed")
+            } else {
+                val speedValue = selected.id.toFloatOrNull()
+                if (speedValue != null) {
+                    viewModel.setPlaybackSpeed(PlaybackSpeed.fromValue(speedValue))
+                }
+                sideMenuDialog?.dismiss()
+            }
+        }
+    }
+
+    private fun showResizeMenu() {
+        val menuItems = viewModel.getResizeModeMenuItems(requireContext())
+        var changed = false
+
+        showSideMenu(getString(R.string.playback_zoom), menuItems) { selected ->
+            if (selected == null) {
+                if (changed) sideMenuDialog?.dismiss() else showMainMenu("resize")
+            } else {
+                val mode = ResizeMode.entries.firstOrNull { it.name == selected.id }
+                if (mode != null) {
+                    changed = true
+                    if (mode == ResizeMode.SCALE && mode == viewModel.resizeMode.value) {
+                        // Если SCALE уже выбран, или мы его только что выбрали, открываем диалог
+                        showZoomLevelDialog()
+                    } else {
+                        // При повторном выборе закрываем диалог
+                        if (mode == viewModel.resizeMode.value) sideMenuDialog?.dismiss()
+                        else viewModel.setResizeMode(mode)
+                    }
+                }
+                // Принудительно обновляем список в адаптере, чтобы выделить новый пункт.
+                sideMenuAdapter?.submitList(viewModel.getResizeModeMenuItems(requireContext()))
+            }
+        }
+    }
+
+    private fun showZoomLevelDialog() {
+        val currentZoom = viewModel.zoomScale.value ?: 115
+        val context = requireContext()
+
+        zoomDialog?.dismiss()
+        zoomDialog = Dialog(context, R.style.Theme_App_Dialog)
+        zoomDialog?.setContentView(R.layout.dialog_zoom_level)
+
+        val title = zoomDialog?.findViewById<TextView>(R.id.dialog_title)
+        val seekBar = zoomDialog?.findViewById<android.widget.SeekBar>(R.id.seek_zoom)
+        var isDpadChange = false
+
+        title?.text = getString(R.string.playback_zoom_percent, currentZoom)
+        seekBar?.max = 100 // 100% до 200% (100 шагов)
+        seekBar?.progress = currentZoom - 100
+
+        seekBar?.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
+                val newZoom = progress + 100
+                // Обновляем заголовок при изменении
+                title?.text = getString(R.string.playback_zoom_percent, newZoom)
+
+                if (fromUser || isDpadChange) {
+                    viewModel.setZoomScale(newZoom)
+                }
+            }
+            override fun onStartTrackingTouch(sb: android.widget.SeekBar?) {}
+            override fun onStopTrackingTouch(sb: android.widget.SeekBar?) {}
+        })
+
+        // Перехват DPAD для шага 1 и закрытия по OK
+        seekBar?.setOnKeyListener { _, keyCode, event ->
+            if (event.action == KeyEvent.ACTION_DOWN) {
+                when (keyCode) {
+                    KeyEvent.KEYCODE_DPAD_LEFT -> {
+                        val newProgress = (seekBar.progress - 1).coerceAtLeast(0)
+                        isDpadChange = true
+                        seekBar.progress = newProgress
+                        isDpadChange = false
+                        return@setOnKeyListener true
+                    }
+                    KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                        val newProgress = (seekBar.progress + 1).coerceAtMost(seekBar.max)
+                        isDpadChange = true
+                        seekBar.progress = newProgress
+                        isDpadChange = false
+                        return@setOnKeyListener true
+                    }
+                    KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                        // Нажатие OK/Center на SeekBar закрывает диалог
+                        zoomDialog?.dismiss()
+                        return@setOnKeyListener true
+                    }
+                }
+            }
+            false // Передаем дальше
+        }
+
+        zoomDialog?.setOnDismissListener {
+            // После закрытия диалога возвращаемся в меню масштабирования
+            // (sideMenuDialog все еще открыт)
+            showResizeMenu()
+        }
+
+        zoomDialog?.show()
+        seekBar?.requestFocus()
     }
 
     /**
@@ -477,6 +602,21 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
             val name = trackOption?.let { TrackLogic.buildTrackLabel(it, requireContext()) } ?: ""
             ui.badgeSubtitle.text = name
             updateSettingsText()
+        }
+        viewModel.playbackSpeed.observe(viewLifecycleOwner) { speed ->
+            ui.buttonSpeed.text = speed.label
+        }
+
+        viewModel.resizeMode.observe(viewLifecycleOwner) { mode ->
+            val zoom = viewModel.zoomScale.value ?: 115
+            ui.setResizeMode(mode, zoom)
+        }
+
+        viewModel.zoomScale.observe(viewLifecycleOwner) { zoom ->
+            // Обновляем UI, если мы в режиме SCALE
+            if (viewModel.resizeMode.value == ResizeMode.SCALE) {
+                ui.setResizeMode(ResizeMode.SCALE, zoom)
+            }
         }
 
         viewModel.isBuffering.observe(viewLifecycleOwner) { isBuffering ->

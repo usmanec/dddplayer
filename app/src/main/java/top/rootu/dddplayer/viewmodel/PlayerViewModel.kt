@@ -29,6 +29,8 @@ import top.rootu.dddplayer.logic.SettingsMutator
 import top.rootu.dddplayer.logic.TrackLogic
 import top.rootu.dddplayer.model.MediaItem
 import top.rootu.dddplayer.model.MenuItem
+import top.rootu.dddplayer.model.PlaybackSpeed
+import top.rootu.dddplayer.model.ResizeMode
 import top.rootu.dddplayer.model.StereoInputType
 import top.rootu.dddplayer.model.StereoOutputMode
 import top.rootu.dddplayer.player.PlayerManager
@@ -92,8 +94,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     // Playlist State
     private val _currentPlaylist = MutableLiveData<List<MediaItem>>()
     val currentPlaylist: LiveData<List<MediaItem>> = _currentPlaylist
-    private val _currentWindowIndex = MutableLiveData(0)
-    val currentWindowIndex: LiveData<Int> = _currentWindowIndex
     private val _playlistSize = MutableLiveData(0)
     val playlistSize: LiveData<Int> = _playlistSize
     private val _hasPrevious = MutableLiveData(false)
@@ -153,6 +153,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     val bufferedPercentage: LiveData<Int> = _bufferedPercentage
     private val _bufferedPosition = MutableLiveData(0L)
     val bufferedPosition: LiveData<Long> = _bufferedPosition
+    private val _playbackSpeed = MutableLiveData(PlaybackSpeed.X1_00)
+    val playbackSpeed: LiveData<PlaybackSpeed> = _playbackSpeed
+
+    private val _resizeMode = MutableLiveData(ResizeMode.FIT)
+    val resizeMode: LiveData<ResizeMode> = _resizeMode
+
+    private val _zoomScale = MutableLiveData(repository.getZoomScalePercent())
+    val zoomScale: LiveData<Int> = _zoomScale
 
     // Internal
     private var audioOptions = listOf<TrackOption>()
@@ -192,7 +200,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 _bufferedPosition.value = p.bufferedPosition
 
                 // Логика расчета процента буферизации вперед
-                // (не стандартный ExoPlayer.bufferedPercentage,
+                // (ExoPlayer.bufferedPercentage не подходит,
                 // т.к. он показывает % буфера на прогрессе, а не заполненность буфера)
                 val bufferedDuration = p.bufferedPosition - p.currentPosition
                 val targetBuffer = if (bufferedDuration > 6_000L) 50_000L else 5_000L
@@ -330,7 +338,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             _hasPrevious.value = p.hasPreviousMediaItem()
             _hasNext.value = p.hasNextMediaItem()
             _playlistSize.value = p.mediaItemCount
-            _currentWindowIndex.value = p.currentMediaItemIndex
 
             isSettingsLoadedFromDb = false
             _inputType.value = StereoInputType.NONE
@@ -427,6 +434,22 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     fun nextTrack() { if (player?.hasNextMediaItem() == true) player!!.seekToNextMediaItem() }
     fun prevTrack() { if (player?.hasPreviousMediaItem() == true) player!!.seekToPreviousMediaItem() }
 
+    fun setPlaybackSpeed(speed: PlaybackSpeed) {
+        _playbackSpeed.value = speed
+        player?.setPlaybackSpeed(speed.value)
+    }
+
+    fun setResizeMode(mode: ResizeMode) {
+        _resizeMode.value = mode
+    }
+
+    fun setZoomScale(percent: Int) {
+        val newScale = percent.coerceIn(100, 200) // Ограничиваем от 100% до 200%
+        repository.setZoomScalePercent(newScale)
+        _zoomScale.value = newScale
+        _resizeMode.value = ResizeMode.SCALE
+    }
+
     fun loadPlaylist(items: List<MediaItem>, startIndex: Int) {
         _currentPlaylist.value = items
         val startPos = items.getOrNull(startIndex)?.startPositionMs ?: 0L
@@ -499,9 +522,63 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     // --- Menu Generation ---
+
+    fun getPlaybackSpeedMenuItems(): List<MenuItem> {
+        val currentSpeed = _playbackSpeed.value ?: PlaybackSpeed.X1_00
+        return PlaybackSpeed.entries.map { speed ->
+            MenuItem(
+                id = speed.value.toString(),
+                title = speed.label,
+                isSelected = speed == currentSpeed
+            )
+        }
+    }
+
+    private fun getResizeModeIconResId(mode: ResizeMode?): Int? {
+        return when (mode) {
+            ResizeMode.FIT -> R.drawable.ic_fit_screen
+            ResizeMode.ZOOM -> R.drawable.ic_fit_zoom
+            ResizeMode.SCALE -> R.drawable.ic_fit_scale
+            ResizeMode.FILL -> R.drawable.ic_fullscreen
+            else -> null
+        }
+    }
+
+    fun getResizeModeMenuItems(context: Context): List<MenuItem> {
+        val currentMode = _resizeMode.value ?: ResizeMode.FIT
+        val currentZoom = _zoomScale.value ?: 115
+
+        return ResizeMode.entries.map { mode ->
+            val titleResId = when (mode) {
+                ResizeMode.FIT -> R.string.resize_mode_fit
+                ResizeMode.ZOOM -> R.string.resize_mode_zoom
+                ResizeMode.SCALE -> R.string.resize_mode_scale
+                ResizeMode.FILL -> R.string.resize_mode_fill
+            }
+            val iconResId = getResizeModeIconResId(mode)
+
+            val description = when (mode) {
+                ResizeMode.FIT -> context.getString(R.string.resize_mode_fit_desc)
+                ResizeMode.ZOOM -> context.getString(R.string.resize_mode_zoom_desc)
+                ResizeMode.SCALE -> context.getString(R.string.playback_zoom_percent, currentZoom)
+                ResizeMode.FILL -> context.getString(R.string.resize_mode_fill_desc)
+            }
+
+            MenuItem(
+                id = mode.name,
+                title = context.getString(titleResId),
+                description = description,
+                iconRes = iconResId,
+                isSelected = mode == currentMode
+            )
+        }
+    }
+
     fun getMainMenuItems(context: Context): List<MenuItem> {
         val currentAudioName = currentAudioTrack.value?.let { TrackLogic.buildTrackLabel(it, context) } ?: ""
         val currentSubtitleName = currentSubtitleTrack.value?.let { TrackLogic.buildTrackLabel(it, context) } ?: ""
+        val currentSpeed = _playbackSpeed.value?.label ?: PlaybackSpeed.X1_00.label
+
         return listOf(
             MenuItem(
                 "audio",
@@ -514,6 +591,18 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 context.getString(R.string.menu_subtitle_title, (subtitleOptions.size - 1).coerceAtLeast(0)),
                 currentSubtitleName,
                 R.drawable.ic_subtitles
+            ),
+            MenuItem(
+                "speed",
+                context.getString(R.string.playback_speed),
+                currentSpeed,
+                R.drawable.ic_speed
+            ),
+            MenuItem(
+                "resize",
+                context.getString(R.string.playback_zoom),
+                getResizeModeLabel(context),
+                getResizeModeIconResId(_resizeMode.value)
             ),
             MenuItem(
                 "quick_settings",
@@ -544,6 +633,16 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    private fun getResizeModeLabel(context: Context): String {
+        val mode = _resizeMode.value ?: ResizeMode.FIT
+        return when (mode) {
+            ResizeMode.FIT -> context.getString(R.string.resize_mode_fit)
+            ResizeMode.ZOOM -> context.getString(R.string.resize_mode_zoom)
+            ResizeMode.SCALE -> context.getString(R.string.playback_zoom_scale, _zoomScale.value ?: 115)
+            ResizeMode.FILL -> context.getString(R.string.resize_mode_fill)
+        }
+    }
+    
     fun selectTrackByIndex(trackType: Int, index: Int) {
         val options = if (trackType == C.TRACK_TYPE_AUDIO) audioOptions else subtitleOptions
 
@@ -747,8 +846,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             _currentQualityName.value = option.name
         }
     }
-
-    fun clearToastMessage() { _toastMessage.value = null }
 
     private fun showAutoDetectToast(type: StereoInputType) {
         val typeName = type.name.replace("_", " ")

@@ -14,6 +14,21 @@
     <string name="time_ends_at">Кінець о %s</string>
     <string name="top_panel_help_text">▲▼ вибір • OK збер. • BACK скасув.</string>
 
+    <!-- Керування відтворенням -->
+    <string name="playback_speed">Швидкість</string>
+    <string name="playback_zoom">Масштаб</string>
+    <string name="playback_zoom_scale">Збільшення %d%%</string>
+    <string name="playback_zoom_percent">Масштаб: %d%%</string>
+
+    <!-- Режими масштабування -->
+    <string name="resize_mode_fit">Вписати</string>
+    <string name="resize_mode_fit_desc">За замовчуванням</string>
+    <string name="resize_mode_zoom">Заповнити екран</string>
+    <string name="resize_mode_zoom_desc">Обрізає чорні смуги</string>
+    <string name="resize_mode_scale">Збільшити</string>
+    <string name="resize_mode_fill">Розтягнути</string>
+    <string name="resize_mode_fill_desc">Повний екран (ігнорує пропорції)</string>
+
     <!-- Режими 3D -->
     <string name="stereo_mode_mono">Звичайне 2D</string>
     <string name="stereo_mode_sbs">Горизонтальна стереопара (SBS)</string>
@@ -144,4 +159,5 @@
     <string name="vr_config_success">Профіль Cardboard успішно застосовано!\n\nK1: %1$.3f\nK2: %2$.3f</string>
     <string name="vr_config_error">Помилка читання профілю Cardboard.</string>
     <string name="pref_app_language_desc">Змінити мову програми. Зміна вимагає перезапуску програми.</string>
+    <string name="develop_tost">Вибачте, ця функція ще в розробці.</string>
 </resources>

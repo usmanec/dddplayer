@@ -21,7 +21,7 @@
     <color name="bg_badge_dark">#B3000000</color>
     <color name="bg_placeholder_card">#333333</color>
     <color name="bg_app">#0e0e0e</color>
-    <color name="bg_app_dialog">#1f1f1f</color>
+    <color name="bg_app_dialog">#EE1f1f1f</color>
     <color name="bg_app_icon">#202020</color>
     <color name="fg_app_icon">#FEFEFE</color>
 

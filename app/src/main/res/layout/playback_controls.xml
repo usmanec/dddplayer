@@ -77,7 +77,7 @@
             android:drawablePadding="8dp"
             android:paddingHorizontal="16dp"
             android:paddingVertical="6dp"
-            android:text="Ищу обновление..."
+            android:text="@string/update_btn"
             android:textColor="@color/selector_menu_item_text"
             android:textStyle="bold"
             android:background="@drawable/bg_selector_menu_item"
@@ -89,8 +89,6 @@
 
     </LinearLayout>
     <!-- 4. Центральный блок управления -->
-    <!-- layout_height="wrap_content" и привязка к верху и низу центрирует его
-         относительно элементов по бокам, если нужно, или просто под SeekBar -->
     <LinearLayout
         android:id="@+id/center_controls"
         android:layout_width="wrap_content"
@@ -106,27 +104,32 @@
         <ImageButton
             android:id="@+id/button_prev"
             style="@style/PlayerSecondaryControlButton"
+            android:contentDescription="Prev"
             android:src="@drawable/ic_skip_previous"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             app:tint="@color/tv_white"
             android:padding="12dp"
-            android:nextFocusUp="@id/seek_bar"/>
+            android:nextFocusUp="@id/seek_bar"
+            tools:ignore="HardcodedText" />
 
         <!-- Rewind -->
         <ImageButton
             android:id="@+id/button_rewind"
             style="@style/PlayerSecondaryControlButton"
+            android:contentDescription="Rewind"
             android:src="@drawable/ic_fast_rewind"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             app:tint="@color/tv_white"
             android:layout_marginHorizontal="4dp"
             android:padding="12dp"
-            android:nextFocusUp="@id/seek_bar"/>
+            android:nextFocusUp="@id/seek_bar"
+            tools:ignore="HardcodedText" />
 
         <!-- Play/Pause -->
         <ImageButton
             android:id="@+id/button_play_pause"
             style="@style/PlayerControlButton"
+            android:contentDescription="Play/Pause"
             android:src="@drawable/ic_play_arrow"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             app:tint="@color/tv_white"
@@ -135,35 +138,37 @@
             android:padding="0dp"
             android:minWidth="48dp"
             android:minHeight="48dp"
-            android:nextFocusUp="@id/seek_bar"/>
+            android:nextFocusUp="@id/seek_bar"
+            tools:ignore="HardcodedText" />
 
         <!-- Forward -->
         <ImageButton
             android:id="@+id/button_ffwd"
             style="@style/PlayerSecondaryControlButton"
+            android:contentDescription="Forward"
             android:src="@drawable/ic_fast_forward"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             app:tint="@color/tv_white"
             android:layout_marginHorizontal="4dp"
             android:padding="12dp"
-            android:nextFocusUp="@id/seek_bar"/>
+            android:nextFocusUp="@id/seek_bar"
+            tools:ignore="HardcodedText" />
 
         <!-- Next -->
-        <!-- Убрали явный nextFocusRight, чтобы фокус летел в right_controls -->
         <ImageButton
             android:id="@+id/button_next"
             style="@style/PlayerSecondaryControlButton"
+            android:contentDescription="Next"
             android:src="@drawable/ic_skip_next"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             app:tint="@color/tv_white"
             android:padding="12dp"
-            android:nextFocusUp="@id/seek_bar"/>
+            android:nextFocusUp="@id/seek_bar"
+            tools:ignore="HardcodedText" />
 
     </LinearLayout>
 
     <!-- 5. Правый блок настроек -->
-    <!-- gravity="end" прижимает содержимое вправо -->
-    <!-- width="0dp" и привязка к center_controls гарантирует, что блок не наедет на центр -->
     <LinearLayout
         android:id="@+id/right_controls"
         android:layout_width="0dp"
@@ -175,8 +180,36 @@
         app:layout_constraintTop_toTopOf="@id/center_controls"
         app:layout_constraintStart_toEndOf="@id/center_controls">
 
+        <!-- Speed -->
+        <TextView
+            android:id="@+id/button_speed"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="1.00x"
+            android:textColor="@color/selector_menu_item_text"
+            android:textStyle="bold"
+            android:background="@drawable/bg_selector_menu_item"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="4dp"
+            android:focusable="true"
+            android:clickable="true"
+            android:layout_marginEnd="4dp"
+            android:nextFocusUp="@id/seek_bar"
+            tools:ignore="HardcodedText" />
+
+        <!-- Resize/Zoom -->
+        <ImageButton
+            android:id="@+id/button_resize"
+            style="@style/PlayerSecondaryControlButton"
+            android:contentDescription="Resize/Zoom"
+            android:src="@drawable/ic_fit_screen"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            app:tint="@color/tv_white"
+            android:padding="8dp"
+            android:nextFocusUp="@id/seek_bar"
+            tools:ignore="HardcodedText" />
+
         <!-- Quality -->
-        <!-- Убрали явный nextFocusLeft, чтобы фокус летел в center_controls -->
         <TextView
             android:id="@+id/button_quality"
             android:layout_width="wrap_content"
@@ -190,46 +223,54 @@
             android:focusable="true"
             android:clickable="true"
             android:layout_marginEnd="4dp"
-            android:nextFocusUp="@id/seek_bar"/>
+            android:nextFocusUp="@id/seek_bar"
+            tools:ignore="HardcodedText" />
 
         <!-- Playlist -->
-        <!-- Если visibility="gone", следующие элементы сдвинутся вправо -->
         <ImageButton
             android:id="@+id/button_playlist"
             style="@style/PlayerSecondaryControlButton"
+            android:contentDescription="Playlist"
             android:src="@drawable/ic_playlist_play"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             app:tint="@color/tv_white"
             android:padding="8dp"
-            android:nextFocusUp="@id/seek_bar"/>
+            android:nextFocusUp="@id/seek_bar"
+            tools:ignore="HardcodedText" />
 
         <ImageButton
             android:id="@+id/button_audio"
             style="@style/PlayerSecondaryControlButton"
+            android:contentDescription="Audio track"
             android:src="@drawable/ic_audio_track"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             app:tint="@color/tv_white"
             android:padding="8dp"
-            android:nextFocusUp="@id/seek_bar"/>
+            android:nextFocusUp="@id/seek_bar"
+            tools:ignore="HardcodedText" />
 
         <ImageButton
             android:id="@+id/button_subs"
             style="@style/PlayerSecondaryControlButton"
+            android:contentDescription="Subtitles"
             android:src="@drawable/ic_subtitles"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             app:tint="@color/tv_white"
             android:padding="8dp"
-            android:nextFocusUp="@id/seek_bar"/>
+            android:nextFocusUp="@id/seek_bar"
+            tools:ignore="HardcodedText" />
 
         <!-- Settings -->
         <ImageButton
             android:id="@+id/button_settings"
             style="@style/PlayerSecondaryControlButton"
+            android:contentDescription="Settings"
             android:src="@drawable/ic_settings"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             app:tint="@color/tv_white"
             android:padding="8dp"
-            android:nextFocusUp="@id/seek_bar"/>
+            android:nextFocusUp="@id/seek_bar"
+            tools:ignore="HardcodedText" />
 
     </LinearLayout>
 
