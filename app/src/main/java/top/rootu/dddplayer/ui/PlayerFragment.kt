@@ -267,11 +267,13 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
     private fun showAudioTrackMenu() {
         val menuItems = viewModel.getAudioTrackMenuItems(requireContext())
         if (menuItems.isEmpty()) return
+        // -1, потому что первый элемент - "Off"
+        val trackCount = (menuItems.size - 1).coerceAtLeast(0)
 
-        showSideMenu(getString(
-            R.string.menu_audio_title,
-            menuItems.size.coerceAtLeast(0)
-        ), menuItems) { selected ->
+        showSideMenu(
+            getString(R.string.menu_audio_title, trackCount),
+            menuItems
+        ) { selected ->
             if (selected == null) {
                 showMainMenu("audio")
             } else {
@@ -283,11 +285,12 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
 
     private fun showSubtitlesMenu() {
         val menuItems = viewModel.getSubtitleMenuItems(requireContext())
+        if (menuItems.isEmpty()) return
         // -1, потому что первый элемент - "Off"
-        val subtitleCount = (menuItems.size - 1).coerceAtLeast(0)
+        val trackCount = (menuItems.size - 1).coerceAtLeast(0)
 
         showSideMenu(
-            getString(R.string.menu_subtitle_title, subtitleCount),
+            getString(R.string.menu_subtitle_title, trackCount),
             menuItems
         ) { selected ->
             if (selected == null) {
@@ -819,8 +822,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
             items = playlist,
             currentIndex = viewModel.player?.currentMediaItemIndex ?: 0,
             onItemSelected = { index ->
-                viewModel.seekTo(0)
-                viewModel.player?.seekToDefaultPosition(index)
+                viewModel.playPlaylistItem(index)
             },
             onDismiss = {
                 timerController.resetControlsTimer()

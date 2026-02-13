@@ -94,6 +94,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     // Playlist State
     private val _currentPlaylist = MutableLiveData<List<MediaItem>>()
     val currentPlaylist: LiveData<List<MediaItem>> = _currentPlaylist
+    private val _currentWindowIndex = MutableLiveData(0)
+    val currentWindowIndex: LiveData<Int> = _currentWindowIndex
     private val _playlistSize = MutableLiveData(0)
     val playlistSize: LiveData<Int> = _playlistSize
     private val _hasPrevious = MutableLiveData(false)
@@ -305,21 +307,23 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             if (trackType == C.TRACK_TYPE_VIDEO) {
                 _videoDisabledError.postValue(error)
                 _toastMessage.postValue(getString(R.string.error_video_decoder))
+
+                // Отключаем проблемный трек
+                val parameters = p.trackSelectionParameters
+                    .buildUpon()
+                    .setTrackTypeDisabled(trackType, true)
+                    .build()
+                p.trackSelectionParameters = parameters
+
             } else if (trackType == C.TRACK_TYPE_AUDIO) {
-                val hint = if (audioOptions.size > 1) getString(R.string.error_audio_disabled_hint, "${error.errorCodeName}: ${error.message}")
+                val hint = if (audioOptions.size > 2) getString(R.string.error_audio_disabled_hint, "${error.errorCodeName}: ${error.message}")
                 else getString(R.string.error_audio_disabled, "${error.errorCodeName}: ${error.message}")
                 _toastMessage.postValue(hint)
+                selectTrackByIndex(C.TRACK_TYPE_AUDIO, 0) // Выкл
             } else {
                 return false
             }
 
-            // Отключаем проблемный трек
-            val parameters = p.trackSelectionParameters
-                .buildUpon()
-                .setTrackTypeDisabled(trackType, true)
-                .build()
-
-            p.trackSelectionParameters = parameters
 
             // Перезапускаем воспроизведение
             p.seekTo(p.currentMediaItemIndex, p.currentPosition)
@@ -338,10 +342,21 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             _hasPrevious.value = p.hasPreviousMediaItem()
             _hasNext.value = p.hasNextMediaItem()
             _playlistSize.value = p.mediaItemCount
+            _currentWindowIndex.value = p.currentMediaItemIndex
 
             isSettingsLoadedFromDb = false
             _inputType.value = StereoInputType.NONE
-            _videoDisabledError.value = null // Сбрасываем ошибку видео при смене трека
+
+            // Сбрасываем ошибку видео при ЛЮБОМ переходе
+            _videoDisabledError.value = null
+
+            // ВАЖНО: Принудительно включаем видео обратно, если оно было отключено из-за ошибки
+            // Это нужно делать здесь, так как автоматический переход на следующий трек
+            // не вызывает playPlaylistItem, но вызывает этот колбэк.
+            val params = p.trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, false)
+                .build()
+            p.trackSelectionParameters = params
 
             if (currentUri != null) {
                 viewModelScope.launch {
@@ -582,7 +597,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         return listOf(
             MenuItem(
                 "audio",
-                context.getString(R.string.menu_audio_title, audioOptions.size.coerceAtLeast(0)),
+                context.getString(R.string.menu_audio_title, (audioOptions.size - 1).coerceAtLeast(0)),
                 currentAudioName,
                 R.drawable.ic_audio_track
             ),
@@ -619,6 +634,35 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         )
     }
 
+    /**
+     * Метод для выбора элемента плейлиста из UI.
+     * Гарантирует сброс ошибок и включение видео.
+     */
+    fun playPlaylistItem(index: Int) {
+        player?.let { p ->
+            val isVideoError = _videoDisabledError.value == null
+            // Сбрасываем ошибку в UI немедленно
+            _videoDisabledError.value = null
+
+            // Включаем видео обратно (на случай, если оно было отключено из-за ошибки)
+            val params = p.trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, false)
+                .build()
+            p.trackSelectionParameters = params
+
+            if (p.currentMediaItemIndex == index) {
+                // Если мы уже на этом треке и была ошибка перезапускаем его
+                if (isVideoError) p.seekTo(index, 0)
+            } else {
+                // Переключение на другой трек
+                seekTo(0)
+                p.seekToDefaultPosition(index)
+            }
+            p.prepare() // На всякий случай
+            p.play()
+        }
+    }
+
     fun getAudioTrackMenuItems(context: Context): List<MenuItem> {
         return audioOptions.mapIndexed { index, option ->
             val name = TrackLogic.buildTrackLabel(option, context)
@@ -642,7 +686,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             ResizeMode.FILL -> context.getString(R.string.resize_mode_fill)
         }
     }
-    
+
     fun selectTrackByIndex(trackType: Int, index: Int) {
         val options = if (trackType == C.TRACK_TYPE_AUDIO) audioOptions else subtitleOptions
 

@@ -39,7 +39,7 @@ object MediaFormatHelper {
 
         return when (extension) {
             // Форматы с явной поддержкой в ExoPlayer
-            "mp4", "m4v" -> MimeTypes.VIDEO_MP4
+            "mp4", "m4v", "mp4v", "mpeg4" -> MimeTypes.VIDEO_MP4
             "mkv" -> MimeTypes.VIDEO_MATROSKA
             "webm" -> MimeTypes.VIDEO_WEBM
 //            "mov" -> MimeTypes.VIDEO_QUICKTIME

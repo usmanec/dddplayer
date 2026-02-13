@@ -11,6 +11,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.media3.common.audio.ChannelMixingAudioProcessor
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
@@ -86,17 +87,25 @@ class PlayerManager(
         }
         .build()
 
+    // Фабрика для HTTP (сеть)
     private val baseHttpFactory = OkHttpDataSource.Factory(okHttpClient)
         .setUserAgent(USER_AGENT)
 
-    private val parsingDataSourceFactory = ParsingDataSourceFactory(
-        upstreamFactory = baseHttpFactory,
-        onMetadataParsed = { metadataMap ->
-            currentTrackInfo = metadataMap
-            onMetadataAvailable?.invoke()
-        },
-        isMetadataParsed = { currentTrackInfo.isNotEmpty() }
-    )
+    // Универсальная фабрика, которая умеет работать с content://, file:// и http://
+    // Мы передаем baseHttpFactory как источник для сетевых запросов.
+    private val defaultDataSourceFactory = DefaultDataSource.Factory(appContext, baseHttpFactory)
+
+    // Пересоздаем фабрику при инициализации, чтобы гарантировать чистое состояние
+    private fun createParsingDataSourceFactory(): ParsingDataSourceFactory {
+        return ParsingDataSourceFactory(
+            upstreamFactory = defaultDataSourceFactory,
+            onMetadataParsed = { metadataMap ->
+                currentTrackInfo = metadataMap
+                onMetadataAvailable?.invoke()
+            },
+            isMetadataParsed = { currentTrackInfo.isNotEmpty() }
+        )
+    }
 
     fun initializePlayer() {
         if (exoPlayer != null) {
@@ -202,7 +211,7 @@ class PlayerManager(
             .setTrackSelector(trackSelector)
             .setMediaSourceFactory(
                 DefaultMediaSourceFactory(appContext, extractorsFactory)
-                    .setDataSourceFactory(parsingDataSourceFactory)
+                    .setDataSourceFactory(createParsingDataSourceFactory())
                     .setLoadErrorHandlingPolicy(loadErrorHandlingPolicy)
             )
             .build()

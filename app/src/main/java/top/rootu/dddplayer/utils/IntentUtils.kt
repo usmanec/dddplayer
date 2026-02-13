@@ -1,19 +1,86 @@
 package top.rootu.dddplayer.utils
 
+import android.content.ContentResolver
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Parcelable
+import android.provider.OpenableColumns
 import androidx.core.net.toUri
 import top.rootu.dddplayer.model.MediaItem
 import top.rootu.dddplayer.model.SubtitleItem
 
 object IntentUtils {
 
-    fun parseIntent(intent: Intent): Pair<List<MediaItem>, Int> {
+    /**
+     * Парсит Intent и возвращает список медиа-элементов и стартовую позицию.
+     * Требует Context для разрешения имен файлов из content:// URI.
+     */
+    fun parseIntent(context: Context, intent: Intent): Pair<List<MediaItem>, Int> {
         val dataUri = intent.data
         val extras = intent.extras ?: Bundle.EMPTY
+
+        // 1. Проверяем, есть ли специфичный список воспроизведения (внутренний формат)
+        val videoListUris = getParcelableArrayCompat(extras, "video_list")
+
+        if (!videoListUris.isNullOrEmpty()) {
+            // --- PLAYLIST MODE (Внутренний запуск) ---
+            return parseInternalPlaylist(extras, videoListUris, dataUri)
+        }
+
+        // 2. Проверяем одиночный файл (Запуск из файлового менеджера или ACTION_VIEW)
+        if (dataUri != null) {
+            return parseSingleFile(context, intent)
+        }
+
+        // 3. Пусто
+        return Pair(emptyList(), 0)
+    }
+
+    private fun parseSingleFile(context: Context, intent: Intent): Pair<List<MediaItem>, Int> {
+        val uri = intent.data ?: return Pair(emptyList(), 0)
+        val extras = intent.extras ?: Bundle.EMPTY
+
+        // Пытаемся найти заголовок в Extras (некоторые приложения передают его)
+        var title = extras.getString("title") ?: extras.getString("android.intent.extra.TITLE")
+
+        // Если заголовка нет, пытаемся получить имя файла из URI
+        val filename = resolveFileName(context, uri)
+
+        if (title.isNullOrEmpty()) {
+            title = filename ?: uri.lastPathSegment ?: "Video"
+        }
+
+        val startPosition = extras.getInt("position", 0).toLong()
+        // Single poster
+        val singlePoster = extras.getString("thumbnail")
+        // Single Video Subtitles
+        val singleSubs = parseSubtitles(extras, "subs")
+
+        val item = MediaItem(
+            uri = uri,
+            title = title,
+            filename = filename,
+            posterUri = singlePoster?.toUri(),
+            headers = emptyMap(),
+            subtitles = singleSubs,
+            startPositionMs = startPosition
+        )
+
+        return Pair(listOf(item), 0)
+    }
+
+    private fun parseInternalPlaylist(
+        extras: Bundle,
+        videoListUris: Array<Parcelable>,
+        dataUri: Uri?
+    ): Pair<List<MediaItem>, Int> {
+        val names = getSmartStringArray(extras, "video_list.name")
+        val filenames = getSmartStringArray(extras, "video_list.filename")
+        val posters = getSmartStringArray(extras, "video_list.thumbnail")
+        val playlistSubsBundles = getParcelableArrayListCompat<Bundle>(extras, "video_list.subtitles")
 
         // Headers
         val headersMap = mutableMapOf<String, String>()
@@ -24,76 +91,61 @@ object IntentUtils {
             }
         }
 
-        // Single Video Data
-        val singleTitle = extras.getString("title")
-        val singleFilename = extras.getString("filename")
-        val startPosition = extras.getInt("position", 0).toLong()
-        // Single poster
-        val singlePoster = extras.getString("thumbnail")
-        // Single Video Subtitles
-        val singleSubs = parseSubtitles(extras, "subs")
+        val playlist = mutableListOf<MediaItem>()
+        var startIndex = 0
 
-        // Playlist Data
-        val videoListUris = getParcelableArrayCompat(extras, "video_list")
+        for (i in videoListUris.indices) {
+            val uri = (videoListUris[i] as? Uri) ?: (videoListUris[i] as? String)?.toUri() ?: continue
 
-        if (videoListUris.isNullOrEmpty()) {
-            // --- SINGLE FILE MODE ---
-            if (dataUri == null) return Pair(emptyList(), 0)
+            var title = names?.getOrNull(i)
+            if (title.isNullOrEmpty()) title = filenames?.getOrNull(i)
+            if (title.isNullOrEmpty()) title = uri.lastPathSegment
 
-            val item = MediaItem(
-                uri = dataUri,
-                title = singleTitle ?: singleFilename ?: dataUri.lastPathSegment,
-                filename = singleFilename,
-                posterUri = singlePoster?.toUri(),
-                headers = headersMap,
-                subtitles = singleSubs,
-                startPositionMs = startPosition
-            )
-            return Pair(listOf(item), 0)
-        } else {
-            // --- PLAYLIST MODE ---
-            // Используем "умный" метод извлечения массивов
-            val names = getSmartStringArray(extras, "video_list.name")
-            val filenames = getSmartStringArray(extras, "video_list.filename")
-            val posters = getSmartStringArray(extras, "video_list.thumbnail")
-
-            val playlistSubsBundles = getParcelableArrayListCompat<Bundle>(extras, "video_list.subtitles")
-
-            val playlist = mutableListOf<MediaItem>()
-            var startIndex = 0
-
-            for (i in videoListUris.indices) {
-                val uri = (videoListUris[i] as? Uri) ?: (videoListUris[i] as? String)?.toUri() ?: continue
-
-                var title = names?.getOrNull(i)
-                if (title.isNullOrEmpty()) title = filenames?.getOrNull(i)
-                if (title.isNullOrEmpty()) title = uri.lastPathSegment
-
-                val itemSubs = if (playlistSubsBundles != null && i < playlistSubsBundles.size) {
-                    parseSubtitles(playlistSubsBundles[i], "uris", "names")
-                } else if (dataUri != null && uri == dataUri) {
-                    singleSubs
-                } else {
-                    emptyList()
-                }
-
-                val pos = if (dataUri != null && uri == dataUri) startPosition else 0L
-                if (dataUri != null && uri == dataUri) startIndex = i
-
-                playlist.add(
-                    MediaItem(
-                        uri = uri,
-                        title = title,
-                        filename = filenames?.getOrNull(i),
-                        posterUri = posters?.getOrNull(i)?.takeIf { it.isNotEmpty() }?.toUri(),
-                        headers = headersMap,
-                        subtitles = itemSubs,
-                        startPositionMs = pos
-                    )
-                )
+            val itemSubs = if (playlistSubsBundles != null && i < playlistSubsBundles.size) {
+                parseSubtitles(playlistSubsBundles[i], "uris", "names")
+            } else {
+                emptyList()
             }
-            return Pair(playlist, startIndex)
+
+            // Если dataUri совпадает с текущим элементом списка, берем позицию из extras
+            val pos = if (dataUri != null && uri == dataUri) extras.getInt("position", 0).toLong() else 0L
+            if (dataUri != null && uri == dataUri) startIndex = i
+
+            playlist.add(
+                MediaItem(
+                    uri = uri,
+                    title = title,
+                    filename = filenames?.getOrNull(i),
+                    posterUri = posters?.getOrNull(i)?.takeIf { it.isNotEmpty() }?.toUri(),
+                    headers = headersMap,
+                    subtitles = itemSubs,
+                    startPositionMs = pos
+                )
+            )
         }
+        return Pair(playlist, startIndex)
+    }
+
+    /**
+     * Извлекает реальное имя файла из content:// URI.
+     */
+    private fun resolveFileName(context: Context, uri: Uri): String? {
+        if (uri.scheme == ContentResolver.SCHEME_CONTENT) {
+            try {
+                context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                        if (index != -1) {
+                            return cursor.getString(index)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        // Fallback для file:// или если query не сработал
+        return uri.lastPathSegment
     }
 
     /**

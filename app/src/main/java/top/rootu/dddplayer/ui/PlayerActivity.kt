@@ -1,14 +1,19 @@
 package top.rootu.dddplayer.ui
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.WindowManager
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -26,6 +31,25 @@ class PlayerActivity : AppCompatActivity() {
     private val viewModel: PlayerViewModel by viewModels()
     private var shouldReturnResult = false
     private var isCompleted = false
+    // Сохраняем Intent, чтобы обработать его после получения разрешения
+    private var pendingIntent: Intent? = null
+
+    // Регистрация коллбека для запроса разрешений
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            // Разрешение получено, обрабатываем отложенный интент
+            pendingIntent?.let { handleIntent(it) }
+        } else {
+            // Разрешение не дано.
+            // Для content:// это может быть не критично, пробуем открыть так.
+            // Для file:// это фатально, но ExoPlayer сам выдаст ошибку, которую мы покажем.
+            pendingIntent?.let { handleIntent(it) }
+            Toast.makeText(this, "Storage permission denied. Some files may not play.", Toast.LENGTH_LONG).show()
+        }
+        pendingIntent = null
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -71,7 +95,7 @@ class PlayerActivity : AppCompatActivity() {
         }
 
         if (savedInstanceState == null) {
-            handleIntent(intent)
+            checkPermissionsAndHandleIntent(intent)
 
             val fragment = PlayerFragment.newInstance()
             playerFragment = fragment
@@ -99,7 +123,38 @@ class PlayerActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        handleIntent(intent)
+        // Также проверяем разрешения при новом интенте
+        checkPermissionsAndHandleIntent(intent)
+    }
+
+    private fun checkPermissionsAndHandleIntent(intent: Intent) {
+        val uri = intent.data
+
+        // Если URI нет или это http/https, разрешение на файлы не нужно
+        if (uri == null || uri.scheme == "http" || uri.scheme == "https") {
+            handleIntent(intent)
+            return
+        }
+
+        // Определяем нужное разрешение в зависимости от версии Android
+        val permissionToRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Android 13+ (API 33+): Запрашиваем доступ к видео
+            Manifest.permission.READ_MEDIA_VIDEO
+        } else {
+            // Android 6-12: Старое разрешение
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (ContextCompat.checkSelfPermission(this, permissionToRequest) == PackageManager.PERMISSION_GRANTED) {
+                handleIntent(intent)
+            } else {
+                pendingIntent = intent
+                requestPermissionLauncher.launch(permissionToRequest)
+            }
+        } else {
+            handleIntent(intent)
+        }
     }
 
     private fun handleIntent(intent: Intent?) {
@@ -107,7 +162,7 @@ class PlayerActivity : AppCompatActivity() {
 
         shouldReturnResult = intent.getBooleanExtra("return_result", false)
 
-        val (playlist, startIndex) = IntentUtils.parseIntent(intent)
+        val (playlist, startIndex) = IntentUtils.parseIntent(this, intent)
         when {
             playlist.isNotEmpty() -> {
                 viewModel.loadPlaylist(playlist, startIndex)

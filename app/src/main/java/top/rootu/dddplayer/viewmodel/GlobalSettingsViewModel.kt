@@ -154,8 +154,8 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
             "middle" -> repository.setMixMiddle(value)
             "lfe" -> repository.setMixLfe(value)
         }
-        // Обновляем LiveData, чтобы диалог мог реагировать
-        _mixParams.value = AudioMixerLogic.getParamsForPreset(AudioMixerLogic.MixPreset.CUSTOM, repository)
+        // LiveData не обновляем тут, чтобы разорвать циклическую связь
+        // это решении баги по застреванию ползунков на значениях  кратных 52 из-за приведения типов
     }
 
     fun resetCustomMixParams() {

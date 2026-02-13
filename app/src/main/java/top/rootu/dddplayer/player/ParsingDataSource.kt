@@ -12,13 +12,21 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import top.rootu.dddplayer.logic.UnifiedMetadataReader
+import java.io.IOException
 import java.io.PipedInputStream
 import java.io.PipedOutputStream
 
 private const val TAG = "ParsingDataSource"
-// Устанавливаем размер с запасом, чтобы покрыть самые "тяжелые" случаи.
-// 32 МБ должно хватить для подавляющего большинства файлов.
-private const val PARSE_BUFFER_SIZE = 32 * 1024 * 1024 // 32 MB
+
+// 1. Размер буфера в оперативной памяти (RAM).
+// 64 КБ - стандартный размер чанка IO. Этого достаточно для потока.
+// Это решает проблему OutOfMemoryError.
+private const val PIPE_BUFFER_SIZE = 64 * 1024
+
+// 2. Максимальный объем данных, который мы готовы скормить парсеру.
+// Если метаданные не найдены в первых 50 МБ, мы прекращаем попытки,
+// чтобы не блокировать загрузку видео слишком долго.
+private const val MAX_BYTES_TO_PARSE = 50 * 1024 * 1024 // 50 MB
 
 class ParsingDataSource(
     private val upstream: DataSource,
@@ -34,17 +42,23 @@ class ParsingDataSource(
         private var pipedIn: PipedInputStream? = null
         private var totalBytesWritten = 0L
 
+        // Флаг активности парсера. Если false, мы перестаем писать в пайп.
+        @Volatile private var isParsingActive = false
+
         override fun open(dataSpec: DataSpec) {
             if (dataSpec.position == 0L) {
                 totalBytesWritten = 0
+                isParsingActive = true
                 pipedOut = PipedOutputStream()
-                // Важно: PipedInputStream должен иметь буфер не меньше, чем мы планируем писать,
-                // иначе write() заблокируется, если reader (парсинг) будет медленным.
-                pipedIn = PipedInputStream(pipedOut!!, PARSE_BUFFER_SIZE)
+                // Выделяем всего 64 КБ памяти
+                pipedIn = PipedInputStream(pipedOut!!, PIPE_BUFFER_SIZE)
 
                 parsingJob = CoroutineScope(Dispatchers.IO).launch {
                     try {
                         Log.d(TAG, "Start parsing metadata...")
+                        // Парсер будет читать из pipedIn.
+                        // Когда он делает skip(), данные "вымываются" из буфера 64КБ,
+                        // освобождая место для новых данных из write().
                         val metadata = UnifiedMetadataReader.parse(pipedIn!!)
                         Log.d(TAG, "Parsing finished. Found ${metadata.size} tracks.")
 
@@ -57,6 +71,8 @@ class ParsingDataSource(
                     } catch (e: Exception) {
                         Log.w(TAG, "Metadata parsing stopped: ${e.message}")
                     } finally {
+                        // Парсер закончил работу (успешно или с ошибкой)
+                        isParsingActive = false
                         closePipes()
                     }
                 }
@@ -64,17 +80,29 @@ class ParsingDataSource(
         }
 
         override fun write(buffer: ByteArray, offset: Int, length: Int) {
-            // Если мы уже записали больше лимита, просто игнорируем, чтобы не грузить память
-            if (totalBytesWritten >= PARSE_BUFFER_SIZE) return
+            // Если парсер отключился или мы превысили разумный лимит поиска (50МБ)
+            if (!isParsingActive || totalBytesWritten >= MAX_BYTES_TO_PARSE) {
+                if (isParsingActive) {
+                    // Если мы превысили лимит, но парсер еще ждет, принудительно закрываем
+                    isParsingActive = false
+                    closePipes()
+                    parsingJob?.cancel()
+                }
+                return
+            }
 
             try {
-                // Пишем в пайп. Если пайп переполнен, это может заблокировать поток загрузки.
-                // Но так как мы задали буфер пайпа равным лимиту (32МБ), блокировки не будет,
-                // пока мы не заполним его целиком.
+                // Пишем в пайп. Если буфер (64КБ) полон, этот метод заблокируется,
+                // пока парсер не прочитает/пропустит данные.
+                // Это создает естественное замедление загрузки (backpressure),
+                // необходимое для синхронизации.
                 pipedOut?.write(buffer, offset, length)
                 totalBytesWritten += length
-            } catch (_: Exception) {
-                // Парсер закрыл поток (нашел что искал), это нормально.
+            } catch (e: IOException) {
+                // "Pipe closed" или "Pipe broken".
+                // Это означает, что парсер закрыл поток (нашел данные и вышел).
+                // Это нормальная ситуация, просто перестаем писать.
+                isParsingActive = false
             }
         }
 
@@ -91,13 +119,12 @@ class ParsingDataSource(
     }
 
     override fun open(dataSpec: DataSpec): Long {
-        // Запускаем парсинг ТОЛЬКО если:
-        // 1. Это начало файла (position == 0)
-        // 2. Метаданные ЕЩЕ НЕ были распарсены
         if (dataSpec.position == 0L && !isMetadataParsed()) {
+            parsingJob?.cancel()
             teeDataSource = TeeDataSource(upstream, pipeSink)
             return teeDataSource!!.open(dataSpec)
         }
+        teeDataSource = null
         return upstream.open(dataSpec)
     }
 
@@ -110,11 +137,8 @@ class ParsingDataSource(
     override fun close() {
         teeDataSource?.close() ?: upstream.close()
         parsingJob?.cancel()
+        pipeSink.close()
     }
-
-    // ===================================================================
-    // ЯВНОЕ ПЕРЕОПРЕДЕЛЕНИЕ DEFAULT-МЕТОДОВ ИНТЕРФЕЙСА
-    // ===================================================================
 
     override fun addTransferListener(transferListener: TransferListener) {
         // Делегируем вызов upstream, так как он является основным источником данных

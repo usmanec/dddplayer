@@ -134,7 +134,7 @@
     <string name="pref_language_audio">Звуковая дорожка по умолчанию</string>
     <string name="pref_language_audio_desc">Предпочитаемая дорожка при старте видео</string>
     <string name="pref_language_track_default">По умолчанию (из файла)</string>
-    <string name="pref_language_track_device">Языки устройства</string>
+    <string name="pref_language_track_device">Настройки устроства</string>
     <string name="pref_sub_lang_default">Язык субтитров по умолчанию</string>
     <string name="pref_sub_lang_default_desc">Предпочитаемые субтитры (если есть)</string>
     <string name="pref_calibration_3d">Калибровка 3D</string>

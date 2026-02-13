@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
@@ -34,7 +35,8 @@
             android:textColor="@color/selector_settings_primary"
             android:textSize="16sp"
             android:maxLines="2"
-            android:ellipsize="end" />
+            android:ellipsize="end"
+            tools:text="Audio Track 1 (Russian)" />
 
         <TextView
             android:id="@+id/item_description"
@@ -43,7 +45,8 @@
             android:textColor="@color/selector_settings_secondary"
             android:textSize="12sp"
             android:layout_marginTop="2dp"
-            android:visibility="gone" />
+            android:visibility="gone"
+            tools:text="AC3 5.1 384kbps" />
     </LinearLayout>
 
 </LinearLayout>

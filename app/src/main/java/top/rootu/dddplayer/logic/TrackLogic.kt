@@ -44,6 +44,8 @@ object TrackLogic {
         metadata: Map<Int, UnifiedMetadataReader.TrackInfo>
     ): Pair<List<TrackOption>, Int> {
         val audioList = mutableListOf<TrackOption>()
+        // Добавляем пункт "Выкл."
+        audioList.add(TrackOption(null, null, -1, null, -1, isOff = true))
         var selectedAudioIdx = 0
 
         // Фильтруем метаданные: оставляем только аудио и сортируем по ID
