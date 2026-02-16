@@ -142,6 +142,23 @@
     <string name="pref_up_action_osd">快捷设置面板</string>
     <string name="pref_up_action_menu">设置菜单（侧边）</string>
     <string name="pref_up_action_none">无操作</string>
+    <string name="pref_remember_zoom">记住缩放</string>
+    <string name="pref_remember_zoom_desc">将上次选择的缩放模式应用于所有视频</string>
+    <string name="pref_show_playlist_index">播放列表序号</string>
+    <string name="pref_show_playlist_index_desc">在视频缩略图上显示序号</string>
+    <string name="pref_swipe_horizontal">水平滑动</string>
+    <string name="pref_swipe_horizontal_desc">向左/右滑动时的操作</string>
+    <string name="swipe_action_none">无</string>
+    <string name="swipe_action_seek">快进/快退</string>
+    <string name="swipe_action_playlist">退出或上一个/下一个</string>
+    <string name="next_video">下一个：%s</string>
+    <string name="prev_video">上一个：%s</string>
+    <string name="release_to_switch">松开切换</string>
+    <string name="action_exit">退出</string>
+    <string name="swipe_pull_next">拉动切换</string>
+    <string name="swipe_pull_exit">拉动退出</string>
+    <string name="swipe_release_next">松开切换</string>
+    <string name="swipe_release_exit">松开退出</string>
 
     <!-- 全局设置 - 音频混音对话框 -->
     <string name="mix_preset_standard">标准 - RFC 7845</string>

@@ -1,6 +1,5 @@
 package top.rootu.dddplayer.ui
 
-import android.annotation.SuppressLint
 import android.app.Dialog
 import android.os.Bundle
 import android.view.View
@@ -69,11 +68,17 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var itemDownmixConfig: LinearLayout
     private lateinit var itemUpAction: LinearLayout
     private lateinit var textUpActionValue: TextView
+    private lateinit var itemSwipeAction: LinearLayout
+    private lateinit var textSwipeActionValue: TextView
     private lateinit var itemUpdate: LinearLayout
     private lateinit var textUpdate: TextView
     private lateinit var textUpdateDesc: TextView
     private lateinit var itemAppLanguage: LinearLayout
     private lateinit var textAppLanguageValue: TextView
+    private lateinit var itemRememberZoom: LinearLayout
+    private lateinit var switchRememberZoom: SwitchCompat
+    private lateinit var itemShowIndex: LinearLayout
+    private lateinit var switchShowIndex: SwitchCompat
 
     // Список языков для выбора аудио/субтитров (ISO 639-1)
     private val trackLanguages = listOf(
@@ -146,11 +151,17 @@ class GlobalSettingsActivity : AppCompatActivity() {
         itemDownmixConfig = findViewById(R.id.item_downmix_config)
         itemUpAction = findViewById(R.id.item_up_action)
         textUpActionValue = findViewById(R.id.text_up_action_value)
+        itemSwipeAction = findViewById(R.id.item_swipe_action)
+        textSwipeActionValue = findViewById(R.id.text_swipe_action_value)
         itemUpdate = findViewById(R.id.item_update)
         textUpdate = findViewById(R.id.text_update)
         textUpdateDesc = findViewById(R.id.text_update_desc)
         itemAppLanguage = findViewById(R.id.item_app_language)
         textAppLanguageValue = findViewById(R.id.text_app_language_value)
+        itemRememberZoom = findViewById(R.id.item_remember_zoom)
+        switchRememberZoom = findViewById(R.id.switch_remember_zoom)
+        itemShowIndex = findViewById(R.id.item_show_index)
+        switchShowIndex = findViewById(R.id.switch_show_index)
     }
 
     private fun setupListeners() {
@@ -206,8 +217,17 @@ class GlobalSettingsActivity : AppCompatActivity() {
             }
         }
 
+        itemRememberZoom.setOnClickListener {
+            settingsViewModel.toggleRememberZoom(!switchRememberZoom.isChecked)
+        }
+
+        itemShowIndex.setOnClickListener {
+            settingsViewModel.toggleShowPlaylistIndex(!switchShowIndex.isChecked)
+        }
+
         // Up Button Action
         itemUpAction.setOnClickListener { settingsViewModel.cycleUpButtonAction() }
+        itemSwipeAction.setOnClickListener { settingsViewModel.cycleHorizontalSwipeAction() }
 
         // Update
         itemUpdate.setOnClickListener {
@@ -296,6 +316,13 @@ class GlobalSettingsActivity : AppCompatActivity() {
             updateUpActionUI(action)
         }
 
+        settingsViewModel.horizontalSwipeAction.observe(this) { action ->
+            updateHorizontalSwipeActionUI(action)
+        }
+
+        settingsViewModel.isRememberZoomEnabled.observe(this) { switchRememberZoom.isChecked = it }
+        settingsViewModel.isShowPlaylistIndexEnabled.observe(this) { switchShowIndex.isChecked = it }
+
         // Update ViewModel
         updateViewModel.updateInfo.observe(this) { updateUpdateUI() }
         updateViewModel.isCheckingUpdates.observe(this) { checking ->
@@ -323,6 +350,14 @@ class GlobalSettingsActivity : AppCompatActivity() {
             1 -> getString(R.string.pref_up_action_osd)
             2 -> getString(R.string.pref_up_action_menu)
             else -> getString(R.string.pref_up_action_none)
+        }
+    }
+
+    private fun updateHorizontalSwipeActionUI(action: Int) {
+        textSwipeActionValue.text = when (action) {
+            1 -> getString(R.string.swipe_action_seek)
+            2 -> getString(R.string.swipe_action_playlist)
+            else -> getString(R.string.swipe_action_none)
         }
     }
 

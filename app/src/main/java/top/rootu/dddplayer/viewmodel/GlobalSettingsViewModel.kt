@@ -58,11 +58,27 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     val appLanguage: LiveData<String> = _appLanguage
 
     // --- UI Settings ---
+    private val _isRememberZoomEnabled = MutableLiveData(repository.isRememberZoomEnabled())
+    val isRememberZoomEnabled: LiveData<Boolean> = _isRememberZoomEnabled
+
+    private val _isShowPlaylistIndexEnabled = MutableLiveData(repository.isShowPlaylistIndexEnabled())
+    val isShowPlaylistIndexEnabled: LiveData<Boolean> = _isShowPlaylistIndexEnabled
     private val _upButtonAction = MutableLiveData(repository.getUpButtonAction())
     val upButtonAction: LiveData<Int> = _upButtonAction
+    private val _horizontalSwipeAction = MutableLiveData(repository.getHorizontalSwipeAction())
+    val horizontalSwipeAction: LiveData<Int> = _horizontalSwipeAction
 
     // --- Actions ---
 
+    fun toggleRememberZoom(enabled: Boolean) {
+        repository.setRememberZoomEnabled(enabled)
+        _isRememberZoomEnabled.value = enabled
+    }
+
+    fun toggleShowPlaylistIndex(enabled: Boolean) {
+        repository.setShowPlaylistIndexEnabled(enabled)
+        _isShowPlaylistIndexEnabled.value = enabled
+    }
     fun toggleDecoderPriority() {
         val current = _decoderPriority.value ?: DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
         val next = when (current) {
@@ -121,6 +137,13 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
         val next = (current + 1) % 3 // 0, 1, 2
         repository.setUpButtonAction(next)
         _upButtonAction.value = next
+    }
+
+    fun cycleHorizontalSwipeAction() {
+        val current = _horizontalSwipeAction.value ?: 0
+        val next = (current + 1) % 3 // 0, 1, 2
+        repository.setHorizontalSwipeAction(next)
+        _horizontalSwipeAction.value = next
     }
 
     // --- Downmix Logic ---
@@ -196,7 +219,4 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     fun getSkipSilenceDescResId(enabled: Boolean): Int =
         if (enabled) R.string.pref_skip_silence_on else R.string.pref_skip_silence_off
 
-    fun getBoostValue(): Int = _loudnessBoost.value ?: 0
-
-    fun getUpButtonActionValue(): Int = _upButtonAction.value ?: 1
 }

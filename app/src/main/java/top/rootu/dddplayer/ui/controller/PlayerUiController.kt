@@ -3,6 +3,8 @@ package top.rootu.dddplayer.ui.controller
 import android.app.Dialog
 import android.graphics.Color
 import android.graphics.Paint
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.view.SurfaceView
 import android.view.View
@@ -116,6 +118,32 @@ class PlayerUiController(private val rootView: View) {
     val seekDeltaText: TextView = rootView.findViewById(R.id.seek_delta)
     val seekTargetText: TextView = rootView.findViewById(R.id.seek_target_time)
 
+    private val gestureContainer: View = rootView.findViewById(R.id.gesture_indicator_container)
+    private val gestureIcon: ImageView = rootView.findViewById(R.id.gesture_icon)
+    private val gestureProgress: ProgressBar = rootView.findViewById(R.id.gesture_progress)
+    private val gestureText: TextView = rootView.findViewById(R.id.gesture_text)
+
+    private val rewindOverlay: View = rootView.findViewById(R.id.rewind_overlay)
+    private val ffwdOverlay: View = rootView.findViewById(R.id.ffwd_overlay)
+    private val rewindText: TextView = rootView.findViewById(R.id.rewind_text)
+    private val ffwdText: TextView = rootView.findViewById(R.id.ffwd_text)
+
+    private val overlayPrev: View = rootView.findViewById(R.id.overlay_swipe_prev)
+    private val iconPrev: ImageView = rootView.findViewById(R.id.icon_swipe_prev)
+    private val textPrevTitle: TextView = rootView.findViewById(R.id.text_swipe_prev_title)
+    private val textPrevHint: TextView = rootView.findViewById(R.id.text_swipe_prev_hint)
+
+    private val overlayNext: View = rootView.findViewById(R.id.overlay_swipe_next)
+    private val iconNext: ImageView = rootView.findViewById(R.id.icon_swipe_next)
+    private val textNextTitle: TextView = rootView.findViewById(R.id.text_swipe_next_title)
+    private val textNextHint: TextView = rootView.findViewById(R.id.text_swipe_next_hint)
+    private val hideHandler = Handler(Looper.getMainLooper())
+    private val hideGestureRunnable = Runnable {
+        gestureContainer.isVisible = false
+        rewindOverlay.isVisible = false
+        ffwdOverlay.isVisible = false
+    }
+
     private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 
     init {
@@ -130,6 +158,149 @@ class PlayerUiController(private val rootView: View) {
         optionsRecycler.itemAnimator = null
     }
 
+    fun showVolumeIndicator(percent: Int) {
+        showGestureIndicator(R.drawable.ic_volume_up, percent)
+    }
+
+    fun showBrightnessIndicator(percent: Int) {
+        showGestureIndicator(R.drawable.ic_brightness_medium, percent)
+    }
+
+    private fun showGestureIndicator(iconRes: Int, percent: Int) {
+        hideHandler.removeCallbacks(hideGestureRunnable)
+        gestureContainer.isVisible = true
+        gestureProgress.isVisible = true
+        gestureIcon.setImageResource(iconRes)
+        gestureProgress.progress = percent
+        gestureText.text = rootView.context.getString(R.string.percentage_int_format, percent)
+    }
+
+    fun hideGestureIndicatorDelayed() {
+        hideHandler.removeCallbacks(hideGestureRunnable)
+        hideHandler.postDelayed(hideGestureRunnable, 1000) // Скрыть через 1 сек
+    }
+
+    fun showDoubleTapOverlay(forward: Boolean, seconds: Int) {
+        hideHandler.removeCallbacks(hideGestureRunnable)
+
+        if (forward) {
+            ffwdOverlay.isVisible = true
+            rewindOverlay.isVisible = false
+            ffwdText.text = "+${seconds}"
+        } else {
+            ffwdOverlay.isVisible = false
+            rewindOverlay.isVisible = true
+            rewindText.text = "-${seconds}"
+        }
+
+        hideHandler.postDelayed(hideGestureRunnable, 600) // Быстрое скрытие
+    }
+
+    /**
+     * Обновляет положение шторки плейлиста.
+     * @param offsetPx Смещение в пикселях (положительное = тянем вправо, отрицательное = влево)
+     * @param screenWidth Ширина экрана
+     * @param title Заголовок следующего/предыдущего видео (или "Выход")
+     * @param isExitMode Если true, показываем иконку выхода
+     */
+    fun updatePlaylistSwipe(offsetPx: Float, screenWidth: Int, title: String, isExitMode: Boolean) {
+        gestureContainer.isVisible = false
+
+        // Порог срабатывания (50% экрана)
+        val thresholdPassed = abs(offsetPx) > (screenWidth / 2)
+
+        // Прозрачность подсказки: ярче, когда готовы переключить
+        val hintAlpha = if (thresholdPassed) 1.0f else 0.7f
+        val context = rootView.context
+
+        if (offsetPx > 0) {
+            // === PREV (Слева) ===
+            overlayNext.isVisible = false
+            overlayPrev.isVisible = true
+
+            // Двигаем шторку
+            overlayPrev.translationX = -screenWidth.toFloat() + offsetPx
+
+            textPrevTitle.text = title
+            textPrevHint.alpha = hintAlpha
+
+            if (isExitMode) {
+                iconPrev.setImageResource(R.drawable.ic_exit)
+                textPrevHint.text = if (thresholdPassed)
+                    context.getString(R.string.swipe_release_exit)
+                else
+                    context.getString(R.string.swipe_pull_exit)
+            } else {
+                iconPrev.setImageResource(R.drawable.ic_skip_previous)
+                textPrevHint.text = if (thresholdPassed)
+                    context.getString(R.string.swipe_release_next)
+                else
+                    context.getString(R.string.swipe_pull_next)
+            }
+
+        } else {
+            // === NEXT (Справа) ===
+            overlayPrev.isVisible = false
+            overlayNext.isVisible = true
+
+            // Двигаем шторку
+            overlayNext.translationX = screenWidth.toFloat() + offsetPx
+
+            textNextTitle.text = title
+            textNextHint.alpha = hintAlpha
+
+            if (isExitMode) {
+                iconNext.setImageResource(R.drawable.ic_exit)
+                textNextHint.text = if (thresholdPassed)
+                    context.getString(R.string.swipe_release_exit)
+                else
+                    context.getString(R.string.swipe_pull_exit)
+            } else {
+                iconNext.setImageResource(R.drawable.ic_skip_next)
+                textNextHint.text = if (thresholdPassed)
+                    context.getString(R.string.swipe_release_next)
+                else
+                    context.getString(R.string.swipe_pull_next)
+            }
+        }
+    }
+
+    /**
+     * Анимация завершения (растягивание на весь экран и действие)
+     */
+    fun animatePlaylistSwipeConfirm(isNext: Boolean, onAnimationEnd: () -> Unit) {
+        val targetView = if (isNext) overlayNext else overlayPrev
+
+        targetView.animate()
+            .translationX(0f) // Доводим до центра (0)
+            .setDuration(200)
+            .withEndAction {
+                onAnimationEnd()
+                // Скрываем после действия (с задержкой или сразу, зависит от логики переключения)
+                targetView.isVisible = false
+            }
+            .start()
+    }
+
+    /**
+     * Анимация отмены (схлопывание обратно)
+     */
+    fun animatePlaylistSwipeCancel(screenWidth: Int) {
+        if (overlayPrev.isVisible) {
+            overlayPrev.animate()
+                .translationX(-screenWidth.toFloat())
+                .setDuration(300)
+                .withEndAction { overlayPrev.isVisible = false }
+                .start()
+        }
+        if (overlayNext.isVisible) {
+            overlayNext.animate()
+                .translationX(screenWidth.toFloat())
+                .setDuration(300)
+                .withEndAction { overlayNext.isVisible = false }
+                .start()
+        }
+    }
     fun showSeekOverlay(deltaMs: Long, targetTimeMs: Long) {
         seekOverlay.isVisible = true
         val sign = if (deltaMs > 0) "+" else "-"
@@ -166,7 +337,31 @@ class PlayerUiController(private val rootView: View) {
     }
 
     private fun formatErrorDetails(error: PlaybackException): String {
-        return "${error.errorCodeName} (${error.errorCode})\n${error.message ?: ""}"
+        var cause: Throwable? = error
+        while (cause != null) {
+            if (cause is androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException) {
+                val responseCode = cause.responseCode
+                val responseMessage = cause.responseMessage ?: ""
+
+                // Получаем URI и обрезаем, если он слишком длинный
+                val fullUri = cause.dataSpec.uri.toString()
+                val displayUri = if (fullUri.length > 120) {
+                    // Оставляем первые 80 символов и последние 30
+                    "${fullUri.take(80)}...${fullUri.takeLast(30)}"
+                } else {
+                    fullUri
+                }
+
+                return "HTTP $responseCode $responseMessage\n$displayUri"
+            }
+            cause = cause.cause
+        }
+
+        // ограничиваем длину сообщения
+        val msg = error.message ?: ""
+        val displayMsg = if (msg.length > 203) msg.take(200) + "..." else msg
+
+        return "${error.errorCodeName} (${error.errorCode})\n$displayMsg"
     }
 
     fun updateSettingsOptions(optionsData: Pair<List<String>, Int>?) {
@@ -290,7 +485,7 @@ class PlayerUiController(private val rootView: View) {
         rootView.findViewById<View>(R.id.root_container).requestFocus()
     }
 
-    fun loadPoster(uri: android.net.Uri?, playlistIndex: Int, playlistSize: Int) {
+    fun loadPoster(uri: android.net.Uri?, playlistIndex: Int, playlistSize: Int, showIndex: Boolean) {
         val isPlaylist = playlistSize > 1
         val numberText = (playlistIndex + 1).toString()
         posterNumberBadge.text = numberText
@@ -300,8 +495,9 @@ class PlayerUiController(private val rootView: View) {
             // Постер есть -> Грузим
             videoPoster.isVisible = true
             posterPlaceholderText.isVisible = false
-            // Если плейлист -> показываем бейдж
-            posterNumberBadge.isVisible = isPlaylist
+            // Показываем бейдж только если это плейлист И включена настройка
+            posterNumberBadge.isVisible = isPlaylist && showIndex
+
             videoPoster.load(uri) {
                 crossfade(true)
                 listener(onError = { _, _ -> handleNoPoster(isPlaylist)})
@@ -330,6 +526,7 @@ class PlayerUiController(private val rootView: View) {
     fun showPlaylistDialog(
         items: List<MediaItem>,
         currentIndex: Int,
+        showIndexBadge: Boolean,
         onItemSelected: (Int) -> Unit,
         onDismiss: () -> Unit
     ) {
@@ -353,6 +550,8 @@ class PlayerUiController(private val rootView: View) {
             recycler?.adapter = playlistAdapter
             playlistDialog?.setOnDismissListener { onDismiss() }
         }
+
+        playlistAdapter?.setShowIndexBadge(showIndexBadge)
 
         playlistAdapter?.submitList(items) {
             playlistAdapter?.setCurrentIndex(currentIndex)

@@ -30,9 +30,21 @@ class SettingsRepository(context: Context) {
         db.videoSettingsDao().deleteOldSettings(System.currentTimeMillis() - 2592000000L)
     }
 
+    // --- Zoom Settings ---
+    fun isRememberZoomEnabled(): Boolean = prefs.getBoolean("remember_zoom", false)
+    fun setRememberZoomEnabled(enabled: Boolean) = prefs.edit { putBoolean("remember_zoom", enabled) }
+
+    // Сохраняем сам режим (Fit, Fill, Zoom, Scale)
+    fun getGlobalResizeMode(): Int = prefs.getInt("global_resize_mode", 0) // 0 = FIT
+    fun setGlobalResizeMode(modeOrdinal: Int) = prefs.edit { putInt("global_resize_mode", modeOrdinal) }
+
     // Custom Video Zoom Scale
     fun getZoomScalePercent(): Int = prefs.getInt("video_zoom_scale", 115)
     fun setZoomScalePercent(percent: Int) = prefs.edit { putInt("video_zoom_scale", percent) }
+
+    // --- UI Settings ---
+    fun isShowPlaylistIndexEnabled(): Boolean = prefs.getBoolean("show_playlist_index", true)
+    fun setShowPlaylistIndexEnabled(enabled: Boolean) = prefs.edit { putBoolean("show_playlist_index", enabled) }
 
     // --- Global Player Preferences ---
     fun getDecoderPriority(): Int = prefs.getInt("decoder_priority", DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
@@ -87,6 +99,9 @@ class SettingsRepository(context: Context) {
     // Действие кнопки "Вверх" ( 0 = Nothing, 1 = OSD, 2 = Side Menu)
     fun getUpButtonAction(): Int = prefs.getInt("up_button_action", 1)
     fun setUpButtonAction(action: Int) = prefs.edit { putInt("up_button_action", action) }
+    // Горизонтальный свайп ( 0 = None, 1 = Seek, 2 = Playlist)
+    fun getHorizontalSwipeAction(): Int = prefs.getInt("horizontal_swipe_action", 2)
+    fun setHorizontalSwipeAction(action: Int) = prefs.edit { putInt("horizontal_swipe_action", action) }
 
     // Сигнатура настроек, требующих полного перезапуска плеера
     fun getHardSettingsSignature(): String {

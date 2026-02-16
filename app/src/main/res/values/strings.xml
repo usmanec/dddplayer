@@ -157,6 +157,23 @@
     <string name="pref_up_action_osd">Quick Settings Panel</string>
     <string name="pref_up_action_menu">Settings Menu (Side)</string>
     <string name="pref_up_action_none">Nothing</string>
+    <string name="pref_remember_zoom">Remember zoom</string>
+    <string name="pref_remember_zoom_desc">Apply the last selected zoom mode to all videos</string>
+    <string name="pref_show_playlist_index">Playlist index</string>
+    <string name="pref_show_playlist_index_desc">Display the sequence number over the video thumbnail</string>
+    <string name="pref_swipe_horizontal">Horizontal swipe</string>
+    <string name="pref_swipe_horizontal_desc">Action when swiping left/right</string>
+    <string name="swipe_action_none">None</string>
+    <string name="swipe_action_seek">Seek</string>
+    <string name="swipe_action_playlist">Exit or Prev/Next</string>
+    <string name="next_video">Next: %s</string>
+    <string name="prev_video">Prev: %s</string>
+    <string name="release_to_switch">Release to switch</string>
+    <string name="action_exit">Exit</string>
+    <string name="swipe_pull_next">Pull to switch</string>
+    <string name="swipe_pull_exit">Pull to exit</string>
+    <string name="swipe_release_next">Release to switch</string>
+    <string name="swipe_release_exit">Release to exit</string>
 
     <!-- Updates -->
     <string name="version" translatable="false">v%s</string>

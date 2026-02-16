@@ -279,6 +279,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
         // Инициализируем плеер сразу
         playerManager.initializePlayer()
+
+        if (repository.isRememberZoomEnabled()) {
+            val savedModeOrd = repository.getGlobalResizeMode()
+            val savedMode = ResizeMode.entries.getOrNull(savedModeOrd) ?: ResizeMode.FIT
+            _resizeMode.value = savedMode
+            // ZoomScale уже загружается в поле _zoomScale при инициализации
+        }
     }
 
     private fun updateProgressUpdaterState() {
@@ -456,6 +463,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setResizeMode(mode: ResizeMode) {
         _resizeMode.value = mode
+        // Если включено запоминание - сохраняем
+        if (repository.isRememberZoomEnabled()) {
+            repository.setGlobalResizeMode(mode.ordinal)
+        }
     }
 
     fun setZoomScale(percent: Int) {
@@ -463,6 +474,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         repository.setZoomScalePercent(newScale)
         _zoomScale.value = newScale
         _resizeMode.value = ResizeMode.SCALE
+        // Если включено запоминание - сохраняем режим SCALE
+        if (repository.isRememberZoomEnabled()) {
+            repository.setGlobalResizeMode(ResizeMode.SCALE.ordinal)
+        }
     }
 
     fun loadPlaylist(items: List<MediaItem>, startIndex: Int) {
@@ -663,6 +678,25 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun getNextTrackTitle(): String? {
+        val p = player ?: return null
+        if (p.hasNextMediaItem()) {
+            val nextIndex = p.nextMediaItemIndex
+            val item = p.getMediaItemAt(nextIndex)
+            return item.mediaMetadata.title?.toString() ?: "Video ${nextIndex + 1}"
+        }
+        return null
+    }
+
+    fun getPrevTrackTitle(): String? {
+        val p = player ?: return null
+        if (p.hasPreviousMediaItem()) {
+            val prevIndex = p.previousMediaItemIndex
+            val item = p.getMediaItemAt(prevIndex)
+            return item.mediaMetadata.title?.toString() ?: "Video ${prevIndex + 1}"
+        }
+        return null
+    }
     fun getAudioTrackMenuItems(context: Context): List<MenuItem> {
         return audioOptions.mapIndexed { index, option ->
             val name = TrackLogic.buildTrackLabel(option, context)

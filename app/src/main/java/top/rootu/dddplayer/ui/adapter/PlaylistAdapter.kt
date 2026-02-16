@@ -24,15 +24,21 @@ class PlaylistAdapter(
 
     private var currentPlayingIndex: Int = -1
 
+    // Поле для хранения настройки
+    private var showIndexBadge: Boolean = true
+
     fun setCurrentIndex(index: Int) {
         val oldIndex = currentPlayingIndex
         currentPlayingIndex = index
+        if (oldIndex in 0 until itemCount) notifyItemChanged(oldIndex)
+        if (currentPlayingIndex in 0 until itemCount) notifyItemChanged(currentPlayingIndex)
+    }
 
-        if (oldIndex in 0 until itemCount) {
-            notifyItemChanged(oldIndex)
-        }
-        if (currentPlayingIndex in 0 until itemCount) {
-            notifyItemChanged(currentPlayingIndex)
+    // Метод для обновления настройки извне
+    fun setShowIndexBadge(show: Boolean) {
+        if (showIndexBadge != show) {
+            showIndexBadge = show
+            notifyDataSetChanged() // Перерисовываем список, чтобы скрыть/показать цифры
         }
     }
 
@@ -90,7 +96,7 @@ class PlaylistAdapter(
 
                 // Постер делаем невидимым, но оставляем в layout (INVISIBLE)
                 poster.setImageDrawable(null)
-                poster.isVisible = true // Пусть будет виден, но пуст
+                poster.isVisible = true
 
                 poster.load(item.posterUri) {
                     crossfade(true)
@@ -100,7 +106,7 @@ class PlaylistAdapter(
                             // Картинка есть -> скрываем заглушку, показываем бейдж
                             placeholder.isVisible = false
                             numberBadge.text = numberText
-                            numberBadge.isVisible = true
+                            numberBadge.isVisible = showIndexBadge
                         },
                         onError = { _, _ ->
                             // Ошибка -> убеждаемся, что заглушка видна
@@ -118,13 +124,6 @@ class PlaylistAdapter(
                 poster.setImageDrawable(null)
             }
 
-            // 4. Прогресс
-            // В идеале прогресс нужно брать из БД.
-            // Пока что, если это текущий трек, можно было бы обновлять,
-            // но в списке обычно показывают сохраненный прогресс.
-            // Если у вас есть сохраненный прогресс в MediaItem, используйте его.
-            // Для примера ставим 0 или сохраненный startPositionMs (если это resume)
-            // Чтобы сделать красиво, нужно прокидывать прогресс из БД в MediaItem при загрузке.
             progress.progress = 0
             progress.isVisible = false
         }

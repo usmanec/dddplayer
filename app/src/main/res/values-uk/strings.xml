@@ -128,6 +128,23 @@
     <string name="pref_up_action_osd">Панель налаштувань</string>
     <string name="pref_up_action_menu">Меню налаштувань (Бічне)</string>
     <string name="pref_up_action_none">Нічого</string>
+    <string name="pref_remember_zoom">Запам\'ятовувати масштаб</string>
+    <string name="pref_remember_zoom_desc">Застосовувати останній вибраний режим масштабування до всіх відео</string>
+    <string name="pref_show_playlist_index">Номер у плейлисті</string>
+    <string name="pref_show_playlist_index_desc">Відображати порядковий номер поверх мініатюри відео</string>
+    <string name="pref_swipe_horizontal">Горизонтальний свайп</string>
+    <string name="pref_swipe_horizontal_desc">Дія при свайпі вліво/вправо</string>
+    <string name="swipe_action_none">Нічого</string>
+    <string name="swipe_action_seek">Перемотування</string>
+    <string name="swipe_action_playlist">Вихід або Попер./Наст.</string>
+    <string name="next_video">Наступне: %s</string>
+    <string name="prev_video">Попереднє: %s</string>
+    <string name="release_to_switch">Відпустіть для перемикання</string>
+    <string name="action_exit">Вихід</string>
+    <string name="swipe_pull_next">Тягніть для перемикання</string>
+    <string name="swipe_pull_exit">Тягніть для виходу</string>
+    <string name="swipe_release_next">Відпустіть для перемикання</string>
+    <string name="swipe_release_exit">Відпустіть для виходу</string>
 
     <!-- Оновлення -->
     <string name="update_btn_check">Перевірити оновлення</string>

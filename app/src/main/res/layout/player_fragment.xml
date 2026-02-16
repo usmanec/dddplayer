@@ -66,6 +66,201 @@
             android:background="@color/transparent" />
     </LinearLayout>
 
+    <!-- === ЭЛЕМЕНТЫ ДЛЯ ЖЕСТОВ === -->
+
+    <!-- Индикатор Громкости/Яркости (Центр) -->
+    <LinearLayout
+        android:id="@+id/gesture_indicator_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="@drawable/bg_player_panel"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <ImageView
+            android:id="@+id/gesture_icon"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/ic_volume_up"
+            app:tint="@color/tv_white"
+            android:contentDescription="@null"/>
+
+        <ProgressBar
+            android:id="@+id/gesture_progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="120dp"
+            android:layout_height="4dp"
+            android:layout_marginTop="8dp"
+            android:max="100"
+            android:progress="50"
+            android:progressDrawable="@drawable/progress_playlist_item"/>
+
+        <TextView
+            android:id="@+id/gesture_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="@color/tv_white"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            tools:text="50%" />
+    </LinearLayout>
+
+    <!-- Шторка ПРЕДЫДУЩЕЕ / ВЫХОД (Слева) -->
+    <FrameLayout
+        android:id="@+id/overlay_swipe_prev"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/bg_panel_glass"
+        android:visibility="invisible"
+        tools:visibility="visible">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical|end"
+            android:layout_marginEnd="48dp"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
+
+            <ImageView
+                android:id="@+id/icon_swipe_prev"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:src="@drawable/ic_skip_previous"
+                app:tint="@color/tv_white" />
+
+            <TextView
+                android:id="@+id/text_swipe_prev_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:maxWidth="300dp"
+                android:gravity="center"
+                android:text="Previous Video Title"
+                android:textColor="@color/tv_white"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/text_swipe_prev_hint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/swipe_pull_next"
+                android:textColor="@color/text_secondary"
+                android:textSize="14sp" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- Шторка СЛЕДУЮЩЕЕ / ВЫХОД (Справа) -->
+    <FrameLayout
+        android:id="@+id/overlay_swipe_next"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/bg_panel_glass"
+        android:visibility="invisible"
+        tools:visibility="visible">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical|start"
+            android:layout_marginStart="48dp"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
+
+            <ImageView
+                android:id="@+id/icon_swipe_next"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:src="@drawable/ic_skip_next"
+                app:tint="@color/tv_white" />
+
+            <TextView
+                android:id="@+id/text_swipe_next_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:maxWidth="300dp"
+                android:gravity="center"
+                android:text="Next Video Title"
+                android:textColor="@color/tv_white"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/text_swipe_next_hint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/swipe_pull_next"
+                android:textColor="@color/text_secondary"
+                android:textSize="14sp" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- Индикаторы перемотки (Двойной тап) -->
+    <!-- Левый (Перемотка назад) -->
+    <LinearLayout
+        android:id="@+id/rewind_overlay"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_gravity="start|center_vertical"
+        android:background="@color/bg_panel_glass"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingHorizontal="40dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_fast_rewind"
+            app:tint="@color/tv_white"
+            android:contentDescription="@null"/>
+        <TextView
+            android:id="@+id/rewind_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="-15s"
+            android:textColor="@color/tv_white"
+            android:textStyle="bold"
+            android:textSize="16sp"/>
+    </LinearLayout>
+
+    <!-- Правый (Перемотка вперед) -->
+    <LinearLayout
+        android:id="@+id/ffwd_overlay"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_gravity="end|center_vertical"
+        android:background="@color/bg_panel_glass"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingHorizontal="40dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_fast_forward"
+            app:tint="@color/tv_white"
+            android:contentDescription="@null"/>
+        <TextView
+            android:id="@+id/ffwd_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="+15s"
+            android:textColor="@color/tv_white"
+            android:textStyle="bold"
+            android:textSize="16sp"/>
+    </LinearLayout>
+
     <!-- Экран ошибки -->
     <LinearLayout
         android:id="@+id/error_screen"
@@ -112,6 +307,10 @@
             android:fontFamily="monospace"
 
             android:maxWidth="600dp"
+
+            android:maxLines="8"
+            android:ellipsize="end"
+
             tools:ignore="HardcodedText" />
 
         <TextView

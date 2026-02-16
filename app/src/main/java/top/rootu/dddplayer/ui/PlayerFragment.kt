@@ -1,14 +1,20 @@
 package top.rootu.dddplayer.ui
 
+import android.annotation.SuppressLint
 import android.app.Dialog
+import android.content.Context
 import android.content.Intent
-import android.graphics.Color
+import android.media.AudioManager
 import android.opengl.GLSurfaceView
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.ContextThemeWrapper
+import android.view.GestureDetector
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
@@ -39,11 +45,13 @@ import top.rootu.dddplayer.renderer.StereoRenderer
 import top.rootu.dddplayer.ui.adapter.SideMenuAdapter
 import top.rootu.dddplayer.ui.controller.PlayerInputHandler
 import top.rootu.dddplayer.ui.controller.PlayerTimerController
+import top.rootu.dddplayer.ui.controller.PlayerTouchHandler
 import top.rootu.dddplayer.ui.controller.PlayerUiController
 import top.rootu.dddplayer.viewmodel.PlayerViewModel
 import top.rootu.dddplayer.viewmodel.SettingType
 import top.rootu.dddplayer.viewmodel.SettingsViewModel
 import top.rootu.dddplayer.viewmodel.UpdateViewModel
+import kotlin.math.abs
 
 class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener {
 
@@ -61,9 +69,43 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
     private lateinit var inputHandler: PlayerInputHandler
     private lateinit var timerController: PlayerTimerController
 
+    // Жесты
+    private lateinit var gestureDetector: GestureDetector
+    private lateinit var touchHandler: PlayerTouchHandler
+
+    // Накопление перемотки по двойному тапу
+    private var doubleTapSeekSeconds = 0
+    private val doubleTapResetHandler = Handler(Looper.getMainLooper())
+    private val performDoubleTapSeekRunnable = Runnable {
+        if (doubleTapSeekSeconds != 0) {
+            val current = viewModel.currentPosition.value ?: 0L
+            val target = current + (doubleTapSeekSeconds * 1000L)
+            viewModel.seekTo(target.coerceAtLeast(0))
+            doubleTapSeekSeconds = 0
+        }
+    }
+
+    // Накопитель для плавного изменения громкости
+    private var volumeAccumulator = 0f
+
+    // Переменные для горизонтального свайпа
+    private var swipeAction = 0 // 0=None, 1=Seek, 2=Playlist
+    private var isSwipeSeeking = false
+    private var swipeSeekStartPosition = 0L
+    private var swipeSeekCurrentPosition = 0L
+
+    // Состояние для плейлиста
+    private var swipePlaylistAccumulator = 0f
+    private var isPlaylistSwipeActive = false
+
+    // Храним, что именно мы сейчас тянем (для finish)
+    private var currentSwipeTargetIsNext: Boolean? = null
+    private var currentSwipeIsExit: Boolean = false
+
     // Храним ссылку на GL Surface
     private var glSurface: Surface? = null
 
+    @SuppressLint("ClickableViewAccessibility")
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         val view = inflater.inflate(R.layout.player_fragment, container, false)
 
@@ -94,6 +136,58 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
             onResetHideTimer = { timerController.resetControlsTimer() },
             onShowPlaylist = { showPlaylist() }
         )
+
+        swipeAction = settingsRepo.getHorizontalSwipeAction()
+
+        // === ИНИЦИАЛИЗАЦИЯ ЖЕСТОВ ===
+        val displayMetrics = resources.displayMetrics
+
+        touchHandler = PlayerTouchHandler(
+            context = requireContext(),
+            screenWidth = displayMetrics.widthPixels,
+            onSingleTap = {
+                // Логика одиночного тапа (показать/скрыть контролы)
+                if (settingsViewModel.isSettingsPanelVisible.value == true) {
+                    settingsViewModel.closePanel()
+                    viewModel.saveCurrentSettings()
+                } else if (ui.controlsView.isVisible) {
+                    ui.hideControls()
+                } else {
+                    ui.showControls()
+                    timerController.resetControlsTimer()
+                }
+            },
+            onDoubleTapSeek = { forward ->
+                handleDoubleTapSeek(forward)
+            },
+            onVolumeChange = { deltaPercent ->
+                changeVolume(deltaPercent)
+            },
+            onBrightnessChange = { deltaPercent ->
+                changeBrightness(deltaPercent)
+            },
+            onHorizontalScroll = { deltaX ->
+                handleHorizontalSwipe(deltaX, displayMetrics.widthPixels)
+            },
+            onGestureEnd = {
+                ui.hideGestureIndicatorDelayed()
+                volumeAccumulator = 0f
+
+                // Завершение горизонтального свайпа
+                finishHorizontalSwipe()
+            }
+        )
+
+        gestureDetector = GestureDetector(requireContext(), touchHandler)
+
+        // Вешаем слушатель на корневой контейнер
+        view.findViewById<View>(R.id.root_container).setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_UP) {
+                touchHandler.onActionUp()
+            }
+            gestureDetector.onTouchEvent(event)
+            true // Поглощаем событие
+        }
 
         // Настройка GL Surface
         ui.glSurfaceView.setEGLContextClientVersion(2)
@@ -140,6 +234,179 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         return handled
     }
 
+    // === ЛОГИКА ЖЕСТОВ ===
+
+    private fun handleDoubleTapSeek(forward: Boolean) {
+        doubleTapResetHandler.removeCallbacks(performDoubleTapSeekRunnable)
+
+        // Если направление сменилось, сбрасываем накопление
+        if ((forward && doubleTapSeekSeconds < 0) || (!forward && doubleTapSeekSeconds > 0)) {
+            doubleTapSeekSeconds = 0
+        }
+
+        val step = 15
+        if (forward) doubleTapSeekSeconds += step else doubleTapSeekSeconds -= step
+
+        ui.showDoubleTapOverlay(doubleTapSeekSeconds > 0, abs(doubleTapSeekSeconds))
+
+        // Выполняем перемотку через небольшую задержку, чтобы пользователь мог тапнуть еще раз
+        doubleTapResetHandler.postDelayed(performDoubleTapSeekRunnable, 600)
+    }
+
+    private fun changeVolume(deltaPercent: Float) {
+        val audioManager = requireContext().getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+
+        val stepsDelta = deltaPercent * maxVolume * 1.2f
+
+        volumeAccumulator += stepsDelta
+
+        // Применяем изменения к системе, если накопился целый шаг
+        if (abs(volumeAccumulator) >= 1.0f) {
+            val stepsToApply = volumeAccumulator.toInt()
+            volumeAccumulator -= stepsToApply // Оставляем дробную часть для плавности
+
+            val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+            val newSystemVolume = (currentVolume + stepsToApply).coerceIn(0, maxVolume)
+
+            if (newSystemVolume != currentVolume) {
+                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newSystemVolume, 0)
+            }
+        }
+
+        // Обновляем UI всегда, используя (Текущая громкость + Остаток аккумулятора)
+        val finalSystemVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+        val visualVolume = (finalSystemVolume + volumeAccumulator).coerceIn(0f, maxVolume.toFloat())
+        val percent = (visualVolume * 100) / maxVolume
+        ui.showVolumeIndicator(percent.toInt())
+    }
+
+    private fun changeBrightness(deltaPercent: Float) {
+        val window = requireActivity().window
+        val lp = window.attributes
+
+        // Если яркость еще не задана вручную, берем системную (примерно 0.5 как fallback)
+        var currentBrightness = if (lp.screenBrightness < 0) 0.5f else lp.screenBrightness
+
+        // deltaPercent приходит как доля экрана (например 0.05)
+        currentBrightness = (currentBrightness + deltaPercent).coerceIn(0.01f, 1.0f)
+
+        lp.screenBrightness = currentBrightness
+        window.attributes = lp
+
+        ui.showBrightnessIndicator((currentBrightness * 100).toInt())
+    }
+
+    private fun handleHorizontalSwipe(deltaX: Float, screenWidth: Int) {
+        if (swipeAction == 0) return // None
+
+        if (swipeAction == 1) {
+            // === SEEK MODE (Перемотка) ===
+            val duration = viewModel.duration.value ?: 0L
+            if (duration <= 0) return
+
+            if (!isSwipeSeeking) {
+                isSwipeSeeking = true
+                swipeSeekStartPosition = viewModel.currentPosition.value ?: 0L
+                swipeSeekCurrentPosition = swipeSeekStartPosition
+                timerController.stopControlsTimer()
+            }
+
+            // Чувствительность: Полный экран = 300 секунд
+            val seekSensitivity = 300_000L
+            val timeDelta = ((deltaX / screenWidth) * seekSensitivity).toLong()
+
+            swipeSeekCurrentPosition = (swipeSeekCurrentPosition + timeDelta).coerceIn(0, duration)
+
+            // Используем центральный оверлей (тот же, что и для кнопок)
+            val totalDelta = swipeSeekCurrentPosition - (viewModel.player?.currentPosition ?: 0L)
+            ui.showSeekOverlay(totalDelta, swipeSeekCurrentPosition)
+
+            // Визуально двигаем сикбар
+            ui.seekBar.progress = swipeSeekCurrentPosition.toInt()
+            ui.updateTimeLabels(swipeSeekCurrentPosition, duration)
+        }
+        else if (swipeAction == 2) {
+            // === PLAYLIST MODE ===
+            swipePlaylistAccumulator += deltaX
+            isPlaylistSwipeActive = true
+
+            if (swipePlaylistAccumulator < 0) {
+                // Тянем ВЛЕВО -> NEXT
+                currentSwipeTargetIsNext = true
+                val nextTitle = viewModel.getNextTrackTitle()
+
+                if (nextTitle != null) {
+                    currentSwipeIsExit = false
+                    // Передаем название следующего видео
+                    ui.updatePlaylistSwipe(swipePlaylistAccumulator, screenWidth, nextTitle, false)
+                } else {
+                    currentSwipeIsExit = true
+                    ui.updatePlaylistSwipe(swipePlaylistAccumulator, screenWidth, getString(R.string.action_exit), true)
+                }
+            } else {
+                // Тянем ВПРАВО -> PREV
+                currentSwipeTargetIsNext = false
+                val prevTitle = viewModel.getPrevTrackTitle()
+
+                if (prevTitle != null) {
+                    currentSwipeIsExit = false
+                    // Передаем название предыдущего видео
+                    ui.updatePlaylistSwipe(swipePlaylistAccumulator, screenWidth, prevTitle, false)
+                } else {
+                    currentSwipeIsExit = true
+                    ui.updatePlaylistSwipe(swipePlaylistAccumulator, screenWidth, getString(R.string.action_exit), true)
+                }
+            }
+        }
+    }
+
+    private fun finishHorizontalSwipe() {
+        val screenWidth = resources.displayMetrics.widthPixels
+
+        // 1. Завершение перемотки
+        if (swipeAction == 1 && isSwipeSeeking) {
+            viewModel.seekTo(swipeSeekCurrentPosition)
+            ui.hideSeekOverlay()
+            isSwipeSeeking = false
+            timerController.resetControlsTimer()
+
+            // Блокируем обновление UI от плеера на полсекунды, чтобы не дергалось
+            viewModel.isUserInteracting = true
+            Handler(Looper.getMainLooper()).postDelayed({
+                viewModel.isUserInteracting = false
+            }, 500)
+        }
+
+        // 2. Завершение свайпа плейлиста
+        if (swipeAction == 2 && isPlaylistSwipeActive) {
+            val threshold = screenWidth / 2 // Половина экрана
+            val draggedDistance = abs(swipePlaylistAccumulator)
+
+            if (draggedDistance > threshold) {
+                // CONFIRM
+                val isNext = currentSwipeTargetIsNext ?: true // fallback
+
+                ui.animatePlaylistSwipeConfirm(isNext) {
+                    if (currentSwipeIsExit) {
+                        // Логика выхода
+                        requireActivity().finish()
+                    } else {
+                        // Переключение трека
+                        if (isNext) viewModel.nextTrack() else viewModel.prevTrack()
+                    }
+                }
+            } else {
+                // CANCEL
+                ui.animatePlaylistSwipeCancel(screenWidth)
+            }
+
+            // Сброс
+            swipePlaylistAccumulator = 0f
+            isPlaylistSwipeActive = false
+            currentSwipeTargetIsNext = null
+        }
+    }
     private fun setupControls() {
         // Навигация в настройках
         ui.btnSettingsPrev.setOnClickListener {
@@ -163,13 +430,10 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
                 settingsViewModel.openPanel(viewModel.availableSettings.value ?: emptyList())
             }
         }
-        view?.findViewById<View>(R.id.root_container)?.setOnClickListener {
-            if (settingsViewModel.isSettingsPanelVisible.value == true) {
-                settingsViewModel.closePanel()
-                viewModel.saveCurrentSettings()
-                it.requestFocus()
-            } else if (ui.controlsView.isVisible) ui.hideControls() else ui.showControls()
-        }
+
+        // ВАЖНО: Убрали onClickListener для root_container, так как теперь работает onTouchListener
+        // view?.findViewById<View>(R.id.root_container)?.setOnClickListener { ... }
+
         ui.controlsView.setOnClickListener { timerController.resetControlsTimer() }
 
         // Кнопки плеера
@@ -581,7 +845,12 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
                 val index = p.currentMediaItemIndex
                 val size = p.mediaItemCount
 
-                ui.loadPoster(posterUri, index, size)
+                // Получаем настройку
+                val settingsRepo = SettingsRepository(requireContext().applicationContext)
+                val showIndex = settingsRepo.isShowPlaylistIndexEnabled()
+
+                // Передаем в UI
+                ui.loadPoster(posterUri, index, size, showIndex)
             }
         }
 
@@ -760,12 +1029,12 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
             }
             SettingType.CUSTOM_HUE_L -> {
                 val offset = viewModel.anaglyphDelegate.customHueOffsetL.value ?: 0
-                val color = viewModel.anaglyphDelegate.calculatedColorL.value ?: Color.WHITE
+                val color = viewModel.anaglyphDelegate.calculatedColorL.value ?: android.graphics.Color.WHITE
                 getString(R.string.custom_hue_format, offset, String.format("#%06X", (0xFFFFFF and color)))
             }
             SettingType.CUSTOM_HUE_R -> {
                 val offset = viewModel.anaglyphDelegate.customHueOffsetR.value ?: 0
-                val color = viewModel.anaglyphDelegate.calculatedColorR.value ?: Color.WHITE
+                val color = viewModel.anaglyphDelegate.calculatedColorR.value ?: android.graphics.Color.WHITE
                 getString(R.string.custom_hue_format, offset, String.format("#%06X", (0xFFFFFF and color)))
             }
             SettingType.CUSTOM_LEAK_L -> getString(R.string.custom_leak_format, (viewModel.anaglyphDelegate.customLeakL.value!! * 100).toInt())
@@ -787,9 +1056,9 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         }
 
         val color = when(type) {
-            SettingType.CUSTOM_HUE_L -> viewModel.anaglyphDelegate.calculatedColorL.value ?: Color.WHITE
-            SettingType.CUSTOM_HUE_R -> viewModel.anaglyphDelegate.calculatedColorR.value ?: Color.WHITE
-            else -> Color.WHITE
+            SettingType.CUSTOM_HUE_L -> viewModel.anaglyphDelegate.calculatedColorL.value ?: android.graphics.Color.WHITE
+            SettingType.CUSTOM_HUE_R -> viewModel.anaglyphDelegate.calculatedColorR.value ?: android.graphics.Color.WHITE
+            else -> android.graphics.Color.WHITE
         }
 
         ui.updateSettingsText(type, valueStr, viewModel.anaglyphDelegate.isMatrixValid.value ?: true, color)
@@ -818,9 +1087,13 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         timerController.stopControlsTimer()
         ui.hideControls()
 
+        val settingsRepo = SettingsRepository(requireContext().applicationContext)
+        val showIndex = settingsRepo.isShowPlaylistIndexEnabled()
+
         ui.showPlaylistDialog(
             items = playlist,
             currentIndex = viewModel.player?.currentMediaItemIndex ?: 0,
+            showIndexBadge = showIndex,
             onItemSelected = { index ->
                 viewModel.playPlaylistItem(index)
             },
@@ -879,7 +1152,9 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
 
     override fun onResume() {
         super.onResume()
-
+        // Обновляем настройку свайпа при возврате на экран
+        val settingsRepo = SettingsRepository(requireContext().applicationContext)
+        swipeAction = settingsRepo.getHorizontalSwipeAction()
         // Проверяем, нужно ли перезапустить плеер из-за смены настроек
         viewModel.checkSettingsAndRestart()
         viewModel.player?.playWhenReady = true
@@ -901,6 +1176,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         // Останавливаем таймеры
         timerController.cleanup()
         inputHandler.cleanup()
+        doubleTapResetHandler.removeCallbacksAndMessages(null)
 
         // Освобождаем GL ресурсы
         stereoRenderer?.release()

@@ -149,6 +149,23 @@
     <string name="pref_up_action_osd">Панель настройки</string>
     <string name="pref_up_action_menu">Меню настроек (Боковое)</string>
     <string name="pref_up_action_none">Ничего</string>
+    <string name="pref_remember_zoom">Запоминать масштабирование</string>
+    <string name="pref_remember_zoom_desc">Применять последний выбранный режим масштабирования ко всем видео</string>
+    <string name="pref_show_playlist_index">Номер в плейлисте</string>
+    <string name="pref_show_playlist_index_desc">Отображать порядковый номер поверх миниатюры видео</string>
+    <string name="pref_swipe_horizontal">Горизонтальный свайп</string>
+    <string name="pref_swipe_horizontal_desc">Действие при свайпе влево/вправо</string>
+    <string name="swipe_action_none">Ничего</string>
+    <string name="swipe_action_seek">Перемотка</string>
+    <string name="swipe_action_playlist">Выход или Пред/След</string>
+    <string name="next_video">След: %s</string>
+    <string name="prev_video">Пред: %s</string>
+    <string name="release_to_switch">Отпустите для переключения</string>
+    <string name="action_exit">Выход</string>
+    <string name="swipe_pull_next">Тяните для переключения</string>
+    <string name="swipe_pull_exit">Тяните для выхода</string>
+    <string name="swipe_release_next">Отпустите для переключения</string>
+    <string name="swipe_release_exit">Отпустите для выхода</string>
 
     <!-- Global Settings - Audio Mix Dialog -->
     <string name="mix_preset_standard">Стандарт - RFC 7845 (Section 5.1.1.5)</string>

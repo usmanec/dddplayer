@@ -287,6 +287,31 @@
                     android:focusable="false" />
             </LinearLayout>
 
+            <!-- Remember Zoom -->
+            <LinearLayout
+                android:id="@+id/item_remember_zoom"
+                style="@style/SettingsItemContainer">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:duplicateParentState="true"
+                    android:orientation="vertical">
+                    <TextView
+                        style="@style/SettingsItemTitle"
+                        android:text="@string/pref_remember_zoom" />
+                    <TextView
+                        style="@style/SettingsItemDesc"
+                        android:text="@string/pref_remember_zoom_desc" />
+                </LinearLayout>
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switch_remember_zoom"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:focusable="false" />
+            </LinearLayout>
+
             <!-- Boost -->
             <LinearLayout
                 android:id="@+id/item_boost"
@@ -445,6 +470,31 @@
                 android:layout_marginTop="24dp"
                 android:text="@string/pref_sec_app" />
 
+            <!-- Show Playlist Index -->
+            <LinearLayout
+                android:id="@+id/item_show_index"
+                style="@style/SettingsItemContainer">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:duplicateParentState="true"
+                    android:orientation="vertical">
+                    <TextView
+                        style="@style/SettingsItemTitle"
+                        android:text="@string/pref_show_playlist_index" />
+                    <TextView
+                        style="@style/SettingsItemDesc"
+                        android:text="@string/pref_show_playlist_index_desc" />
+                </LinearLayout>
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switch_show_index"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:focusable="false" />
+            </LinearLayout>
+
             <!-- Кнопка Вверх -->
             <LinearLayout
                 android:id="@+id/item_up_action"
@@ -470,6 +520,34 @@
                     android:id="@+id/text_up_action_value"
                     style="@style/SettingsItemValue"
                     tools:text="@string/pref_up_action_osd" />
+            </LinearLayout>
+
+            <!-- Horizontal Swipe -->
+            <LinearLayout
+                android:id="@+id/item_swipe_action"
+                style="@style/SettingsItemContainer">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:duplicateParentState="true"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/SettingsItemTitle"
+                        android:text="@string/pref_swipe_horizontal" />
+
+                    <TextView
+                        style="@style/SettingsItemDesc"
+                        android:text="@string/pref_swipe_horizontal_desc"
+                        tools:ignore="TooManyViews" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/text_swipe_action_value"
+                    style="@style/SettingsItemValue"
+                    tools:text="@string/swipe_action_none" />
             </LinearLayout>
 
             <!-- Обновление -->
