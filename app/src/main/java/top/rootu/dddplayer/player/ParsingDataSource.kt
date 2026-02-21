@@ -10,6 +10,7 @@ import androidx.media3.datasource.TransferListener
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import top.rootu.dddplayer.logic.UnifiedMetadataReader
 import java.io.IOException
@@ -35,7 +36,7 @@ class ParsingDataSource(
 ) : DataSource {
 
     private var teeDataSource: TeeDataSource? = null
-    private var parsingJob: Job? = null
+    private var parsingScope: CoroutineScope? = null
 
     private val pipeSink = object : DataSink {
         private var pipedOut: PipedOutputStream? = null
@@ -46,32 +47,40 @@ class ParsingDataSource(
         @Volatile private var isParsingActive = false
 
         override fun open(dataSpec: DataSpec) {
-            if (dataSpec.position == 0L) {
+            // Запускаем парсинг только если это начало файла и метаданные еще не были распарсены
+            if (dataSpec.position == 0L && !isMetadataParsed()) {
+                closePipes() // Закрываем старые потоки на всякий случай
                 totalBytesWritten = 0
                 isParsingActive = true
-                pipedOut = PipedOutputStream()
-                // Выделяем всего 64 КБ памяти
-                pipedIn = PipedInputStream(pipedOut!!, PIPE_BUFFER_SIZE)
 
-                parsingJob = CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    pipedOut = PipedOutputStream()
+                    pipedIn = PipedInputStream(pipedOut!!, PIPE_BUFFER_SIZE)
+                } catch (e: IOException) {
+                    Log.e(TAG, "Failed to create pipes", e)
+                    isParsingActive = false
+                    return
+                }
+
+                // Создаем новый scope для каждой задачи парсинга
+                parsingScope = CoroutineScope(Dispatchers.IO + Job())
+                parsingScope?.launch {
                     try {
                         Log.d(TAG, "Start parsing metadata...")
-                        // Парсер будет читать из pipedIn.
-                        // Когда он делает skip(), данные "вымываются" из буфера 64КБ,
-                        // освобождая место для новых данных из write().
                         val metadata = UnifiedMetadataReader.parse(pipedIn!!)
                         Log.d(TAG, "Parsing finished. Found ${metadata.size} tracks.")
 
                         if (metadata.isNotEmpty()) {
                             metadata.forEach {
-                                Log.d(TAG, "Track found: ID=${it.trackId}, Name=${it.name}, Lang=${it.language}")
+                                Log.d(TAG, " - Track: ID=${it.trackId}, Name=${it.name}, Lang=${it.language}")
                             }
                             onMetadataParsed(metadata.associateBy { it.trackId })
                         }
                     } catch (e: Exception) {
+                        // Pipe closed, Interrupted, etc. - это нормальные сценарии завершения
                         Log.w(TAG, "Metadata parsing stopped: ${e.message}")
                     } finally {
-                        // Парсер закончил работу (успешно или с ошибкой)
+                        // Гарантированно закрываем потоки в конце
                         isParsingActive = false
                         closePipes()
                     }
@@ -80,14 +89,11 @@ class ParsingDataSource(
         }
 
         override fun write(buffer: ByteArray, offset: Int, length: Int) {
-            // Если парсер отключился или мы превысили разумный лимит поиска (50МБ)
-            if (!isParsingActive || totalBytesWritten >= MAX_BYTES_TO_PARSE) {
-                if (isParsingActive) {
-                    // Если мы превысили лимит, но парсер еще ждет, принудительно закрываем
-                    isParsingActive = false
-                    closePipes()
-                    parsingJob?.cancel()
-                }
+            if (!isParsingActive) return
+
+            if (totalBytesWritten >= MAX_BYTES_TO_PARSE) {
+                Log.w(TAG, "Max parse limit reached. Stopping parser.")
+                stopParsing()
                 return
             }
 
@@ -99,15 +105,21 @@ class ParsingDataSource(
                 pipedOut?.write(buffer, offset, length)
                 totalBytesWritten += length
             } catch (e: IOException) {
-                // "Pipe closed" или "Pipe broken".
-                // Это означает, что парсер закрыл поток (нашел данные и вышел).
-                // Это нормальная ситуация, просто перестаем писать.
-                isParsingActive = false
+                // "Pipe closed" или "Pipe broken" - парсер закончил работу.
+                stopParsing()
             }
         }
 
         override fun close() {
-            closePipes()
+            stopParsing()
+        }
+
+        private fun stopParsing() {
+            if (isParsingActive) {
+                isParsingActive = false
+                parsingScope?.cancel() // Отменяем корутину
+                closePipes()
+            }
         }
 
         private fun closePipes() {
@@ -119,11 +131,12 @@ class ParsingDataSource(
     }
 
     override fun open(dataSpec: DataSpec): Long {
+        // Если это начало файла и метаданные еще не распарсены, используем TeeDataSource
         if (dataSpec.position == 0L && !isMetadataParsed()) {
-            parsingJob?.cancel()
             teeDataSource = TeeDataSource(upstream, pipeSink)
             return teeDataSource!!.open(dataSpec)
         }
+        // В остальных случаях (перемотка, следующий трек с уже известными метаданными) используем напрямую
         teeDataSource = null
         return upstream.open(dataSpec)
     }
@@ -135,9 +148,13 @@ class ParsingDataSource(
     override fun getUri(): Uri? = upstream.uri
 
     override fun close() {
-        teeDataSource?.close() ?: upstream.close()
-        parsingJob?.cancel()
-        pipeSink.close()
+        try {
+            teeDataSource?.close() ?: upstream.close()
+        } finally {
+            // Гарантированно отменяем корутину и закрываем потоки при закрытии DataSource
+            pipeSink.close()
+            teeDataSource = null
+        }
     }
 
     override fun addTransferListener(transferListener: TransferListener) {
