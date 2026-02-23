@@ -24,8 +24,8 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     private val _isTunnelingEnabled = MutableLiveData(repository.isTunnelingEnabled())
     val isTunnelingEnabled: LiveData<Boolean> = _isTunnelingEnabled
 
-    private val _isMapDv7ToHevcEnabled = MutableLiveData(repository.isMapDv7ToHevcEnabled())
-    val isMapDv7ToHevcEnabled: LiveData<Boolean> = _isMapDv7ToHevcEnabled
+    private val _isMapDvToHevcEnabled = MutableLiveData(repository.isMapDvToHevcEnabled())
+    val isMapDvToHevcEnabled: LiveData<Boolean> = _isMapDvToHevcEnabled
 
     private val _isFrameRateMatchingEnabled = MutableLiveData(repository.isFrameRateMatchingEnabled())
     val isFrameRateMatchingEnabled: LiveData<Boolean> = _isFrameRateMatchingEnabled
@@ -113,9 +113,9 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
         _isTunnelingEnabled.value = enabled
     }
 
-    fun toggleMapDv7ToHevc(enabled: Boolean) {
-        repository.setMapDv7ToHevcEnabled(enabled)
-        _isMapDv7ToHevcEnabled.value = enabled
+    fun toggleMapDvToHevc(enabled: Boolean) {
+        repository.setMapDvToHevcEnabled(enabled)
+        _isMapDvToHevcEnabled.value = enabled
     }
 
     fun toggleFrameRateMatching(enabled: Boolean) {

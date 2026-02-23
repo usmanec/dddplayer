@@ -3,6 +3,7 @@ package top.rootu.dddplayer.player
 import android.content.Context
 import android.media.audiofx.LoudnessEnhancer
 import android.os.Handler
+import android.util.Log
 import android.view.accessibility.CaptioningManager
 import androidx.core.os.LocaleListCompat
 import androidx.media3.common.AudioAttributes
@@ -23,6 +24,7 @@ import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.AudioTrackAudioOutputProvider
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
+import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
@@ -115,6 +117,34 @@ class PlayerManager(
             releasePlayer(saveState = true)
         }
 
+        // === Кастомный MediaCodecSelector для Dolby Vision Fallback ===
+        val mediaCodecSelector = if (settingsRepo.isMapDvToHevcEnabled()) {
+            MediaCodecSelector { mimeType, requiresSecureDecoder, requiresTunnelingDecoder ->
+                var finalMimeType = mimeType
+
+                // Если плеер запрашивает декодер для Dolby Vision...
+                if (MimeTypes.VIDEO_DOLBY_VISION == mimeType) {
+                    // ...мы "обманываем" его и говорим системе искать декодер для HEVC.
+                    Log.i("PlayerManager", "DV Fallback: Intercepted DV request, substituting with HEVC.")
+                    finalMimeType = MimeTypes.VIDEO_H265
+                }
+
+                // Запрашиваем у системы декодеры для (возможно) подмененного MIME-типа.
+                try {
+                    MediaCodecUtil.getDecoderInfos(
+                        finalMimeType,
+                        requiresSecureDecoder,
+                        requiresTunnelingDecoder
+                    )
+                } catch (e: MediaCodecUtil.DecoderQueryException) {
+                    Log.e("PlayerManager", "Failed to query decoders for $finalMimeType", e)
+                    emptyList()
+                }
+            }
+        } else {
+            MediaCodecSelector.DEFAULT
+        }
+
         // 1. TrackSelector
         val trackSelector = DefaultTrackSelector(appContext)
         val parametersBuilder = trackSelector.buildUponParameters()
@@ -161,6 +191,10 @@ class PlayerManager(
             .setConstantBitrateSeekingEnabled(true)
 
         val renderersFactory = object : DefaultRenderersFactory(appContext) {
+            init {
+                setMediaCodecSelector(mediaCodecSelector)
+            }
+
             override fun buildAudioRenderers(
                 context: Context,
                 extensionRendererMode: Int,

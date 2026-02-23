@@ -111,10 +111,10 @@
     <string name="pref_downmix_middle">侧置 (7.1)</string>
     <string name="pref_downmix_lfe">低音炮 (LFE)</string>
     <string name="pref_tunneling">隧道播放</string>
-    <string name="pref_tunneling_summary">隧道模式为 4K/HDR 内容提供更好的支持，但可能不适用于所有设备</string>
-    <string name="pref_map_dv7">杜比视界 Profile 7 回退</string>
-    <string name="pref_map_dv7_on">在 HDR 显示器上播放杜比视界 profile 7 内容（HEVC）</string>
-    <string name="pref_map_dv7_off">按原样播放包含杜比视界的 UHD 蓝光内容</string>
+    <string name="pref_tunneling_summary">隧道播放允许视频绕过应用程序和 Android 框架代码，从而可以更有效地渲染 4K/HDR 内容，但可能并非在所有设备上都能使用。\n注意！！！在隧道播放模式下，视频的处理和同步由终端设备负责，因此部分播放器功能将无法使用。</string>
+    <string name="pref_map_dv">Dolby Vision 兼容性</string>
+    <string name="pref_map_dv_on">兼容模式：播放基础 HDR/HLG 层 (HEVC)。如果视频显示黑屏，此模式可能有帮助（适用于 DV Profile 7）。</string>
+    <string name="pref_map_dv_off">完整模式：使用系统 DV 解码器（适用于原生支持 Dolby Vision 的设备）。</string>
     <string name="pref_afr_sec">AFR</string>
     <string name="pref_framerate_matching">自动帧率匹配</string>
     <string name="pref_framerate_matching_on">切换显示刷新率以匹配视频帧率</string>

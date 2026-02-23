@@ -121,10 +121,10 @@
     <string name="pref_downmix_middle">Side (7.1)</string>
     <string name="pref_downmix_lfe">Subwoofer (LFE)</string>
     <string name="pref_tunneling">Tunneled Playback</string>
-    <string name="pref_tunneling_summary">Tunneling provides better support for 4K/HDR content but may not work on all devices</string>
-    <string name="pref_map_dv7">Dolby Vision Profile 7 Fallback</string>
-    <string name="pref_map_dv7_on">Play Dolby Vision profile 7 content on HDR displays (HEVC)</string>
-    <string name="pref_map_dv7_off">Play UHD Blu-ray content containing Dolby Vision as is</string>
+    <string name="pref_tunneling_summary">Tunneling allows video to bypass the app and Android framework code, which can provide more efficient rendering of 4K/HDR content, but may not work on all devices.\nWarning!!! With tunneled playback, video processing and synchronization are handled by the end device, so some player features will not work with this option.</string>
+    <string name="pref_map_dv">Dolby Vision compatibility</string>
+    <string name="pref_map_dv_on">Compatibility mode: play base HDR/HLG layer (HEVC).\nHelps if you get a black screen instead of video (relevant for DV Profile 7).</string>
+    <string name="pref_map_dv_off">Full mode: use system DV decoder\n(relevant for devices with native Dolby Vision support).</string>
     <string name="pref_afr_sec">AFR</string>
     <string name="pref_framerate_matching">Auto Frame Rate Matching</string>
     <string name="pref_framerate_matching_on">Switch display refresh rate to match video frame rate</string>

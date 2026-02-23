@@ -47,8 +47,8 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var textDecoderValue: TextView
     private lateinit var itemTunneling: LinearLayout
     private lateinit var switchTunneling: SwitchCompat
-    private lateinit var itemDv7: LinearLayout
-    private lateinit var switchDv7: SwitchCompat
+    private lateinit var itemDv: LinearLayout
+    private lateinit var switchDv: SwitchCompat
     private lateinit var itemAfr: LinearLayout
     private lateinit var switchAfr: SwitchCompat
     private lateinit var textAfrDesc: TextView
@@ -142,8 +142,8 @@ class GlobalSettingsActivity : AppCompatActivity() {
         textDecoderValue = findViewById(R.id.text_decoder_value)
         itemTunneling = findViewById(R.id.item_tunneling)
         switchTunneling = findViewById(R.id.switch_tunneling)
-        itemDv7 = findViewById(R.id.item_dv7)
-        switchDv7 = findViewById(R.id.switch_dv7)
+        itemDv = findViewById(R.id.item_dv)
+        switchDv = findViewById(R.id.switch_dv)
         itemAfr = findViewById(R.id.item_afr)
         switchAfr = findViewById(R.id.switch_afr)
         textAfrDesc = findViewById(R.id.text_afr_desc)
@@ -206,9 +206,9 @@ class GlobalSettingsActivity : AppCompatActivity() {
             settingsViewModel.toggleTunneling(!switchTunneling.isChecked)
         }
 
-        // DV7
-        itemDv7.setOnClickListener {
-            settingsViewModel.toggleMapDv7ToHevc(!switchDv7.isChecked)
+        // Dolby Vision
+        itemDv.setOnClickListener {
+            settingsViewModel.toggleMapDvToHevc(!switchDv.isChecked)
         }
 
         // AFR
@@ -323,7 +323,7 @@ class GlobalSettingsActivity : AppCompatActivity() {
             textDecoderDesc.setText(settingsViewModel.getDecoderDescResId(mode))
         }
         settingsViewModel.isTunnelingEnabled.observe(this) { switchTunneling.isChecked = it }
-        settingsViewModel.isMapDv7ToHevcEnabled.observe(this) { switchDv7.isChecked = it }
+        settingsViewModel.isMapDvToHevcEnabled.observe(this) { switchDv.isChecked = it }
         // AFR
         settingsViewModel.isFrameRateMatchingEnabled.observe(this) { enabled ->
             switchAfr.isChecked = enabled

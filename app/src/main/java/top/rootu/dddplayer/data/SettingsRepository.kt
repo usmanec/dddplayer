@@ -75,8 +75,8 @@ class SettingsRepository(context: Context) {
     fun getMixMiddle(): Float = prefs.getFloat("mix_middle", 1.0f)
     fun setMixMiddle(value: Float) = prefs.edit { putFloat("mix_middle", value) }
 
-    fun isMapDv7ToHevcEnabled(): Boolean = prefs.getBoolean("map_dv7_to_hevc", false)
-    fun setMapDv7ToHevcEnabled(enabled: Boolean) = prefs.edit { putBoolean("map_dv7_to_hevc", enabled) }
+    fun isMapDvToHevcEnabled(): Boolean = prefs.getBoolean("map_dv_to_hevc", true)
+    fun setMapDvToHevcEnabled(enabled: Boolean) = prefs.edit { putBoolean("map_dv_to_hevc", enabled) }
 
     fun isFrameRateMatchingEnabled(): Boolean = prefs.getBoolean("frame_rate_matching", false)
     fun setFrameRateMatchingEnabled(enabled: Boolean) = prefs.edit { putBoolean("frame_rate_matching", enabled) }
@@ -123,7 +123,7 @@ class SettingsRepository(context: Context) {
 
     // Сигнатура настроек, требующих полного перезапуска плеера
     fun getHardSettingsSignature(): String {
-        val videoParams = "${getDecoderPriority()}_${isTunnelingEnabled()}_${isMapDv7ToHevcEnabled()}"
+        val videoParams = "${getDecoderPriority()}_${isTunnelingEnabled()}_${isMapDvToHevcEnabled()}"
         val audioDownmix = "${isStereoDownmixEnabled()}_${getMixPreset()}}_${getMixFront()}_${getMixCenter()}_${getMixRear()}_${getMixMiddle()}_${getMixLfe()}"
         return "${videoParams}_${audioDownmix}"
     }

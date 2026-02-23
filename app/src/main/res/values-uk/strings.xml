@@ -107,7 +107,10 @@
     <string name="pref_downmix_middle">Бічні (7.1 Side)</string>
     <string name="pref_downmix_lfe">Сабвуфер (LFE)</string>
     <string name="pref_tunneling">Тунельне відтворення</string>
-    <string name="pref_tunneling_summary">Тунелювання забезпечує кращу підтримку контенту 4K/HDR, але може працювати не на всіх пристроях</string>
+    <string name="pref_tunneling_summary">Туннелювання дозволяє відео йти в обхід коду додатку та Android, що може забезпечити більш ефективний рендеринг 4K/HDR контенту, але може не працювати на всіх пристроях.\nУвага!!! При туннельному відтворенні обробкою та синхронізацією відео займається кінцевий пристрій, тому з цією опцією не працюватиме частина функціоналу плеєра.</string>
+    <string name="pref_map_dv">Сумісність з Dolby Vision</string>
+    <string name="pref_map_dv_on">Режим сумісності: відтворювати базовий шар HDR/HLG (HEVC).\nДопомагає, якщо замість відео чорний екран (актуально для DV Profile 7).</string>
+    <string name="pref_map_dv_off">Повний режим: використовувати системний DV декодер\n(актуально для пристроїв з нативною підтримкою Dolby Vision).</string>
     <string name="pref_afr_sec">AFR</string>
     <string name="pref_framerate_matching">Автоматичне узгодження частоти кадрів</string>
     <string name="pref_framerate_matching_on">Перемикати частоту оновлення екрана відповідно до частоти кадрів відео</string>

@@ -166,9 +166,9 @@
                     app:tint="@color/selector_settings_secondary" />
             </LinearLayout>
 
-            <!-- Tunneling -->
+            <!-- Boost -->
             <LinearLayout
-                android:id="@+id/item_tunneling"
+                android:id="@+id/item_boost"
                 style="@style/SettingsItemContainer">
 
                 <LinearLayout
@@ -180,49 +180,17 @@
 
                     <TextView
                         style="@style/SettingsItemTitle"
-                        android:text="@string/pref_tunneling" />
+                        android:text="@string/pref_audio_boost" />
 
                     <TextView
                         style="@style/SettingsItemDesc"
-                        android:text="@string/pref_tunneling_summary" />
+                        android:text="@string/pref_audio_boost_desc" />
                 </LinearLayout>
 
-                <androidx.appcompat.widget.SwitchCompat
-                    android:id="@+id/switch_tunneling"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:clickable="false"
-                    android:focusable="false" />
-            </LinearLayout>
-
-            <!-- DV7 -->
-            <LinearLayout
-                android:id="@+id/item_dv7"
-                android:visibility="gone"
-                style="@style/SettingsItemContainer">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:duplicateParentState="true"
-                    android:orientation="vertical">
-
-                    <TextView
-                        style="@style/SettingsItemTitle"
-                        android:text="@string/pref_map_dv7" />
-
-                    <TextView
-                        style="@style/SettingsItemDesc"
-                        android:text="@string/pref_map_dv7_on" />
-                </LinearLayout>
-
-                <androidx.appcompat.widget.SwitchCompat
-                    android:id="@+id/switch_dv7"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:clickable="false"
-                    android:focusable="false" />
+                <TextView
+                    android:id="@+id/text_boost_value"
+                    style="@style/SettingsItemValue"
+                    tools:text="Выкл" />
             </LinearLayout>
 
             <!-- Skip Silence -->
@@ -280,9 +248,9 @@
                     android:focusable="false" />
             </LinearLayout>
 
-            <!-- Boost -->
+            <!-- Dolby Vision -->
             <LinearLayout
-                android:id="@+id/item_boost"
+                android:id="@+id/item_dv"
                 style="@style/SettingsItemContainer">
 
                 <LinearLayout
@@ -294,17 +262,48 @@
 
                     <TextView
                         style="@style/SettingsItemTitle"
-                        android:text="@string/pref_audio_boost" />
+                        android:text="@string/pref_map_dv" />
 
                     <TextView
                         style="@style/SettingsItemDesc"
-                        android:text="@string/pref_audio_boost_desc" />
+                        android:text="@string/pref_map_dv_on" />
                 </LinearLayout>
 
-                <TextView
-                    android:id="@+id/text_boost_value"
-                    style="@style/SettingsItemValue"
-                    tools:text="Выкл" />
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switch_dv"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:focusable="false" />
+            </LinearLayout>
+
+            <!-- Tunneling -->
+            <LinearLayout
+                android:id="@+id/item_tunneling"
+                style="@style/SettingsItemContainer">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:duplicateParentState="true"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/SettingsItemTitle"
+                        android:text="@string/pref_tunneling" />
+
+                    <TextView
+                        style="@style/SettingsItemDesc"
+                        android:text="@string/pref_tunneling_summary" />
+                </LinearLayout>
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switch_tunneling"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:focusable="false" />
             </LinearLayout>
 
             <!-- СЕКЦИЯ: AFR -->
