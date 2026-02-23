@@ -81,6 +81,24 @@ class SettingsRepository(context: Context) {
     fun isFrameRateMatchingEnabled(): Boolean = prefs.getBoolean("frame_rate_matching", false)
     fun setFrameRateMatchingEnabled(enabled: Boolean) = prefs.edit { putBoolean("frame_rate_matching", enabled) }
 
+    fun isAfrResolutionSwitchEnabled(): Boolean = prefs.getBoolean("afr_resolution", false)
+    fun setAfrResolutionSwitchEnabled(enabled: Boolean) = prefs.edit { putBoolean("afr_resolution", enabled) }
+
+    fun isAfrFpsCorrectionEnabled(): Boolean = prefs.getBoolean("afr_fps_correction", false)
+    fun setAfrFpsCorrectionEnabled(enabled: Boolean) = prefs.edit { putBoolean("afr_fps_correction", enabled) }
+
+    fun isAfrDoubleRefreshRateEnabled(): Boolean = prefs.getBoolean("afr_double_refresh", true)
+    fun setAfrDoubleRefreshRateEnabled(enabled: Boolean) = prefs.edit { putBoolean("afr_double_refresh", enabled) }
+
+    fun isAfrSkip24RateEnabled(): Boolean = prefs.getBoolean("afr_skip_24", false)
+    fun setAfrSkip24RateEnabled(enabled: Boolean) = prefs.edit { putBoolean("afr_skip_24", enabled) }
+
+    fun getAfrPauseMs(): Int = prefs.getInt("afr_pause_ms", 2000)
+    fun setAfrPauseMs(ms: Int) = prefs.edit { putInt("afr_pause_ms", ms) }
+
+    fun isAfrSkipShortsEnabled(): Boolean = prefs.getBoolean("afr_skip_shorts", true)
+    fun setAfrSkipShortsEnabled(enabled: Boolean) = prefs.edit { putBoolean("afr_skip_shorts", enabled) }
+
     fun isSkipSilenceEnabled(): Boolean = prefs.getBoolean("skip_silence", false)
     fun setSkipSilenceEnabled(enabled: Boolean) = prefs.edit { putBoolean("skip_silence", enabled) }
 

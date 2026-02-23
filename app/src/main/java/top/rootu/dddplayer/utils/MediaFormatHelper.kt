@@ -3,7 +3,10 @@ package top.rootu.dddplayer.utils
 import android.media.AudioFormat
 import android.net.Uri
 import androidx.media3.common.C
+import androidx.media3.common.Format
 import androidx.media3.common.MimeTypes
+import java.math.BigDecimal
+import java.math.RoundingMode
 
 object MediaFormatHelper {
 
@@ -296,8 +299,99 @@ object MediaFormatHelper {
     fun formatFrameRate(frameRate: Float): String {
         return when {
             frameRate <= 0 -> ""
-            else -> String.format("%.2f FPS", frameRate)
+            else -> {
+                val bd = BigDecimal(frameRate.toDouble()).setScale(3, RoundingMode.HALF_UP).stripTrailingZeros()
+                bd.toPlainString()
+            }
         }
+    }
+
+    /**
+     * Преобразует MIME-тип видео в короткое читаемое название контейнера/формата.
+     * @param mimeType MIME-тип из Format
+     * @param originalUri Оригинальный URI видео (для определения HLS/DASH по расширению)
+     */
+    fun getShortContainerName(mimeType: String?, originalUri: Uri? = null): String {
+        // Сначала проверяем URI, так как HLS/DASH чанки внутри могут быть TS/MP4
+        if (originalUri != null) {
+            val path = originalUri.path?.lowercase() ?: ""
+            if (path.endsWith(".m3u8")) return "HLS"
+            if (path.endsWith(".mpd")) return "DASH"
+            if (path.endsWith(".ism") || path.endsWith(".isml")) return "Smooth"
+        }
+
+        // Если по URI не понятно, смотрим на MIME-тип
+        if (mimeType == null) return ""
+        return when (mimeType) {
+            MimeTypes.VIDEO_MP4 -> "MP4"
+            MimeTypes.VIDEO_MATROSKA -> "MKV"
+            MimeTypes.VIDEO_WEBM -> "WebM"
+            MimeTypes.APPLICATION_M3U8 -> "HLS"
+            MimeTypes.APPLICATION_MPD -> "DASH"
+            MimeTypes.VIDEO_MP2T -> "TS"
+            MimeTypes.VIDEO_AVI -> "AVI"
+            else -> mimeType.substringAfterLast('/').uppercase()
+        }
+    }
+
+    /**
+     * Преобразует MIME-тип кодека и строку codecs в короткое читаемое название
+     */
+    fun getShortVideoCodecName(format: Format): String {
+        val mime = format.sampleMimeType ?: return ""
+        val codecs = format.codecs ?: ""
+
+        return when (mime) {
+            MimeTypes.VIDEO_H264 -> "AVC"
+            MimeTypes.VIDEO_H265 -> {
+                // Проверяем, не Dolby Vision ли это, спрятанный в HEVC
+                if (codecs.startsWith("dvh1") || codecs.startsWith("dvhe")) "DV" else "HEVC"
+            }
+            MimeTypes.VIDEO_VP8 -> "VP8"
+            MimeTypes.VIDEO_VP9 -> "VP9"
+            MimeTypes.VIDEO_AV1 -> "AV1"
+            MimeTypes.VIDEO_MPEG2 -> "MPEG2"
+            MimeTypes.VIDEO_DOLBY_VISION -> "DV"
+            else -> mime.substringAfterLast('/').uppercase()
+        }
+    }
+
+    /**
+     * Определяет, является ли видео HDR (HDR10, HLG, Dolby Vision)
+     */
+    fun getHdrInfo(format: Format): String {
+        val codecs = format.codecs ?: ""
+        val colorInfo = format.colorInfo
+
+        // Проверяем Dolby Vision и извлекаем профиль
+        // Формат строки: dvhe.07.06 или dvh1.05.03
+        if (format.sampleMimeType == MimeTypes.VIDEO_DOLBY_VISION ||
+            codecs.startsWith("dvh1") || codecs.startsWith("dvhe")) {
+
+            val parts = codecs.split(".")
+            if (parts.size >= 2) {
+                val profile = parts[1].toIntOrNull()
+                if (profile != null) {
+                    return "DVp$profile" // Например: DVp7, DVp5
+                }
+            }
+            return "DV"
+        }
+
+        // Проверяем HDR10+ по кодеку (HEVC Profile Main10 HDR10+)
+        // В ExoPlayer строка кодека для HDR10+ часто выглядит как hev1.2.4.L153.B0 (где 4 - это профиль)
+        // Но надежнее проверить ColorInfo
+        if (colorInfo != null) {
+            when (colorInfo.colorTransfer) {
+                C.COLOR_TRANSFER_ST2084 -> {
+                    // Это PQ (Perceptual Quantizer). Может быть HDR10 или HDR10+.
+                    return "HDR"
+                }
+                C.COLOR_TRANSFER_HLG -> return "HLG"
+            }
+        }
+
+        return "" // SDR
     }
 
     // ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================

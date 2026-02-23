@@ -47,6 +47,11 @@ import top.rootu.dddplayer.ui.controller.PlayerInputHandler
 import top.rootu.dddplayer.ui.controller.PlayerTimerController
 import top.rootu.dddplayer.ui.controller.PlayerTouchHandler
 import top.rootu.dddplayer.ui.controller.PlayerUiController
+import top.rootu.dddplayer.utils.afr.AfrFormatItem
+import top.rootu.dddplayer.utils.afr.AutoFrameRateHelper
+import top.rootu.dddplayer.utils.afr.DisplayHolder
+import top.rootu.dddplayer.utils.afr.DisplaySyncHelper
+import top.rootu.dddplayer.utils.afr.TvQuickActions
 import top.rootu.dddplayer.viewmodel.PlayerViewModel
 import top.rootu.dddplayer.viewmodel.SettingType
 import top.rootu.dddplayer.viewmodel.SettingsViewModel
@@ -202,6 +207,11 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        // Сохраняем оригинальный режим ТВ при старте
+        val afrHelper = AutoFrameRateHelper.instance(requireContext())
+        afrHelper.saveOriginalState(requireActivity())
+
         view.requestFocus()
         setupControls()
         observeViewModel()
@@ -993,6 +1003,56 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
                 updateViewModel.clearToast()
             }
         }
+
+        // === ИНТЕГРАЦИЯ AFR ===
+        viewModel.afrTriggerEvent.observe(viewLifecycleOwner) { format ->
+            val settingsRepo = SettingsRepository(requireContext().applicationContext)
+
+            if (settingsRepo.isFrameRateMatchingEnabled()) {
+
+                // 1. Проверка на короткие видео (Skip Shorts)
+                val durationMs = viewModel.player?.duration ?: C.TIME_UNSET
+                if (settingsRepo.isAfrSkipShortsEnabled() && durationMs in 1..60000) {
+                    return@observe
+                }
+
+                val afrHelper = AutoFrameRateHelper.instance(requireContext())
+
+                // Применяем настройки пользователя
+                afrHelper.setResolutionSwitchEnabled(settingsRepo.isAfrResolutionSwitchEnabled())
+                afrHelper.setFpsCorrectionEnabled(settingsRepo.isAfrFpsCorrectionEnabled())
+                afrHelper.setDoubleRefreshRateEnabled(settingsRepo.isAfrDoubleRefreshRateEnabled())
+                afrHelper.setSkip24RateEnabled(settingsRepo.isAfrSkip24RateEnabled())
+
+                // 2. Настраиваем слушатель для паузы
+                afrHelper.setListener(object : DisplaySyncHelper.AutoFrameRateListener {
+                    override fun onModeStart(newMode: DisplayHolder.Mode?) {
+                        val pauseMs = settingsRepo.getAfrPauseMs()
+                        if (pauseMs > 0) {
+                            viewModel.player?.playWhenReady = false
+                            Handler(Looper.getMainLooper()).postDelayed({
+                                viewModel.player?.playWhenReady = true
+                            }, pauseMs.toLong())
+                        }
+                    }
+                    override fun onModeError(newMode: DisplayHolder.Mode?) {}
+                    override fun onModeCancel() {}
+                })
+
+                // Обертка для совместимости с AFR
+                val afrFormat = object : AfrFormatItem {
+                    override fun getWidth() = format.width
+                    override fun getHeight() = format.height
+                    override fun getFrameRate() = format.frameRate
+                }
+
+                // 3. Применяем системный AFR
+                afrHelper.apply(requireActivity(), afrFormat)
+
+                // 4. Отправляем команду демону tvQuickActions
+                TvQuickActions.sendStartAFR(requireContext(), format.frameRate, format.height)
+            }
+        }
     }
 
     private fun updateVrParams() {
@@ -1182,6 +1242,16 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         stereoRenderer?.release()
         stereoRenderer = null
         glSurface = null
+
+        // Восстанавливаем оригинальный режим ТВ при выходе
+        activity?.let {
+            val afrHelper = AutoFrameRateHelper.instance(requireContext())
+            afrHelper.restoreOriginalState(it)
+
+            // Останавливаем tvQuickActions
+            TvQuickActions.sendStopAFR(it)
+        }
+
         super.onDestroyView()
     }
 

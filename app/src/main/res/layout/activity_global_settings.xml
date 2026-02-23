@@ -225,38 +225,6 @@
                     android:focusable="false" />
             </LinearLayout>
 
-            <!-- AFR -->
-            <LinearLayout
-                android:id="@+id/item_afr"
-                style="@style/SettingsItemContainer"
-                android:visibility="gone"
-                tools:visibility="visible">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:duplicateParentState="true"
-                    android:orientation="vertical">
-
-                    <TextView
-                        style="@style/SettingsItemTitle"
-                        android:text="@string/pref_framerate_matching" />
-
-                    <TextView
-                        android:id="@+id/text_afr_desc"
-                        style="@style/SettingsItemDesc"
-                        tools:text="@string/pref_framerate_matching_off" />
-                </LinearLayout>
-
-                <androidx.appcompat.widget.SwitchCompat
-                    android:id="@+id/switch_afr"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:clickable="false"
-                    android:focusable="false" />
-            </LinearLayout>
-
             <!-- Skip Silence -->
             <LinearLayout
                 android:id="@+id/item_skip_silence"
@@ -339,6 +307,174 @@
                     tools:text="Выкл" />
             </LinearLayout>
 
+            <!-- СЕКЦИЯ: AFR -->
+            <TextView
+                style="@style/SettingsSectionHeader"
+                android:layout_marginTop="24dp"
+                android:text="@string/pref_framerate_matching" />
+
+            <!-- AFR -->
+            <LinearLayout
+                android:id="@+id/item_afr"
+                style="@style/SettingsItemContainer" >
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:duplicateParentState="true"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/SettingsItemTitle"
+                        android:text="@string/pref_framerate_matching" />
+
+                    <TextView
+                        android:id="@+id/text_afr_desc"
+                        style="@style/SettingsItemDesc"
+                        tools:text="@string/pref_framerate_matching_off" />
+                </LinearLayout>
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switch_afr"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:focusable="false" />
+            </LinearLayout>
+
+            <!-- AFR Sub-settings -->
+            <LinearLayout
+                android:id="@+id/item_afr_resolution"
+                style="@style/SettingsItemContainer"
+                android:visibility="gone"
+                tools:visibility="visible">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:duplicateParentState="true"
+                    android:orientation="vertical">
+                    <TextView style="@style/SettingsItemTitle" android:text="@string/pref_afr_resolution" />
+                    <TextView style="@style/SettingsItemDesc" android:text="@string/pref_afr_resolution_desc" />
+                </LinearLayout>
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switch_afr_resolution"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:focusable="false" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/item_afr_fps_correction"
+                style="@style/SettingsItemContainer"
+                android:visibility="gone"
+                tools:visibility="visible">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:duplicateParentState="true"
+                    android:orientation="vertical">
+                    <TextView style="@style/SettingsItemTitle" android:text="@string/pref_afr_fps_correction" />
+                    <TextView style="@style/SettingsItemDesc" android:text="@string/pref_afr_fps_correction_desc" />
+                </LinearLayout>
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switch_afr_fps_correction"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:focusable="false" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/item_afr_double_refresh"
+                style="@style/SettingsItemContainer"
+                android:visibility="gone"
+                tools:visibility="visible">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:duplicateParentState="true"
+                    android:orientation="vertical">
+                    <TextView style="@style/SettingsItemTitle" android:text="@string/pref_afr_double_refresh" />
+                    <TextView style="@style/SettingsItemDesc" android:text="@string/pref_afr_double_refresh_desc" />
+                </LinearLayout>
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switch_afr_double_refresh"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:focusable="false" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/item_afr_skip_24"
+                style="@style/SettingsItemContainer"
+                android:visibility="gone"
+                tools:visibility="visible">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:duplicateParentState="true"
+                    android:orientation="vertical">
+                    <TextView style="@style/SettingsItemTitle" android:text="@string/pref_afr_skip_24" />
+                    <TextView style="@style/SettingsItemDesc" android:text="@string/pref_afr_skip_24_desc" />
+                </LinearLayout>
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switch_afr_skip_24"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:focusable="false" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/item_afr_pause"
+                style="@style/SettingsItemContainer"
+                android:visibility="gone"
+                tools:visibility="visible">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:duplicateParentState="true"
+                    android:orientation="vertical">
+                    <TextView style="@style/SettingsItemTitle" android:text="@string/pref_afr_pause" />
+                    <TextView style="@style/SettingsItemDesc" android:text="@string/pref_afr_pause_desc" />
+                </LinearLayout>
+                <TextView
+                    android:id="@+id/text_afr_pause_value"
+                    style="@style/SettingsItemValue"
+                    tools:text="2.0 сек" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/item_afr_skip_shorts"
+                style="@style/SettingsItemContainer"
+                android:visibility="gone"
+                tools:visibility="visible">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:duplicateParentState="true"
+                    android:orientation="vertical">
+                    <TextView style="@style/SettingsItemTitle" android:text="@string/pref_afr_skip_shorts" />
+                    <TextView style="@style/SettingsItemDesc" android:text="@string/pref_afr_skip_shorts_desc" />
+                </LinearLayout>
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switch_afr_skip_shorts"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:focusable="false" />
+            </LinearLayout>
+
+            <!-- СЕКЦИЯ: ЯЗЫК И СУБТИТРЫ -->
             <TextView
                 style="@style/SettingsSectionHeader"
                 android:layout_marginTop="24dp"

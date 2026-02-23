@@ -30,6 +30,24 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     private val _isFrameRateMatchingEnabled = MutableLiveData(repository.isFrameRateMatchingEnabled())
     val isFrameRateMatchingEnabled: LiveData<Boolean> = _isFrameRateMatchingEnabled
 
+    private val _isAfrResolutionSwitchEnabled = MutableLiveData(repository.isAfrResolutionSwitchEnabled())
+    val isAfrResolutionSwitchEnabled: LiveData<Boolean> = _isAfrResolutionSwitchEnabled
+
+    private val _isAfrFpsCorrectionEnabled = MutableLiveData(repository.isAfrFpsCorrectionEnabled())
+    val isAfrFpsCorrectionEnabled: LiveData<Boolean> = _isAfrFpsCorrectionEnabled
+
+    private val _isAfrDoubleRefreshRateEnabled = MutableLiveData(repository.isAfrDoubleRefreshRateEnabled())
+    val isAfrDoubleRefreshRateEnabled: LiveData<Boolean> = _isAfrDoubleRefreshRateEnabled
+
+    private val _isAfrSkip24RateEnabled = MutableLiveData(repository.isAfrSkip24RateEnabled())
+    val isAfrSkip24RateEnabled: LiveData<Boolean> = _isAfrSkip24RateEnabled
+
+    private val _afrPauseMs = MutableLiveData(repository.getAfrPauseMs())
+    val afrPauseMs: LiveData<Int> = _afrPauseMs
+
+    private val _isAfrSkipShortsEnabled = MutableLiveData(repository.isAfrSkipShortsEnabled())
+    val isAfrSkipShortsEnabled: LiveData<Boolean> = _isAfrSkipShortsEnabled
+
     private val _isSkipSilenceEnabled = MutableLiveData(repository.isSkipSilenceEnabled())
     val isSkipSilenceEnabled: LiveData<Boolean> = _isSkipSilenceEnabled
 
@@ -103,6 +121,39 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     fun toggleFrameRateMatching(enabled: Boolean) {
         repository.setFrameRateMatchingEnabled(enabled)
         _isFrameRateMatchingEnabled.value = enabled
+    }
+
+    fun toggleAfrResolutionSwitch(enabled: Boolean) {
+        repository.setAfrResolutionSwitchEnabled(enabled)
+        _isAfrResolutionSwitchEnabled.value = enabled
+    }
+
+    fun toggleAfrFpsCorrection(enabled: Boolean) {
+        repository.setAfrFpsCorrectionEnabled(enabled)
+        _isAfrFpsCorrectionEnabled.value = enabled
+    }
+
+    fun toggleAfrDoubleRefreshRate(enabled: Boolean) {
+        repository.setAfrDoubleRefreshRateEnabled(enabled)
+        _isAfrDoubleRefreshRateEnabled.value = enabled
+    }
+
+    fun toggleAfrSkip24Rate(enabled: Boolean) {
+        repository.setAfrSkip24RateEnabled(enabled)
+        _isAfrSkip24RateEnabled.value = enabled
+    }
+
+    fun cycleAfrPause() {
+        val current = _afrPauseMs.value ?: 2000
+        // Цикл: 0 -> 1000 -> 2000 -> 3000 -> 4000 -> 5000 -> 0
+        val next = if (current >= 5000) 0 else current + 1000
+        repository.setAfrPauseMs(next)
+        _afrPauseMs.value = next
+    }
+
+    fun toggleAfrSkipShorts(enabled: Boolean) {
+        repository.setAfrSkipShortsEnabled(enabled)
+        _isAfrSkipShortsEnabled.value = enabled
     }
 
     fun toggleSkipSilence(enabled: Boolean) {

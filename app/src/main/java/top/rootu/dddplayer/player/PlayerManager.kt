@@ -7,6 +7,7 @@ import android.view.accessibility.CaptioningManager
 import androidx.core.os.LocaleListCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.Format
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
@@ -19,6 +20,7 @@ import androidx.media3.exoplayer.Renderer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.audio.AudioRendererEventListener
 import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.AudioTrackAudioOutputProvider
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -61,6 +63,7 @@ class PlayerManager(
     private var currentTrackInfo: Map<Int, UnifiedMetadataReader.TrackInfo> = emptyMap()
     var onMetadataAvailable: (() -> Unit)? = null
     var onPlayerCreated: ((ExoPlayer) -> Unit)? = null
+    var onVideoFormatChanged: ((Format) -> Unit)? = null
     var onAudioOutputFormatChanged: ((String) -> Unit)? = null
 
     private val okHttpClient = OkHttpClient.Builder()
@@ -149,7 +152,12 @@ class PlayerManager(
         val extractorsFactory = DefaultExtractorsFactory()
             .setTsExtractorFlags(DefaultTsPayloadReaderFactory.FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS)
             .setTsExtractorTimestampSearchBytes(1500 * TsExtractor.TS_PACKET_SIZE)
-            .setMp4ExtractorFlags(Mp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES)
+            .setMp4ExtractorFlags(
+                Mp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES or
+                        Mp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265
+            )
+            // Включаем поиск метаданных в начале каждого чанка для MKV
+            .setMatroskaExtractorFlags(0)
             .setConstantBitrateSeekingEnabled(true)
 
         val renderersFactory = object : DefaultRenderersFactory(appContext) {
@@ -166,9 +174,35 @@ class PlayerManager(
                 // Решаем, какой Sink использовать
                 val finalSink = if (settingsRepo.isStereoDownmixEnabled()) {
                     // Если нужен Downmix -> создаем свой Sink с процессором
+
+                    // Ограничиваем аудиобуффер, чтобы не упасть по памяти
+                    val bufferSizeProvider = DefaultAudioSink.AudioTrackBufferSizeProvider {
+                            minSize, encoding, outputMode, pcmFrameSize, sampleRate, bitrate, speed ->
+
+                        // Получаем стандартный размер, рассчитанный ExoPlayer
+                        val standardSize = DefaultAudioSink.AudioTrackBufferSizeProvider.DEFAULT
+                            .getBufferSizeInBytes(
+                                minSize,
+                                encoding,
+                                outputMode,
+                                pcmFrameSize,
+                                sampleRate,
+                                bitrate,
+                                speed
+                            )
+
+                        standardSize.coerceAtMost(256 * 1024) // 256КБ должно хватить
+                    }
+
+                    val audioOutputProvider = AudioTrackAudioOutputProvider.Builder(appContext)
+                        .setAudioTrackBufferSizeProvider(bufferSizeProvider)
+                        .build()
+                    //~ Ограничиваем аудиобуффер, чтобы не упасть по памяти
+
                     val sinkBuilder = DefaultAudioSink.Builder(appContext)
                         .setEnableAudioOutputPlaybackParameters(true)
-                        .setEnableFloatOutput(false) // Для совместимости с процессором
+                        .setEnableFloatOutput(false) // Важно для стабильности Downmix на старых чипах
+                        .setAudioOutputProvider(audioOutputProvider) // Ограничиваем аудиобуффер, чтобы не упасть по памяти
 
                     val mixingProcessor = ChannelMixingAudioProcessor()
                     val matrices = AudioMixerLogic.createMatrices(settingsRepo)
@@ -257,6 +291,14 @@ class PlayerManager(
         }
 
         player.addAnalyticsListener(object : AnalyticsListener {
+            override fun onVideoInputFormatChanged(
+                eventTime: AnalyticsListener.EventTime,
+                format: Format,
+                decoderReuseEvaluation: androidx.media3.exoplayer.DecoderReuseEvaluation?
+            ) {
+                onVideoFormatChanged?.invoke(format)
+            }
+
             override fun onAudioTrackInitialized(
                 eventTime: AnalyticsListener.EventTime,
                 config: AudioSink.AudioTrackConfig

@@ -52,6 +52,18 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var itemAfr: LinearLayout
     private lateinit var switchAfr: SwitchCompat
     private lateinit var textAfrDesc: TextView
+    private lateinit var itemAfrResolution: LinearLayout
+    private lateinit var switchAfrResolution: SwitchCompat
+    private lateinit var itemAfrFpsCorrection: LinearLayout
+    private lateinit var switchAfrFpsCorrection: SwitchCompat
+    private lateinit var itemAfrDoubleRefresh: LinearLayout
+    private lateinit var switchAfrDoubleRefresh: SwitchCompat
+    private lateinit var itemAfrSkip24: LinearLayout
+    private lateinit var switchAfrSkip24: SwitchCompat
+    private lateinit var itemAfrPause: LinearLayout
+    private lateinit var textAfrPauseValue: TextView
+    private lateinit var itemAfrSkipShorts: LinearLayout
+    private lateinit var switchAfrSkipShorts: SwitchCompat
     private lateinit var itemSkipSilence: LinearLayout
     private lateinit var switchSkipSilence: SwitchCompat
     private lateinit var textSkipSilenceDesc: TextView
@@ -135,6 +147,18 @@ class GlobalSettingsActivity : AppCompatActivity() {
         itemAfr = findViewById(R.id.item_afr)
         switchAfr = findViewById(R.id.switch_afr)
         textAfrDesc = findViewById(R.id.text_afr_desc)
+        itemAfrResolution = findViewById(R.id.item_afr_resolution)
+        switchAfrResolution = findViewById(R.id.switch_afr_resolution)
+        itemAfrFpsCorrection = findViewById(R.id.item_afr_fps_correction)
+        switchAfrFpsCorrection = findViewById(R.id.switch_afr_fps_correction)
+        itemAfrDoubleRefresh = findViewById(R.id.item_afr_double_refresh)
+        switchAfrDoubleRefresh = findViewById(R.id.switch_afr_double_refresh)
+        itemAfrSkip24 = findViewById(R.id.item_afr_skip_24)
+        switchAfrSkip24 = findViewById(R.id.switch_afr_skip_24)
+        itemAfrPause = findViewById(R.id.item_afr_pause)
+        textAfrPauseValue = findViewById(R.id.text_afr_pause_value)
+        itemAfrSkipShorts = findViewById(R.id.item_afr_skip_shorts)
+        switchAfrSkipShorts = findViewById(R.id.switch_afr_skip_shorts)
         itemSkipSilence = findViewById(R.id.item_skip_silence)
         switchSkipSilence = findViewById(R.id.switch_skip_silence)
         textSkipSilenceDesc = findViewById(R.id.text_skip_silence_desc)
@@ -190,6 +214,24 @@ class GlobalSettingsActivity : AppCompatActivity() {
         // AFR
         itemAfr.setOnClickListener {
             settingsViewModel.toggleFrameRateMatching(!switchAfr.isChecked)
+        }
+        itemAfrResolution.setOnClickListener {
+            settingsViewModel.toggleAfrResolutionSwitch(!switchAfrResolution.isChecked)
+        }
+        itemAfrFpsCorrection.setOnClickListener {
+            settingsViewModel.toggleAfrFpsCorrection(!switchAfrFpsCorrection.isChecked)
+        }
+        itemAfrDoubleRefresh.setOnClickListener {
+            settingsViewModel.toggleAfrDoubleRefreshRate(!switchAfrDoubleRefresh.isChecked)
+        }
+        itemAfrSkip24.setOnClickListener {
+            settingsViewModel.toggleAfrSkip24Rate(!switchAfrSkip24.isChecked)
+        }
+        itemAfrPause.setOnClickListener {
+            settingsViewModel.cycleAfrPause()
+        }
+        itemAfrSkipShorts.setOnClickListener {
+            settingsViewModel.toggleAfrSkipShorts(!switchAfrSkipShorts.isChecked)
         }
 
         // Skip Silence
@@ -282,10 +324,32 @@ class GlobalSettingsActivity : AppCompatActivity() {
         }
         settingsViewModel.isTunnelingEnabled.observe(this) { switchTunneling.isChecked = it }
         settingsViewModel.isMapDv7ToHevcEnabled.observe(this) { switchDv7.isChecked = it }
+        // AFR
         settingsViewModel.isFrameRateMatchingEnabled.observe(this) { enabled ->
             switchAfr.isChecked = enabled
             textAfrDesc.setText(settingsViewModel.getAfrDescResId(enabled))
+
+            // Показываем под-настройки только если AFR включен
+            val visibility = if (enabled) View.VISIBLE else View.GONE
+            itemAfrResolution.visibility = visibility
+            itemAfrFpsCorrection.visibility = visibility
+            itemAfrDoubleRefresh.visibility = visibility
+            itemAfrSkip24.visibility = visibility
+            itemAfrPause.visibility = visibility
+            itemAfrSkipShorts.visibility = visibility
         }
+        settingsViewModel.isAfrResolutionSwitchEnabled.observe(this) { switchAfrResolution.isChecked = it }
+        settingsViewModel.isAfrFpsCorrectionEnabled.observe(this) { switchAfrFpsCorrection.isChecked = it }
+        settingsViewModel.isAfrDoubleRefreshRateEnabled.observe(this) { switchAfrDoubleRefresh.isChecked = it }
+        settingsViewModel.isAfrSkip24RateEnabled.observe(this) { switchAfrSkip24.isChecked = it }
+        settingsViewModel.isAfrSkipShortsEnabled.observe(this) { switchAfrSkipShorts.isChecked = it }
+        settingsViewModel.afrPauseMs.observe(this) { ms ->
+            textAfrPauseValue.text = if (ms == 0)
+                getString(R.string.afr_pause_none)
+            else
+                getString(R.string.afr_pause_format, ms / 1000f)
+        }
+
         settingsViewModel.isSkipSilenceEnabled.observe(this) { enabled ->
             switchSkipSilence.isChecked = enabled
             textSkipSilenceDesc.setText(settingsViewModel.getSkipSilenceDescResId(enabled))

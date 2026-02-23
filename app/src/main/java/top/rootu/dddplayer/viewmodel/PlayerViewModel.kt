@@ -2,6 +2,7 @@ package top.rootu.dddplayer.viewmodel
 
 import android.app.Application
 import android.content.Context
+import android.media.MediaFormat
 import android.os.Handler
 import android.os.Looper
 import androidx.lifecycle.AndroidViewModel
@@ -20,6 +21,9 @@ import androidx.media3.common.text.CueGroup
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.dash.manifest.DashManifest
+import androidx.media3.exoplayer.hls.HlsManifest
+import androidx.media3.exoplayer.video.VideoFrameMetadataListener
 import kotlinx.coroutines.launch
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
@@ -35,8 +39,10 @@ import top.rootu.dddplayer.model.StereoInputType
 import top.rootu.dddplayer.model.StereoOutputMode
 import top.rootu.dddplayer.player.PlayerManager
 import top.rootu.dddplayer.renderer.StereoRenderer
+import top.rootu.dddplayer.utils.MediaFormatHelper
 import top.rootu.dddplayer.utils.StereoTypeDetector
 import top.rootu.dddplayer.utils.getString
+import java.util.concurrent.atomic.AtomicBoolean
 import androidx.media3.common.MediaItem as Media3MediaItem
 
 // --- Enums & Data Classes ---
@@ -78,6 +84,17 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     // --- LiveData ---
     private val _isPlaying = MutableLiveData<Boolean>()
     val isPlaying: LiveData<Boolean> = _isPlaying
+    private val _afrTriggerEvent = MutableLiveData<Format>()
+    val afrTriggerEvent: LiveData<Format> = _afrTriggerEvent
+
+    private var afrAppliedForCurrentItem = false
+
+    // --- FPS Detection State ---
+    private var isFpsDetectionRunning = AtomicBoolean(false)
+    private var currentMetadataListener: VideoFrameMetadataListener? = null
+    // Храним вычисленный FPS для текущего видео
+    private var detectedFrameRate: Float? = null
+
     private val _currentPosition = MutableLiveData<Long>()
     val currentPosition: LiveData<Long> = _currentPosition
     private val _duration = MutableLiveData<Long>()
@@ -209,6 +226,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 val maxPercent = if (targetBuffer == 5_000L) 99 else 100
                 val percent = ((bufferedDuration * 101) / targetBuffer).toInt().coerceIn(0, maxPercent)
                 _bufferedPercentage.value = percent
+
+                // Если AFR еще не сработал, проверяем формат
+                if (!afrAppliedForCurrentItem) {
+                    val format = p.videoFormat
+                    if (format != null) {
+                        updateVideoInfoBadge(format) // Обновляем инфо, а он сам решит, запускать ли детектор
+                    }
+                }
             }
             handler.postDelayed(this, 200)
         }
@@ -222,7 +247,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
         override fun onPlaybackStateChanged(playbackState: Int) {
             _isBuffering.value = (playbackState == Player.STATE_BUFFERING)
-            if (playbackState == Player.STATE_READY) _duration.value = player?.duration
+            if (playbackState == Player.STATE_READY) {
+                _duration.value = player?.duration
+                // После буферизации или старта обновляем инфо
+                player?.videoFormat?.let { updateVideoInfoBadge(it) }
+            }
             if (playbackState == Player.STATE_ENDED) _playbackEnded.value = true
             updateProgressUpdaterState()
         }
@@ -250,6 +279,18 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         override fun onCues(cueGroup: CueGroup) {
             _cues.value = cueGroup.cues
         }
+
+        override fun onPositionDiscontinuity(
+            oldPosition: Player.PositionInfo,
+            newPosition: Player.PositionInfo,
+            reason: Int
+        ) {
+            if (reason == Player.DISCONTINUITY_REASON_SEEK) {
+                // При перемотке просто останавливаем текущий процесс детекции, если он был запущен.
+                // Сохраненное значение FPS не трогаем.
+                stopFpsDetection(resetState = true)
+            }
+        }
     }
 
     init {
@@ -264,6 +305,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             // Принудительно обновляем UI состояние
             _isPlaying.postValue(newPlayer.isPlaying)
             _duration.postValue(newPlayer.duration)
+        }
+
+        playerManager.onVideoFormatChanged = { format ->
+            updateVideoInfoBadge(format)
         }
 
         playerManager.onMetadataAvailable = {
@@ -287,6 +332,88 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             // ZoomScale уже загружается в поле _zoomScale при инициализации
         }
     }
+
+    // --- FPS Detection Logic ---
+
+    private fun startRuntimeFpsDetection() {
+        val p = player ?: return
+        // Если уже запущен, выходим
+        if (isFpsDetectionRunning.getAndSet(true)) return
+
+        val listener = object : VideoFrameMetadataListener {
+            var lastPresentationTimeUs = 0L
+            val samples = mutableListOf<Float>()
+            val MIN_SAMPLES = 60
+
+            override fun onVideoFrameAboutToBeRendered(
+                presentationTimeUs: Long,
+                releaseTimeNs: Long,
+                format: Format,
+                mediaFormat: MediaFormat?
+            ) {
+                if (lastPresentationTimeUs != 0L) {
+                    val deltaUs = presentationTimeUs - lastPresentationTimeUs
+
+                    if (deltaUs in 1000..200_000) {
+                        val fps = 1_000_000f / deltaUs
+                        samples.add(fps)
+
+                        if (samples.size >= MIN_SAMPLES) {
+                            val sortedSamples = samples.sorted()
+                            val medianFps = sortedSamples[sortedSamples.size / 2]
+
+                            handler.post {
+                                onFpsDetected(medianFps, format)
+                            }
+                        }
+                    } else {
+                        // Если был скачок (seek), сбрасываем состояние
+                        samples.clear()
+                        lastPresentationTimeUs = 0L
+                    }
+                }
+                lastPresentationTimeUs = presentationTimeUs
+            }
+        }
+
+        currentMetadataListener = listener
+        p.setVideoFrameMetadataListener(listener)
+    }
+
+    private fun onFpsDetected(rawFps: Float, currentFormat: Format) {
+        // Сохраняем результат
+        this.detectedFrameRate = normalizeToTvRate(rawFps)
+
+        // Останавливаем детектор
+        stopFpsDetection(resetState = false) // не сбрасываем флаг running, чтобы не запустить снова
+
+        // Обновляем UI с новым FPS
+        updateVideoInfoBadge(currentFormat)
+    }
+
+    private fun stopFpsDetection(resetState: Boolean) {
+        if (resetState) {
+            isFpsDetectionRunning.set(false)
+        }
+        currentMetadataListener?.let {
+            player?.clearVideoFrameMetadataListener(it)
+        }
+        currentMetadataListener = null
+    }
+
+    private fun normalizeToTvRate(fps: Float): Float {
+        return when {
+            fps in 23.0f..24.5f -> 23.976f
+            fps in 24.5f..25.5f -> 25f
+            fps in 29.0f..30.5f -> 29.97f
+            fps in 30.5f..31.5f -> 30f
+            fps in 49.0f..50.5f -> 50f
+            fps in 59.0f..60.5f -> 59.94f
+            else -> fps
+        }
+    }
+
+    // --- Standard ViewModel Logic ---
 
     private fun updateProgressUpdaterState() {
         val p = playerManager.exoPlayer ?: return
@@ -341,6 +468,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun handleMediaItemTransition(mediaItem: Media3MediaItem?) {
+        afrAppliedForCurrentItem = false
+        stopFpsDetection(resetState = true)
+        detectedFrameRate = null // Сброс для нового видео
+
         player?.let { p ->
             val title = mediaItem?.mediaMetadata?.title?.toString()
             currentUri = mediaItem?.localConfiguration?.uri?.toString()
@@ -379,10 +510,92 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    private fun updateVideoInfoBadge(format: Format) {
+        // Используем сохраненный FPS, если он есть
+        var fps = this.detectedFrameRate ?: format.frameRate
+
+        if (fps <= 0f) {
+            fps = tryGetFpsFromDeepSources()
+        }
+
+        val originalUri = player?.currentMediaItem?.localConfiguration?.uri
+        val container = MediaFormatHelper.getShortContainerName(format.containerMimeType, originalUri)
+        val codec = MediaFormatHelper.getShortVideoCodecName(format)
+        val hdr = MediaFormatHelper.getHdrInfo(format)
+        val fpsStr = MediaFormatHelper.formatFrameRate(fps)
+
+        val builder = StringBuilder()
+
+        if (container.isNotEmpty()) {
+            builder.append(container)
+            if (codec.isNotEmpty()) builder.append("($codec) ")
+            else builder.append(" ")
+        } else if (codec.isNotEmpty()) {
+            builder.append("$codec ")
+        }
+
+        builder.append(MediaFormatHelper.formatResolution(format.width, format.height))
+
+        if (fpsStr.isNotEmpty()) {
+            builder.append("@$fpsStr")
+            if (this.detectedFrameRate != null && this.detectedFrameRate!! > 0f) {
+                builder.append("~")
+            }
+        }
+
+        if (hdr.isNotEmpty()) {
+            builder.append(" $hdr")
+        }
+
+        _videoResolution.postValue(builder.toString().trim())
+
+        // ЛОГИКА ТРИГГЕРА AFR
+        if (!afrAppliedForCurrentItem) {
+            if (fps > 0f) {
+                afrAppliedForCurrentItem = true
+                val finalFormat = format.buildUpon().setFrameRate(fps).build()
+                _afrTriggerEvent.postValue(finalFormat)
+            } else {
+                startRuntimeFpsDetection()
+            }
+        }
+    }
+
+    private fun tryGetFpsFromDeepSources(): Float {
+        val p = player ?: return -1f
+        val manifest = p.currentManifest
+        if (manifest is HlsManifest) {
+            manifest.multivariantPlaylist.variants.forEach { variant ->
+                if (variant.format.id == p.videoFormat?.id ||
+                    (variant.format.width == p.videoFormat?.width && variant.format.height == p.videoFormat?.height)) {
+                    if (variant.format.frameRate > 0) return variant.format.frameRate
+                }
+            }
+        }
+        if (manifest is DashManifest && manifest.periodCount > 0) {
+            val period = manifest.getPeriod(0)
+            period.adaptationSets.forEach { set ->
+                if (set.type == C.TRACK_TYPE_VIDEO) {
+                    set.representations.forEach { rep ->
+                        if (rep.format.frameRate > 0) return rep.format.frameRate
+                    }
+                }
+            }
+        }
+        val tracks = p.currentTracks
+        tracks.groups.forEach { group ->
+            if (group.type == C.TRACK_TYPE_VIDEO) {
+                for (i in 0 until group.length) {
+                    val f = group.getTrackFormat(i)
+                    if (f.frameRate > 0) return f.frameRate
+                }
+            }
+        }
+        return -1f
+    }
+
     private fun handleVideoSizeChanged(videoSize: VideoSize) {
         lastVideoSize = videoSize
-        _videoResolution.value = "${videoSize.width}x${videoSize.height}"
-
         if (videoSize.height > 0) {
             val ratio = (videoSize.width * videoSize.pixelWidthHeightRatio) / videoSize.height
             _videoAspectRatio.postValue(ratio)
@@ -697,6 +910,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
         return null
     }
+
     fun getAudioTrackMenuItems(context: Context): List<MenuItem> {
         return audioOptions.mapIndexed { index, option ->
             val name = TrackLogic.buildTrackLabel(option, context)
