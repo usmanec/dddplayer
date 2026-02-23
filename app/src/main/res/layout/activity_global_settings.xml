@@ -310,7 +310,7 @@
             <TextView
                 style="@style/SettingsSectionHeader"
                 android:layout_marginTop="24dp"
-                android:text="@string/pref_framerate_matching" />
+                android:text="@string/pref_afr_sec" />
 
             <!-- AFR -->
             <LinearLayout

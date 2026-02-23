@@ -2,7 +2,6 @@ package top.rootu.dddplayer.viewmodel
 
 import android.app.Application
 import android.content.Context
-import android.media.MediaFormat
 import android.os.Handler
 import android.os.Looper
 import androidx.lifecycle.AndroidViewModel
@@ -23,7 +22,6 @@ import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.dash.manifest.DashManifest
 import androidx.media3.exoplayer.hls.HlsManifest
-import androidx.media3.exoplayer.video.VideoFrameMetadataListener
 import kotlinx.coroutines.launch
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
@@ -41,8 +39,8 @@ import top.rootu.dddplayer.player.PlayerManager
 import top.rootu.dddplayer.renderer.StereoRenderer
 import top.rootu.dddplayer.utils.MediaFormatHelper
 import top.rootu.dddplayer.utils.StereoTypeDetector
+import top.rootu.dddplayer.utils.afr.RuntimeFpsDetector
 import top.rootu.dddplayer.utils.getString
-import java.util.concurrent.atomic.AtomicBoolean
 import androidx.media3.common.MediaItem as Media3MediaItem
 
 // --- Enums & Data Classes ---
@@ -89,11 +87,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private var afrAppliedForCurrentItem = false
 
-    // --- FPS Detection State ---
-    private var isFpsDetectionRunning = AtomicBoolean(false)
-    private var currentMetadataListener: VideoFrameMetadataListener? = null
-    // Храним вычисленный FPS для текущего видео
-    private var detectedFrameRate: Float? = null
+    // Детектор FPS
+    private val fpsDetector = RuntimeFpsDetector()
 
     private val _currentPosition = MutableLiveData<Long>()
     val currentPosition: LiveData<Long> = _currentPosition
@@ -130,7 +125,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private val _currentQualityName = MutableLiveData("Auto")
     val currentQualityName: LiveData<String> = _currentQualityName
 
-    // Renderer Settings (Main)
+    // Renderer Settings
     private val _inputType = MutableLiveData(StereoInputType.NONE)
     val inputType: LiveData<StereoInputType> = _inputType
     private val _outputMode = MutableLiveData(StereoOutputMode.ANAGLYPH)
@@ -287,8 +282,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         ) {
             if (reason == Player.DISCONTINUITY_REASON_SEEK) {
                 // При перемотке просто останавливаем текущий процесс детекции, если он был запущен.
-                // Сохраненное значение FPS не трогаем.
-                stopFpsDetection(resetState = true)
+                fpsDetector.stop(player)
             }
         }
     }
@@ -333,88 +327,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    // --- FPS Detection Logic ---
-
-    private fun startRuntimeFpsDetection() {
-        val p = player ?: return
-        // Если уже запущен, выходим
-        if (isFpsDetectionRunning.getAndSet(true)) return
-
-        val listener = object : VideoFrameMetadataListener {
-            var lastPresentationTimeUs = 0L
-            val samples = mutableListOf<Float>()
-            val MIN_SAMPLES = 60
-
-            override fun onVideoFrameAboutToBeRendered(
-                presentationTimeUs: Long,
-                releaseTimeNs: Long,
-                format: Format,
-                mediaFormat: MediaFormat?
-            ) {
-                if (lastPresentationTimeUs != 0L) {
-                    val deltaUs = presentationTimeUs - lastPresentationTimeUs
-
-                    if (deltaUs in 1000..200_000) {
-                        val fps = 1_000_000f / deltaUs
-                        samples.add(fps)
-
-                        if (samples.size >= MIN_SAMPLES) {
-                            val sortedSamples = samples.sorted()
-                            val medianFps = sortedSamples[sortedSamples.size / 2]
-
-                            handler.post {
-                                onFpsDetected(medianFps, format)
-                            }
-                        }
-                    } else {
-                        // Если был скачок (seek), сбрасываем состояние
-                        samples.clear()
-                        lastPresentationTimeUs = 0L
-                    }
-                }
-                lastPresentationTimeUs = presentationTimeUs
-            }
-        }
-
-        currentMetadataListener = listener
-        p.setVideoFrameMetadataListener(listener)
-    }
-
-    private fun onFpsDetected(rawFps: Float, currentFormat: Format) {
-        // Сохраняем результат
-        this.detectedFrameRate = normalizeToTvRate(rawFps)
-
-        // Останавливаем детектор
-        stopFpsDetection(resetState = false) // не сбрасываем флаг running, чтобы не запустить снова
-
-        // Обновляем UI с новым FPS
-        updateVideoInfoBadge(currentFormat)
-    }
-
-    private fun stopFpsDetection(resetState: Boolean) {
-        if (resetState) {
-            isFpsDetectionRunning.set(false)
-        }
-        currentMetadataListener?.let {
-            player?.clearVideoFrameMetadataListener(it)
-        }
-        currentMetadataListener = null
-    }
-
-    private fun normalizeToTvRate(fps: Float): Float {
-        return when {
-            fps in 23.0f..24.5f -> 23.976f
-            fps in 24.5f..25.5f -> 25f
-            fps in 29.0f..30.5f -> 29.97f
-            fps in 30.5f..31.5f -> 30f
-            fps in 49.0f..50.5f -> 50f
-            fps in 59.0f..60.5f -> 59.94f
-            else -> fps
-        }
-    }
-
-    // --- Standard ViewModel Logic ---
-
     private fun updateProgressUpdaterState() {
         val p = playerManager.exoPlayer ?: return
         val shouldRun = p.isPlaying || p.playbackState == Player.STATE_BUFFERING
@@ -458,7 +370,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 return false
             }
 
-
             // Перезапускаем воспроизведение
             p.seekTo(p.currentMediaItemIndex, p.currentPosition)
             p.prepare()
@@ -469,8 +380,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun handleMediaItemTransition(mediaItem: Media3MediaItem?) {
         afrAppliedForCurrentItem = false
-        stopFpsDetection(resetState = true)
-        detectedFrameRate = null // Сброс для нового видео
+        fpsDetector.stop(player)
+        fpsDetector.reset() // Сброс для нового видео
 
         player?.let { p ->
             val title = mediaItem?.mediaMetadata?.title?.toString()
@@ -512,7 +423,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun updateVideoInfoBadge(format: Format) {
         // Используем сохраненный FPS, если он есть
-        var fps = this.detectedFrameRate ?: format.frameRate
+        var fps = fpsDetector.detectedFrameRate ?: format.frameRate
 
         if (fps <= 0f) {
             fps = tryGetFpsFromDeepSources()
@@ -538,7 +449,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
         if (fpsStr.isNotEmpty()) {
             builder.append("@$fpsStr")
-            if (this.detectedFrameRate != null && this.detectedFrameRate!! > 0f) {
+            if (fpsDetector.detectedFrameRate != null && fpsDetector.detectedFrameRate!! > 0f) {
                 builder.append("~")
             }
         }
@@ -556,7 +467,19 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 val finalFormat = format.buildUpon().setFrameRate(fps).build()
                 _afrTriggerEvent.postValue(finalFormat)
             } else {
-                startRuntimeFpsDetection()
+                player?.let { p ->
+                    fpsDetector.start(
+                        player = p,
+                        handler = handler,
+                        onSuccess = { detectedFps, currentFormat ->
+                            val updatedFormat = currentFormat.buildUpon().setFrameRate(detectedFps).build()
+                            updateVideoInfoBadge(updatedFormat)
+                        },
+                        onVfrDetected = {
+                            afrAppliedForCurrentItem = true
+                        }
+                    )
+                }
             }
         }
     }
