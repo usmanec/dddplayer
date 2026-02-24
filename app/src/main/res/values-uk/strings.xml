@@ -150,6 +150,8 @@
     <string name="pref_up_action_none">Нічого</string>
     <string name="pref_remember_zoom">Запам\'ятовувати масштаб</string>
     <string name="pref_remember_zoom_desc">Застосовувати останній вибраний режим масштабування до всіх відео</string>
+    <string name="pref_show_clock">Показувати годинник</string>
+    <string name="pref_show_clock_desc">Показувати годинник у правому верхньому кутку (поверх відео)</string>
     <string name="pref_show_playlist_index">Номер у плейлисті</string>
     <string name="pref_show_playlist_index_desc">Відображати порядковий номер поверх мініатюри відео</string>
     <string name="pref_swipe_horizontal">Горизонтальний свайп</string>

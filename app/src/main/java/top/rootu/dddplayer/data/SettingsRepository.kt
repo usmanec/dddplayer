@@ -121,6 +121,9 @@ class SettingsRepository(context: Context) {
     fun getHorizontalSwipeAction(): Int = prefs.getInt("horizontal_swipe_action", 2)
     fun setHorizontalSwipeAction(action: Int) = prefs.edit { putInt("horizontal_swipe_action", action) }
 
+    fun isShowClock(): Boolean = prefs.getBoolean("show_clock", false)
+    fun setShowClock(enabled: Boolean) = prefs.edit { putBoolean("show_clock", enabled) }
+
     // Сигнатура настроек, требующих полного перезапуска плеера
     fun getHardSettingsSignature(): String {
         val videoParams = "${getDecoderPriority()}_${isTunnelingEnabled()}_${isMapDvToHevcEnabled()}"

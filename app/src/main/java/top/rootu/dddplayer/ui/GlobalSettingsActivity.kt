@@ -91,6 +91,8 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var switchRememberZoom: SwitchCompat
     private lateinit var itemShowIndex: LinearLayout
     private lateinit var switchShowIndex: SwitchCompat
+    private lateinit var itemShowClock: LinearLayout
+    private lateinit var switchShowClock: SwitchCompat
 
     // Список языков для выбора аудио/субтитров (ISO 639-1)
     private val trackLanguages = listOf(
@@ -186,6 +188,8 @@ class GlobalSettingsActivity : AppCompatActivity() {
         switchRememberZoom = findViewById(R.id.switch_remember_zoom)
         itemShowIndex = findViewById(R.id.item_show_index)
         switchShowIndex = findViewById(R.id.switch_show_index)
+        itemShowClock = findViewById(R.id.item_show_clock)
+        switchShowClock = findViewById(R.id.switch_show_clock)
     }
 
     private fun setupListeners() {
@@ -265,6 +269,10 @@ class GlobalSettingsActivity : AppCompatActivity() {
 
         itemShowIndex.setOnClickListener {
             settingsViewModel.toggleShowPlaylistIndex(!switchShowIndex.isChecked)
+        }
+
+        itemShowClock.setOnClickListener {
+            settingsViewModel.toggleShowClock(!switchShowClock.isChecked)
         }
 
         // Up Button Action
@@ -386,6 +394,7 @@ class GlobalSettingsActivity : AppCompatActivity() {
 
         settingsViewModel.isRememberZoomEnabled.observe(this) { switchRememberZoom.isChecked = it }
         settingsViewModel.isShowPlaylistIndexEnabled.observe(this) { switchShowIndex.isChecked = it }
+        settingsViewModel.isShowClockEnabled.observe(this) { switchShowClock.isChecked = it }
 
         // Update ViewModel
         updateViewModel.updateInfo.observe(this) { updateUpdateUI() }

@@ -24,8 +24,7 @@ interface OnSurfaceReadyListener {
 
 class StereoRenderer(
     private val glSurfaceView: GLSurfaceView,
-    private val surfaceReadyListener: OnSurfaceReadyListener,
-    private val fpsUpdatedListener: OnFpsUpdatedListener
+    private val surfaceReadyListener: OnSurfaceReadyListener
 ) : GLSurfaceView.Renderer, SurfaceTexture.OnFrameAvailableListener {
 
     private val tAG = "StereoRenderer"
@@ -121,9 +120,6 @@ class StereoRenderer(
 
     @Volatile
     private var frameAvailable = false
-    private var frameCount = 0
-    private var lastTime: Long = 0
-    private var currentFps = 0
 
     private val vertices = floatArrayOf(
         -1.0f, -1.0f,
@@ -158,7 +154,6 @@ class StereoRenderer(
         surfaceTexture?.setOnFrameAvailableListener(this)
         videoSurface = Surface(surfaceTexture)
 
-        lastTime = System.nanoTime()
         videoSurface?.let { surfaceReadyListener.onSurfaceReady(it) }
     }
 
@@ -200,8 +195,6 @@ class StereoRenderer(
 
         GLES20.glDisableVertexAttribArray(positionHandle)
         GLES20.glDisableVertexAttribArray(texCoordHandle)
-
-        calculateFps()
     }
 
     override fun onFrameAvailable(surfaceTexture: SurfaceTexture?) {
@@ -386,18 +379,6 @@ class StereoRenderer(
             GLES20.glUniform3f(rRow1Handle, matrixR[0], matrixR[1], matrixR[2])
             GLES20.glUniform3f(rRow2Handle, matrixR[3], matrixR[4], matrixR[5])
             GLES20.glUniform3f(rRow3Handle, matrixR[6], matrixR[7], matrixR[8])
-        }
-    }
-
-    private fun calculateFps() {
-        frameCount++
-        val currentTime = System.nanoTime()
-        val elapsedTime = currentTime - lastTime
-        if (elapsedTime >= 1_000_000_000) {
-            currentFps = frameCount
-            frameCount = 0
-            lastTime = currentTime
-            fpsUpdatedListener.onFpsUpdated(currentFps)
         }
     }
 

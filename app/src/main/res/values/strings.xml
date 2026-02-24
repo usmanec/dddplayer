@@ -174,6 +174,8 @@
     <string name="pref_up_action_none">Nothing</string>
     <string name="pref_remember_zoom">Remember zoom</string>
     <string name="pref_remember_zoom_desc">Apply the last selected zoom mode to all videos</string>
+    <string name="pref_show_clock">Show clock</string>
+    <string name="pref_show_clock_desc">Display clock in the top right corner (over video)</string>
     <string name="pref_show_playlist_index">Playlist index</string>
     <string name="pref_show_playlist_index_desc">Display the sequence number over the video thumbnail</string>
     <string name="pref_swipe_horizontal">Horizontal swipe</string>

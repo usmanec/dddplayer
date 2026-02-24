@@ -13,6 +13,7 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.SeekBar
+import android.widget.TextClock
 import android.widget.TextView
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.toColorInt
@@ -32,6 +33,7 @@ import top.rootu.dddplayer.model.StereoOutputMode
 import top.rootu.dddplayer.renderer.StereoGLSurfaceView
 import top.rootu.dddplayer.ui.adapter.OptionsAdapter
 import top.rootu.dddplayer.ui.adapter.PlaylistAdapter
+import top.rootu.dddplayer.ui.widget.OutlineTextClock
 import top.rootu.dddplayer.viewmodel.SettingType
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -51,7 +53,7 @@ class PlayerUiController(private val rootView: View) {
     val subtitleSplitContainer: View = rootView.findViewById(R.id.subtitle_split_container)
     val subtitleViewLeft: SubtitleView = rootView.findViewById(R.id.subtitle_view_left)
     val subtitleViewRight: SubtitleView = rootView.findViewById(R.id.subtitle_view_right)
-    val fpsCounterTextView: TextView = rootView.findViewById(R.id.fps_counter)
+    val standaloneClock: OutlineTextClock = rootView.findViewById(R.id.standalone_clock)
 
     // Buffering
     val bufferingSplitContainer: View = rootView.findViewById(R.id.buffering_split_container)
@@ -70,7 +72,7 @@ class PlayerUiController(private val rootView: View) {
     val videoPoster: ImageView = topInfoPanel.findViewById(R.id.video_poster)
     val posterPlaceholderText: TextView = topInfoPanel.findViewById(R.id.poster_placeholder_text)
     val posterNumberBadge: TextView = topInfoPanel.findViewById(R.id.poster_number_badge)
-    val textClock: TextView = topInfoPanel.findViewById(R.id.text_clock)
+    val textClock: TextClock = topInfoPanel.findViewById(R.id.text_clock)
     val textEndsAt: TextView = topInfoPanel.findViewById(R.id.text_ends_at)
     val iconInputMode: ImageView = topInfoPanel.findViewById(R.id.icon_input_mode)
     val iconSwapEyes: ImageView = topInfoPanel.findViewById(R.id.icon_swap_eyes)
@@ -146,6 +148,9 @@ class PlayerUiController(private val rootView: View) {
 
     private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 
+    // Состояние из настроек (показываем ли часы)
+    private var isStandaloneClockEnabled: Boolean = false
+
     init {
         // Настройка ленты
         optionsRecycler.adapter = optionsAdapter
@@ -156,6 +161,15 @@ class PlayerUiController(private val rootView: View) {
         // ВАЖНО: Отключаем анимации изменений.
         // Это убирает "дерганье" и эффект морфинга при смене списков (например, Аудио -> Субтитры).
         optionsRecycler.itemAnimator = null
+    }
+
+    fun setStandaloneClockEnabled(enabled: Boolean) {
+        isStandaloneClockEnabled = enabled
+        updateClockVisibility()
+    }
+
+    private fun updateClockVisibility() {
+        standaloneClock.isVisible = isStandaloneClockEnabled && !topInfoPanel.isVisible
     }
 
     fun showVolumeIndicator(percent: Int) {
@@ -301,6 +315,7 @@ class PlayerUiController(private val rootView: View) {
                 .start()
         }
     }
+
     fun showSeekOverlay(deltaMs: Long, targetTimeMs: Long) {
         seekOverlay.isVisible = true
         val sign = if (deltaMs > 0) "+" else "-"
@@ -359,7 +374,7 @@ class PlayerUiController(private val rootView: View) {
 
         // ограничиваем длину сообщения
         val msg = error.message ?: ""
-        val displayMsg = if (msg.length > 203) msg.take(200) + "..." else msg
+        val displayMsg = if (msg.length > 303) msg.take(300) + "..." else msg
 
         return "${error.errorCodeName} (${error.errorCode})\n$displayMsg"
     }
@@ -435,11 +450,9 @@ class PlayerUiController(private val rootView: View) {
         if (isStereo) {
             aspectRatioFrame.visibility = View.GONE
             glSurfaceView.visibility = View.VISIBLE
-            fpsCounterTextView.visibility = View.VISIBLE
         } else {
             aspectRatioFrame.visibility = View.VISIBLE
             glSurfaceView.visibility = View.GONE
-            fpsCounterTextView.visibility = View.GONE
         }
     }
 
@@ -475,6 +488,8 @@ class PlayerUiController(private val rootView: View) {
     fun showControls(focusOnSeekBar: Boolean = false) {
         controlsView.visibility = View.VISIBLE
         topInfoPanel.visibility = View.VISIBLE
+        updateClockVisibility() // Скрываем одиночные часы, т.к. показана панель
+
         if (focusOnSeekBar) seekBar.requestFocus() else playPauseButton.requestFocus()
     }
 
@@ -482,6 +497,8 @@ class PlayerUiController(private val rootView: View) {
         controlsView.visibility = View.GONE
         topInfoPanel.visibility = View.GONE
         optionsRecycler.visibility = View.GONE
+        updateClockVisibility() // Показываем одиночные часы, если они разрешены
+
         rootView.findViewById<View>(R.id.root_container).requestFocus()
     }
 

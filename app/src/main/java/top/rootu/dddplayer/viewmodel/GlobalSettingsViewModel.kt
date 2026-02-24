@@ -81,6 +81,10 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
 
     private val _isShowPlaylistIndexEnabled = MutableLiveData(repository.isShowPlaylistIndexEnabled())
     val isShowPlaylistIndexEnabled: LiveData<Boolean> = _isShowPlaylistIndexEnabled
+
+    private val _isShowClockEnabled = MutableLiveData(repository.isShowClock())
+    val isShowClockEnabled: LiveData<Boolean> = _isShowClockEnabled
+
     private val _upButtonAction = MutableLiveData(repository.getUpButtonAction())
     val upButtonAction: LiveData<Int> = _upButtonAction
     private val _horizontalSwipeAction = MutableLiveData(repository.getHorizontalSwipeAction())
@@ -97,6 +101,12 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
         repository.setShowPlaylistIndexEnabled(enabled)
         _isShowPlaylistIndexEnabled.value = enabled
     }
+
+    fun toggleShowClock(enabled: Boolean) {
+        repository.setShowClock(enabled)
+        _isShowClockEnabled.value = enabled
+    }
+
     fun toggleDecoderPriority() {
         val current = _decoderPriority.value ?: DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
         val next = when (current) {

@@ -159,6 +159,8 @@
     <string name="pref_up_action_none">无操作</string>
     <string name="pref_remember_zoom">记住缩放</string>
     <string name="pref_remember_zoom_desc">将上次选择的缩放模式应用于所有视频</string>
+    <string name="pref_show_clock">显示时钟</string>
+    <string name="pref_show_clock_desc">在右上角显示时钟（覆盖在视频上）</string>
     <string name="pref_show_playlist_index">播放列表序号</string>
     <string name="pref_show_playlist_index_desc">在视频缩略图上显示序号</string>
     <string name="pref_swipe_horizontal">水平滑动</string>

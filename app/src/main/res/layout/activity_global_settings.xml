@@ -605,6 +605,31 @@
                 android:layout_marginTop="24dp"
                 android:text="@string/pref_sec_app" />
 
+            <!-- Show Clock -->
+            <LinearLayout
+                android:id="@+id/item_show_clock"
+                style="@style/SettingsItemContainer">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:duplicateParentState="true"
+                    android:orientation="vertical">
+                    <TextView
+                        style="@style/SettingsItemTitle"
+                        android:text="@string/pref_show_clock" />
+                    <TextView
+                        style="@style/SettingsItemDesc"
+                        android:text="@string/pref_show_clock_desc" />
+                </LinearLayout>
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switch_show_clock"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:focusable="false" />
+            </LinearLayout>
+
             <!-- Show Playlist Index -->
             <LinearLayout
                 android:id="@+id/item_show_index"

@@ -58,7 +58,7 @@ import top.rootu.dddplayer.viewmodel.SettingsViewModel
 import top.rootu.dddplayer.viewmodel.UpdateViewModel
 import kotlin.math.abs
 
-class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener {
+class PlayerFragment : Fragment(), OnSurfaceReadyListener {
 
     private var zoomDialog: Dialog? = null
     private val viewModel: PlayerViewModel by activityViewModels()
@@ -132,6 +132,9 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         // Используем Application Context для репозитория, чтобы избежать утечек
         val settingsRepo = SettingsRepository(requireContext().applicationContext)
 
+        // Устанавливаем видимость часов на основе настроек
+        ui.setStandaloneClockEnabled(settingsRepo.isShowClock())
+
         inputHandler = PlayerInputHandler(
             viewModel, settingsViewModel, ui,
             settingsRepo,
@@ -198,7 +201,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         ui.glSurfaceView.setEGLContextClientVersion(2)
         ui.glSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 0)
 
-        stereoRenderer = StereoRenderer(ui.glSurfaceView, this, this)
+        stereoRenderer = StereoRenderer(ui.glSurfaceView, this)
         ui.glSurfaceView.setRenderer(stereoRenderer)
         ui.glSurfaceView.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
 
@@ -440,9 +443,6 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
                 settingsViewModel.openPanel(viewModel.availableSettings.value ?: emptyList())
             }
         }
-
-        // ВАЖНО: Убрали onClickListener для root_container, так как теперь работает onTouchListener
-        // view?.findViewById<View>(R.id.root_container)?.setOnClickListener { ... }
 
         ui.controlsView.setOnClickListener { timerController.resetControlsTimer() }
 
@@ -1204,17 +1204,15 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener, OnFpsUpdatedListener 
         }
     }
 
-    override fun onFpsUpdated(fps: Int) {
-        activity?.runOnUiThread {
-            ui.fpsCounterTextView.text = getString(R.string.fps_counter_format, fps)
-        }
-    }
-
     override fun onResume() {
         super.onResume()
         // Обновляем настройку свайпа при возврате на экран
         val settingsRepo = SettingsRepository(requireContext().applicationContext)
         swipeAction = settingsRepo.getHorizontalSwipeAction()
+
+        // Обновляем видимость часов (на случай, если изменили в настройках)
+        ui.setStandaloneClockEnabled(settingsRepo.isShowClock())
+
         // Проверяем, нужно ли перезапустить плеер из-за смены настроек
         viewModel.checkSettingsAndRestart()
         viewModel.player?.playWhenReady = true
