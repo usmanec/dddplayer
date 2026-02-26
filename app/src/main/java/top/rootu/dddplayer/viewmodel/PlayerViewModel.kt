@@ -340,6 +340,51 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun tryRecoverFromError(error: PlaybackException): Boolean {
+        val p = player ?: return false
+
+        // Попытка восстановления: Неверно определенный контейнер (скрытый HLS/DASH)
+        if (error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED) {
+            val currentItem = p.currentMediaItem
+            val originalUri = currentItem?.localConfiguration?.uri
+
+            if (originalUri != null) {
+                val resolvedMimeType = playerManager.getResolvedMimeType(originalUri)
+
+                if (resolvedMimeType != null && currentItem.localConfiguration?.mimeType != resolvedMimeType) {
+
+                    // ВАЖНО: Чтобы ExoPlayer гарантированно пересоздал MediaSource (например, сменил
+                    // ProgressiveMediaSource на HlsMediaSource), нам нужно пересобрать весь плейлист.
+                    // Метод replaceMediaItem может не сработать, если URI остался прежним.
+
+                    val currentIndex = p.currentMediaItemIndex
+                    val currentPos = p.currentPosition
+
+                    // Собираем новый список MediaItem
+                    val newItems = mutableListOf<Media3MediaItem>()
+                    for (i in 0 until p.mediaItemCount) {
+                        val item = p.getMediaItemAt(i)
+                        if (i == currentIndex) {
+                            // Подменяем MimeType только у проблемного элемента
+                            newItems.add(
+                                item.buildUpon()
+                                    .setMimeType(resolvedMimeType)
+                                    .build()
+                            )
+                        } else {
+                            newItems.add(item)
+                        }
+                    }
+
+                    // Полностью перезагружаем плейлист в плеер
+                    p.setMediaItems(newItems, currentIndex, currentPos)
+                    p.prepare()
+                    p.play()
+
+                    return true // Успешно перехватили и исправили
+                }
+            }
+        }
+
         if (error !is ExoPlaybackException || error.type != ExoPlaybackException.TYPE_RENDERER) {
             return false
         }
@@ -430,7 +475,15 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
 
         val originalUri = player?.currentMediaItem?.localConfiguration?.uri
-        val container = MediaFormatHelper.getShortContainerName(format.containerMimeType, originalUri)
+
+        val manifest = player?.currentManifest
+
+        val container = MediaFormatHelper.getShortContainerName(
+            format.containerMimeType,
+            originalUri,
+            manifest
+        )
+
         val codec = MediaFormatHelper.getShortVideoCodecName(format)
         val hdr = MediaFormatHelper.getHdrInfo(format)
         val fpsStr = MediaFormatHelper.formatFrameRate(fps)
@@ -450,7 +503,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         if (fpsStr.isNotEmpty()) {
             builder.append("@$fpsStr")
             if (fpsDetector.detectedFrameRate != null && fpsDetector.detectedFrameRate!! > 0f) {
-                builder.append("~")
+                builder.append("'")
             }
         }
 

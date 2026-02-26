@@ -309,15 +309,30 @@ object MediaFormatHelper {
     /**
      * Преобразует MIME-тип видео в короткое читаемое название контейнера/формата.
      * @param mimeType MIME-тип из Format
-     * @param originalUri Оригинальный URI видео (для определения HLS/DASH по расширению)
+     * @param uri Оригинальный URI видео (для определения HLS/DASH по расширению)
+     * @param manifest манифест
      */
-    fun getShortContainerName(mimeType: String?, originalUri: Uri? = null): String {
+    fun getShortContainerName(mimeType: String?, uri: Uri?, manifest: Any?): String {
+        // Проверяем манифест (самый точный способ для стриминга)
+        if (manifest != null) {
+            try {
+                // Используем строковое сравнение имен классов, чтобы не тянуть тяжелые зависимости
+                // или прямые проверки типов, если они не импортированы
+                val className = manifest.javaClass.simpleName
+                if (className.contains("HlsManifest")) return "HLS"
+                if (className.contains("DashManifest")) return "DASH"
+                if (className.contains("SsManifest")) return "Smooth" // SmoothStreaming
+            } catch (e: Exception) { }
+        }
+
         // Сначала проверяем URI, так как HLS/DASH чанки внутри могут быть TS/MP4
-        if (originalUri != null) {
-            val path = originalUri.path?.lowercase() ?: ""
-            if (path.endsWith(".m3u8")) return "HLS"
-            if (path.endsWith(".mpd")) return "DASH"
-            if (path.endsWith(".ism") || path.endsWith(".isml")) return "Smooth"
+        if (uri != null) {
+            val extension = getFileExtension(uri.path ?: "")
+            when (extension) {
+                "m3u8" -> return "HLS"
+                "mpd" -> return "DASH"
+                "ism", "isml" -> return "Smooth"
+            }
         }
 
         // Если по URI не понятно, смотрим на MIME-тип
@@ -372,7 +387,7 @@ object MediaFormatHelper {
             if (parts.size >= 2) {
                 val profile = parts[1].toIntOrNull()
                 if (profile != null) {
-                    return "DVp$profile" // Например: DVp7, DVp5
+                    return "DV.$profile" // Например: DV.7, DV.5
                 }
             }
             return "DV"

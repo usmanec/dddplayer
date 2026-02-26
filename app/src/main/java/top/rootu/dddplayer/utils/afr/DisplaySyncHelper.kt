@@ -62,7 +62,7 @@ class DisplaySyncHelper(context: Context?) : UhdHelperListener {
             var resultModes: List<Mode> = emptyList()
 
             if (mIsResolutionSwitchEnabled) {
-                resultModes = filterModesByWidth(modes, Math.max(videoWidth, HD))
+                resultModes = filterModesByWidth(modes, videoWidth.coerceAtLeast(HD))
             }
 
             val currentMode = helper.getCurrentMode()
@@ -71,7 +71,7 @@ class DisplaySyncHelper(context: Context?) : UhdHelperListener {
             }
 
             val skipFps = mIsSkip24RateEnabled && videoFramerate >= 23.96 && videoFramerate <= 24.98 && currentMode != null
-            val closerMode = findCloserMode(resultModes, if (skipFps) currentMode!!.refreshRate else videoFramerate)
+            val closerMode = findCloserMode(resultModes, if (skipFps) currentMode.refreshRate else videoFramerate)
 
             if (closerMode == null) {
                 if (modes.size == 1) mListener?.onModeError(null) else mListener?.onModeCancel()

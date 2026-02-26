@@ -35,10 +35,10 @@ class RuntimeFpsDetector {
         val listener = object : VideoFrameMetadataListener {
             var isDone = false
             var warmup = 0
-            val WARMUP_FRAMES = 10
+            val WARMUP_FRAMES = 20
 
-            val TARGET_DURATION_US = 1_500_000L
-            val MIN_SAMPLES = 20
+            val TARGET_DURATION_US = 2_000_000L
+            val MIN_SAMPLES = 30
             val ptsList = ArrayList<Long>(120)
 
             override fun onVideoFrameAboutToBeRendered(
@@ -191,7 +191,7 @@ class RuntimeFpsDetector {
     }
 
     private fun snapToExactRate(measuredFps: Double): Double {
-        val knownRates = listOf(23.976, 24.0, 25.0, 29.970, 30.0, 48.0, 50.0, 59.940, 60.0)
+        val knownRates = listOf(15.0, 23.976, 24.0, 25.0, 29.970, 30.0, 48.0, 50.0, 59.940, 60.0)
         var bestMatch = measuredFps
         var minError = Double.MAX_VALUE
 

@@ -1,10 +1,12 @@
 package top.rootu.dddplayer.player
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.media.audiofx.LoudnessEnhancer
 import android.os.Handler
 import android.util.Log
 import android.view.accessibility.CaptioningManager
+import androidx.core.net.toUri
 import androidx.core.os.LocaleListCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -40,7 +42,14 @@ import top.rootu.dddplayer.logic.AudioMixerLogic
 import top.rootu.dddplayer.logic.UnifiedMetadataReader
 import top.rootu.dddplayer.model.MediaItem
 import top.rootu.dddplayer.utils.MediaFormatHelper
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLSocketFactory
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
 import androidx.media3.common.MediaItem as Media3MediaItem
 
 class PlayerManager(
@@ -68,26 +77,76 @@ class PlayerManager(
     var onVideoFormatChanged: ((Format) -> Unit)? = null
     var onAudioOutputFormatChanged: ((String) -> Unit)? = null
 
+    private val resolvedMediaTypes = ConcurrentHashMap<String, String>()
+
+    private val trustAllCerts = arrayOf<TrustManager>(@SuppressLint("CustomX509TrustManager")
+    object : X509TrustManager {
+        @SuppressLint("TrustAllX509TrustManager")
+        override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+        @SuppressLint("TrustAllX509TrustManager")
+        override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+        override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+    })
+
+    private val sslContext = SSLContext.getInstance("TLS")
+    private fun socketFactory(): SSLSocketFactory {
+        sslContext.init(null, trustAllCerts, SecureRandom())
+        return sslContext.socketFactory
+    }
+
     private val okHttpClient = OkHttpClient.Builder()
         .connectTimeout(60, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
+        .readTimeout(120, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
         .followRedirects(true)
         .followSslRedirects(true)
         .retryOnConnectionFailure(true)
-        .addNetworkInterceptor { chain ->
-            val response = chain.proceed(chain.request())
+        // Разрешаем самоподписанные сертификаты (для пользовательских серверов с видео)
+        .sslSocketFactory(socketFactory(), trustAllCerts[0] as X509TrustManager)
+        .hostnameVerifier { _, _ -> true }
+        // Запишим правильный MimeType от сервера, чтобы перезапустить видео при ошибке контейнера
+        // Используем Application Interceptor, чтобы поймать оригинальный URL
+        .addInterceptor { chain ->
+            val request = chain.request()
+            val originalUrl = request.url.toString()
 
-            // Проверяем, если это HLS, но неподдерживаемый тип, то сменим его
+            // Выполняем запрос (включая все редиректы)
+            val response = chain.proceed(request)
+
+            // Получаем заголовки и финальный URL (после редиректов)
             val contentType = response.header("Content-Type")
-            if (contentType != null
-                && contentType.contains("application/vnd.apple.mpegurl", true)
-            ) {
-                // Это HLS! Подменяем тип. todo бессмысленно (заголовки не учавствуют и тип определен заранее), но возможно пригодится для failback стратегии
-                return@addNetworkInterceptor response.newBuilder()
-                    .header("Content-Type", MimeTypes.APPLICATION_M3U8)
-                    .build()
+            val finalUrl = response.request.url.toString()
+
+            var exoMimeType: String? = null
+
+            // Пытаемся определить по Content-Type
+            if (contentType != null) {
+                val lowerType = contentType.lowercase()
+                exoMimeType = when (lowerType) {
+                    "application/x-mpegurl",
+                    "application/vnd.apple.mpegurl" -> MimeTypes.APPLICATION_M3U8
+                    "application/dash+xml" -> MimeTypes.APPLICATION_MPD
+                    "application/vnd.ms-sstr+xml" -> MimeTypes.APPLICATION_SS
+                    else -> null
+                }
             }
+
+            // Если Content-Type кривой (например octet-stream), смотрим на расширение финального URL
+            if (exoMimeType == null) {
+                val extension = MediaFormatHelper.getFileExtension(finalUrl.toUri().path ?: "")
+                exoMimeType = when (extension) {
+                    "m3u8" -> MimeTypes.APPLICATION_M3U8
+                    "mpd" -> MimeTypes.APPLICATION_MPD
+                    "ism", "isml" -> MimeTypes.APPLICATION_SS
+                    else -> null
+                }
+            }
+
+            // Сохраняем найденный тип
+            if (exoMimeType != null) {
+                resolvedMediaTypes[originalUrl] = exoMimeType
+            }
+
             response
         }
         .build()
@@ -408,8 +467,14 @@ class PlayerManager(
         return languages.toTypedArray()
     }
 
+    fun getResolvedMimeType(uri: android.net.Uri): String? {
+        return resolvedMediaTypes[uri.toString()]
+    }
+
     fun loadPlaylist(items: List<MediaItem>, startIndex: Int, startPosMs: Long = 0) {
         currentTrackInfo = emptyMap()
+        resolvedMediaTypes.clear() // Очищаем кэш типов при новой загрузке
+
         if (items.isNotEmpty()) {
             baseHttpFactory.setDefaultRequestProperties(items[startIndex].headers)
         }
