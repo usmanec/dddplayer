@@ -438,9 +438,23 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
 
         // Основные клики
         ui.touchZoneTop.setOnClickListener {
-            if (settingsViewModel.isSettingsPanelVisible.value != true) {
-                viewModel.prepareSettingsPanel()
-                settingsViewModel.openPanel(viewModel.availableSettings.value ?: emptyList())
+            val isOsdVisible = settingsViewModel.isSettingsPanelVisible.value == true
+            val isSideMenuVisible = sideMenuDialog?.isShowing == true
+            if (isOsdVisible || isSideMenuVisible) return@setOnClickListener
+
+            // Получаем текущую настройку действия кнопки "Вверх"
+            val settingsRepo = SettingsRepository(requireContext().applicationContext)
+
+            when (settingsRepo.getUpButtonAction()) {
+                1 -> { // OSD (Быстрые настройки)
+                    viewModel.prepareSettingsPanel()
+                    settingsViewModel.openPanel(viewModel.availableSettings.value ?: emptyList())
+                }
+                2 -> { // Боковое меню
+                    ui.hideControls()
+                    showMainMenu()
+                }
+                // 0 -> Ничего не делать
             }
         }
 
