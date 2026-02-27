@@ -184,6 +184,19 @@
     <string name="swipe_release_next">Отпустите для переключения</string>
     <string name="swipe_release_exit">Отпустите для выхода</string>
 
+    <!-- Resume Playback -->
+    <string name="pref_resume_mode">Возобновление просмотра</string>
+    <string name="pref_resume_mode_desc">Как вести себя при наличии сохраненного прогресса</string>
+    <string name="resume_mode_ask">Спрашивать</string>
+    <string name="resume_mode_always">Всегда продолжать</string>
+    <string name="resume_mode_never">Всегда с начала</string>
+
+    <string name="resume_dialog_title">Продолжить просмотр?</string>
+    <string name="resume_dialog_msg">Вы остановились на %1$s из %2$s</string>
+    <string name="resume_button_resume">Продолжить</string>
+    <string name="resume_button_start_over">С начала</string>
+    <string name="state_live">● ЭФИР</string>
+
     <!-- Global Settings - Audio Mix Dialog -->
     <string name="mix_preset_standard">Стандарт - RFC 7845 (Section 5.1.1.5)</string>
     <string name="mix_preset_boost_center">Усиление голоса</string>

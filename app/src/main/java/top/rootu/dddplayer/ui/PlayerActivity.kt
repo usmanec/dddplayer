@@ -214,6 +214,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     override fun finish() {
+        viewModel.saveCurrentSettings()
         if (shouldReturnResult) {
             val resultIntent = Intent("top.rootu.dddplayer.intent.result.VIEW")
 

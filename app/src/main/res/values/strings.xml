@@ -192,6 +192,19 @@
     <string name="swipe_release_next">Release to switch</string>
     <string name="swipe_release_exit">Release to exit</string>
 
+    <!-- Resume Playback -->
+    <string name="pref_resume_mode">Resume playback</string>
+    <string name="pref_resume_mode_desc">How to behave when saved progress exists</string>
+    <string name="resume_mode_ask">Ask</string>
+    <string name="resume_mode_always">Always resume</string>
+    <string name="resume_mode_never">Always start from beginning</string>
+
+    <string name="resume_dialog_title">Resume playback?</string>
+    <string name="resume_dialog_msg">You stopped at %1$s of %2$s</string>
+    <string name="resume_button_resume">Resume</string>
+    <string name="resume_button_start_over">Start over</string>
+    <string name="state_live">● LIVE</string>
+
     <!-- Updates -->
     <string name="version" translatable="false">v%s</string>
     <string name="pref_update_check">Check for updates</string>

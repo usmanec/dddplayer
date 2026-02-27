@@ -504,13 +504,13 @@ class PlayerManager(
 
         currentMediaItems = exoItems
         currentWindowIndex = startIndex
-        currentPosition = startPosMs
+        currentPosition = if (startPosMs <= 0L) C.TIME_UNSET else startPosMs
         playWhenReady = true
 
         if (exoPlayer == null) {
             initializePlayer()
         } else {
-            exoPlayer?.setMediaItems(exoItems, startIndex, startPosMs)
+            exoPlayer?.setMediaItems(exoItems, startIndex, currentPosition)
             exoPlayer?.playWhenReady = true
             exoPlayer?.prepare()
         }

@@ -16,6 +16,9 @@ class SettingsRepository(context: Context) {
         const val TRACK_DEFAULT = ""
         const val TRACK_DEVICE = "device"
         const val LANG_SYSTEM_DEFAULT = "system"
+        const val RESUME_ASK = 0
+        const val RESUME_ALWAYS = 1
+        const val RESUME_NEVER = 2
     }
 
     suspend fun getVideoSettings(uri: String): VideoSettings? {
@@ -113,6 +116,9 @@ class SettingsRepository(context: Context) {
 
     fun getAppLanguage(): String = prefs.getString("app_language", LANG_SYSTEM_DEFAULT) ?: LANG_SYSTEM_DEFAULT
     fun setAppLanguage(langCode: String) = prefs.edit { putString("app_language", langCode) }
+
+    fun getResumeMode(): Int = prefs.getInt("resume_mode", RESUME_ASK)
+    fun setResumeMode(mode: Int) = prefs.edit { putInt("resume_mode", mode) }
 
     // Действие кнопки "Вверх" ( 0 = Nothing, 1 = OSD, 2 = Side Menu)
     fun getUpButtonAction(): Int = prefs.getInt("up_button_action", 1)

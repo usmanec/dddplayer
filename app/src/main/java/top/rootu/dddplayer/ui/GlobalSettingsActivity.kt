@@ -80,6 +80,8 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var itemDownmixConfig: LinearLayout
     private lateinit var itemUpAction: LinearLayout
     private lateinit var textUpActionValue: TextView
+    private lateinit var itemResumeAction: LinearLayout
+    private lateinit var textResumeActionValue: TextView
     private lateinit var itemSwipeAction: LinearLayout
     private lateinit var textSwipeActionValue: TextView
     private lateinit var itemUpdate: LinearLayout
@@ -177,6 +179,8 @@ class GlobalSettingsActivity : AppCompatActivity() {
         itemDownmixConfig = findViewById(R.id.item_downmix_config)
         itemUpAction = findViewById(R.id.item_up_action)
         textUpActionValue = findViewById(R.id.text_up_action_value)
+        itemResumeAction = findViewById(R.id.item_resume_mode)
+        textResumeActionValue = findViewById(R.id.text_resume_mode_value)
         itemSwipeAction = findViewById(R.id.item_swipe_action)
         textSwipeActionValue = findViewById(R.id.text_swipe_action_value)
         itemUpdate = findViewById(R.id.item_update)
@@ -275,7 +279,7 @@ class GlobalSettingsActivity : AppCompatActivity() {
             settingsViewModel.toggleShowClock(!switchShowClock.isChecked)
         }
 
-        // Up Button Action
+        itemResumeAction.setOnClickListener { settingsViewModel.cycleResumeModeAction() }
         itemUpAction.setOnClickListener { settingsViewModel.cycleUpButtonAction() }
         itemSwipeAction.setOnClickListener { settingsViewModel.cycleHorizontalSwipeAction() }
 
@@ -384,6 +388,10 @@ class GlobalSettingsActivity : AppCompatActivity() {
         }
 
         // UI
+        settingsViewModel.resumeModeAction.observe(this) { action ->
+            updateResumeModeUI(action)
+        }
+
         settingsViewModel.upButtonAction.observe(this) { action ->
             updateUpActionUI(action)
         }
@@ -415,6 +423,14 @@ class GlobalSettingsActivity : AppCompatActivity() {
             textBoostValue.text = getString(R.string.track_off)
         } else {
             textBoostValue.text = getString(R.string.loudness_boost_format, boost / 100)
+        }
+    }
+
+    private fun updateResumeModeUI(action: Int) {
+        textResumeActionValue.text = when (action) {
+            SettingsRepository.RESUME_NEVER -> getString(R.string.resume_mode_never)
+            SettingsRepository.RESUME_ALWAYS -> getString(R.string.resume_mode_always)
+            else -> getString(R.string.resume_mode_ask)
         }
     }
 

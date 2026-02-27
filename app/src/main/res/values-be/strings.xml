@@ -168,6 +168,19 @@
     <string name="swipe_release_next">Адпусціце для пераключэння</string>
     <string name="swipe_release_exit">Адпусціце для выхаду</string>
 
+    <!-- Resume Playback -->
+    <string name="pref_resume_mode">Аднаўленне прагляду</string>
+    <string name="pref_resume_mode_desc">Як паводзіць сябе пры наяўнасці захаванага прагрэсу</string>
+    <string name="resume_mode_ask">Пытацца</string>
+    <string name="resume_mode_always">Заўсёды працягваць</string>
+    <string name="resume_mode_never">Заўсёды спачатку</string>
+
+    <string name="resume_dialog_title">Працягнуць прагляд?</string>
+    <string name="resume_dialog_msg">Вы спыніліся на %1$s з %2$s</string>
+    <string name="resume_button_resume">Працягнуць</string>
+    <string name="resume_button_start_over">Спачатку</string>
+    <string name="state_live">● ЭФІР</string>
+
     <!-- Абнаўленні -->
     <string name="update_btn_check">Праверыць абнаўленне</string>
     <string name="update_btn_checking">Праверка…</string>

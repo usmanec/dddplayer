@@ -605,6 +605,29 @@
                 android:layout_marginTop="24dp"
                 android:text="@string/pref_sec_app" />
 
+            <!-- Resume Mode -->
+            <LinearLayout
+                android:id="@+id/item_resume_mode"
+                style="@style/SettingsItemContainer">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:duplicateParentState="true"
+                    android:orientation="vertical">
+                    <TextView
+                        style="@style/SettingsItemTitle"
+                        android:text="@string/pref_resume_mode" />
+                    <TextView
+                        style="@style/SettingsItemDesc"
+                        android:text="@string/pref_resume_mode_desc" />
+                </LinearLayout>
+                <TextView
+                    android:id="@+id/text_resume_mode_value"
+                    style="@style/SettingsItemValue"
+                    tools:text="Спрашивать" />
+            </LinearLayout>
+
             <!-- Show Clock -->
             <LinearLayout
                 android:id="@+id/item_show_clock"

@@ -177,6 +177,19 @@
     <string name="swipe_release_next">松开切换</string>
     <string name="swipe_release_exit">松开退出</string>
 
+    <!-- Resume Playback -->
+    <string name="pref_resume_mode">恢复播放</string>
+    <string name="pref_resume_mode_desc">当存在保存的进度时如何操作</string>
+    <string name="resume_mode_ask">询问</string>
+    <string name="resume_mode_always">总是继续</string>
+    <string name="resume_mode_never">总是从头开始</string>
+
+    <string name="resume_dialog_title">继续播放？</string>
+    <string name="resume_dialog_msg">您已播放至 %1$s，总时长 %2$s</string>
+    <string name="resume_button_resume">继续</string>
+    <string name="resume_button_start_over">从头开始</string>
+    <string name="state_live">● 直播</string>
+
     <!-- 全局设置 - 音频混音对话框 -->
     <string name="mix_preset_standard">标准 - RFC 7845</string>
     <string name="mix_preset_boost_center">人声增强</string>

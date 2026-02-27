@@ -14,5 +14,9 @@ data class VideoSettings(
     val outputMode: StereoOutputMode,
     val anaglyphType: StereoRenderer.AnaglyphType,
     val swapEyes: Boolean,
-    val depth: Int
+    val depth: Int,
+    val lastPosition: Long = 0L,
+    val duration: Long = 0L,
+    val audioTrackId: String? = null,
+    val subtitleTrackId: String? = null
 )

@@ -211,11 +211,15 @@ class PlayerInputHandler(
         val realPos = viewModel.player?.currentPosition ?: 0L
         pendingSeekDelta = target - realPos
 
+        val speed = viewModel.playbackSpeed.value?.value ?: 1.0f
+        val isLive = viewModel.isLive.value ?: false
+        val liveOffset = if (isLive) (duration - target).coerceAtLeast(0)  else 0L
+
         // Обновляем UI (но не плеер!)
         viewModel.isUserInteracting = true
         ui.seekBar.progress = target.toInt()
-        ui.updateTimeLabels(target, duration)
-        ui.showSeekOverlay(pendingSeekDelta, target)
+        ui.updateTimeLabels(target, duration, speed, isLive, liveOffset)
+        ui.showSeekOverlay(pendingSeekDelta, target, isLive, liveOffset)
 
         // Планируем выполнение seek через 500мс (как сброс ускорения)
         // Если пользователь нажмет еще раз до этого времени, таймер сбросится

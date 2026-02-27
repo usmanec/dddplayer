@@ -15,6 +15,7 @@ import android.widget.ProgressBar
 import android.widget.SeekBar
 import android.widget.TextClock
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.toColorInt
 import androidx.core.view.isVisible
@@ -147,6 +148,7 @@ class PlayerUiController(private val rootView: View) {
     }
 
     private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+    private val timeFormatSeconds = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
     // Состояние из настроек (показываем ли часы)
     private var isStandaloneClockEnabled: Boolean = false
@@ -316,13 +318,19 @@ class PlayerUiController(private val rootView: View) {
         }
     }
 
-    fun showSeekOverlay(deltaMs: Long, targetTimeMs: Long) {
+    fun showSeekOverlay(deltaMs: Long, targetTimeMs: Long, isLive: Boolean = false, liveOffsetMs: Long = 0L) {
         seekOverlay.isVisible = true
         val sign = if (deltaMs > 0) "+" else "-"
         val absDelta = abs(deltaMs)
         val deltaStr = if (absDelta < 60000) "${absDelta / 1000}s" else formatTime(absDelta)
         seekDeltaText.text = rootView.context.getString(R.string.seek_delta_format, sign, deltaStr)
-        seekTargetText.text = formatTime(targetTimeMs)
+        if (isLive) {
+            // В эфире показываем реальное время, на которое целимся
+            val wallClockTarget = System.currentTimeMillis() - abs(liveOffsetMs)
+            seekTargetText.text = timeFormatSeconds.format(Date(wallClockTarget))
+        } else {
+            seekTargetText.text = formatTime(targetTimeMs)
+        }
     }
 
     fun hideSeekOverlay() {
@@ -427,20 +435,68 @@ class PlayerUiController(private val rootView: View) {
 
     /**
      * Обновляет текстовые метки времени.
-     * @param currentMs Текущая позиция в мс
-     * @param durationMs Общая длительность в мс
+     * @param currentMs Текущая позиция
+     * @param durationMs Общая длительность
+     * @param speed Текущая скорость (для расчета времени окончания)
+     * @param isLive Флаг прямого эфира
+     * @param liveOffsetMs Смещение прямого эфира
      */
-    fun updateTimeLabels(currentMs: Long, durationMs: Long) {
+    fun updateTimeLabels(
+        currentMs: Long,
+        durationMs: Long,
+        speed: Float,
+        isLive: Boolean,
+        liveOffsetMs: Long
+    ) {
+        val colorWhite = ContextCompat.getColor(rootView.context, R.color.tv_white)
+        val colorRed = ContextCompat.getColor(rootView.context, R.color.error_red)
+
+        if (isLive) {
+            // Вычисляем реальное время: Сейчас + Смещение (оно отрицательное)
+            // Если liveOffsetMs = TIME_UNSET, считаем что это 0 (прямой эфир)
+            val safeOffset = if (liveOffsetMs != androidx.media3.common.C.TIME_UNSET) liveOffsetMs else 0L
+            val wallClockTime = System.currentTimeMillis() - safeOffset
+
+            timeCurrentTextView.text = timeFormatSeconds.format(Date(wallClockTime))
+
+            val absOffset = abs(safeOffset)
+            val textDuration = StringBuilder()
+            textDuration.append(rootView.context.getString(R.string.state_live))
+            if (absOffset < 60000) {
+                timeDurationTextView.setTextColor(colorRed)
+                textEndsAt.setTextColor(colorRed)
+            } else {
+                textDuration.append(" ")
+                timeDurationTextView.text = textDuration.append(
+                    rootView.context.getString(R.string.seek_delta_format, "-", formatTime(absOffset))
+                )
+                timeDurationTextView.setTextColor(colorWhite)
+                textEndsAt.setTextColor(colorWhite)
+            }
+
+            timeDurationTextView.text = textDuration.toString()
+
+            textEndsAt.text = rootView.context.getString(R.string.state_live)
+            textEndsAt.isVisible = true
+            return
+        }
+
         timeCurrentTextView.text = formatTime(currentMs)
+        timeDurationTextView.setTextColor(colorWhite)
+        textEndsAt.setTextColor(colorWhite)
         if (durationMs > 0) {
             val remainingMs = (durationMs - currentMs).coerceAtLeast(0)
             timeDurationTextView.text = rootView.context.getString(R.string.seek_delta_format, "-", formatTime(remainingMs))
-            val endTimeMs = System.currentTimeMillis() + remainingMs
+
+            // Если скорость 2.0x, то 10 минут видео пройдут за 5 минут реального времени
+            val realTimeLeftMs = (remainingMs / speed).toLong()
+            val endTimeMs = System.currentTimeMillis() + realTimeLeftMs
+
             val endTimeStr = timeFormat.format(Date(endTimeMs))
             textEndsAt.text = rootView.context.getString(R.string.time_ends_at, endTimeStr)
             textEndsAt.isVisible = true
         } else {
-            // Если длительность неизвестна (стрим)
+            // Если длительность неизвестна (стрим?)
             timeDurationTextView.text = "--:--"
             textEndsAt.isVisible = false
         }

@@ -176,6 +176,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private val _zoomScale = MutableLiveData(repository.getZoomScalePercent())
     val zoomScale: LiveData<Int> = _zoomScale
 
+    private val _isLive = MutableLiveData<Boolean>()
+    val isLive: LiveData<Boolean> = _isLive
+
+    // Храним ID, которые нужно применить, когда треки загрузятся (восстановление треков)
+    private var pendingAudioId: String? = null
+    private var pendingSubtitleId: String? = null
+
     // Internal
     private var audioOptions = listOf<TrackOption>()
     private var subtitleOptions = listOf<TrackOption>()
@@ -200,6 +207,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     // Событие: Плеер был пересоздан (нужно привязать Surface)
     private val _playerRecreatedEvent = MutableLiveData<ExoPlayer>()
     val playerRecreatedEvent: LiveData<ExoPlayer> = _playerRecreatedEvent
+
+    // Флаг для однократного срабатывания Resume при открытии плеера
+    private var isFirstItemLoaded = false
+    private val _showResumeDialogEvent = MutableLiveData<Pair<Long, Long>?>()
+    val showResumeDialogEvent: LiveData<Pair<Long, Long>?> = _showResumeDialogEvent
 
     // Храним хэш настроек при старте
     private var lastSettingsHash = repository.getHardSettingsSignature()
@@ -249,6 +261,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             }
             if (playbackState == Player.STATE_ENDED) _playbackEnded.value = true
             updateProgressUpdaterState()
+            _isLive.value = player?.isCurrentMediaItemLive ?: false
         }
 
         override fun onPlayerError(error: PlaybackException) {
@@ -395,24 +408,28 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         player?.let { p ->
             val trackType = p.getRendererType(rendererIndex)
 
-            if (trackType == C.TRACK_TYPE_VIDEO) {
-                _videoDisabledError.postValue(error)
-                _toastMessage.postValue(getString(R.string.error_video_decoder))
+            when (trackType) {
+                C.TRACK_TYPE_VIDEO -> {
+                    _videoDisabledError.postValue(error)
+                    _toastMessage.postValue(getString(R.string.error_video_decoder))
 
-                // Отключаем проблемный трек
-                val parameters = p.trackSelectionParameters
-                    .buildUpon()
-                    .setTrackTypeDisabled(trackType, true)
-                    .build()
-                p.trackSelectionParameters = parameters
+                    // Отключаем проблемный трек
+                    val parameters = p.trackSelectionParameters
+                        .buildUpon()
+                        .setTrackTypeDisabled(trackType, true)
+                        .build()
+                    p.trackSelectionParameters = parameters
 
-            } else if (trackType == C.TRACK_TYPE_AUDIO) {
-                val hint = if (audioOptions.size > 2) getString(R.string.error_audio_disabled_hint, "${error.errorCodeName}: ${error.message}")
-                else getString(R.string.error_audio_disabled, "${error.errorCodeName}: ${error.message}")
-                _toastMessage.postValue(hint)
-                selectTrackByIndex(C.TRACK_TYPE_AUDIO, 0) // Выкл
-            } else {
-                return false
+                }
+                C.TRACK_TYPE_AUDIO -> {
+                    val hint = if (audioOptions.size > 2) getString(R.string.error_audio_disabled_hint, "${error.errorCodeName}: ${error.message}")
+                    else getString(R.string.error_audio_disabled, "${error.errorCodeName}: ${error.message}")
+                    _toastMessage.postValue(hint)
+                    selectTrackByIndex(C.TRACK_TYPE_AUDIO, 0) // Выкл
+                }
+                else -> {
+                    return false
+                }
             }
 
             // Перезапускаем воспроизведение
@@ -427,6 +444,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         afrAppliedForCurrentItem = false
         fpsDetector.stop(player)
         fpsDetector.reset() // Сброс для нового видео
+
+        // Сбрасываем отложенные ID дорожек при переходе на новое видео
+        pendingAudioId = null
+        pendingSubtitleId = null
 
         player?.let { p ->
             val title = mediaItem?.mediaMetadata?.title?.toString()
@@ -457,13 +478,66 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     val saved = repository.getVideoSettings(currentUri!!)
                     if (saved != null) {
                         applySettings(saved)
+                        // Сохраняем ID из базы как отложенные
+                        pendingAudioId = saved.audioTrackId
+                        pendingSubtitleId = saved.subtitleTrackId
+
                         isSettingsLoadedFromDb = true
+
+                        if (!isFirstItemLoaded) {
+                            handleResumeLogic(saved)
+                        }
                     } else {
                         loadGlobalDefaults()
                     }
+                    // Помечаем, что первое видео обработавано.
+                    isFirstItemLoaded = true
                 }
             }
         }
+    }
+
+    private fun handleResumeLogic(settings: VideoSettings) {
+        if (player?.isCurrentMediaItemLive == true) return
+
+        val savedPos = settings.lastPosition
+        val totalDur = settings.duration
+        val resumeMode = repository.getResumeMode()
+
+        val currentIndex = player?.currentMediaItemIndex ?: -1
+        val intentPos = if (currentIndex != -1) {
+            _currentPlaylist.value?.getOrNull(currentIndex)?.startPositionMs ?: 0L
+        } else 0L
+        // Если в интенте была позиция (не 0), игнорируем БД
+        if (intentPos > 0 || resumeMode == SettingsRepository.RESUME_NEVER) return
+
+        // Правило 95% или менее 5 секунд прогресса - начинаем с 0
+        if (totalDur > 0) {
+            val percent = (savedPos.toFloat() / totalDur.toFloat())
+            if (percent > 0.95f || savedPos < 5000L) return
+        } else if (savedPos < 5000L) return
+
+        // Применяем режим
+        when (resumeMode) {
+            SettingsRepository.RESUME_ALWAYS -> {
+                seekTo(savedPos)
+            }
+            SettingsRepository.RESUME_ASK -> {
+                player?.pause()
+                _showResumeDialogEvent.postValue(Pair(savedPos, totalDur))
+            }
+        }
+    }
+
+    fun resumePlayback(position: Long) {
+        seekTo(position)
+        player?.play()
+        _showResumeDialogEvent.value = null
+    }
+
+    fun cancelResume() {
+        player?.play()
+        _showResumeDialogEvent.value = null
     }
 
     private fun updateVideoInfoBadge(format: Format) {
@@ -619,14 +693,42 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         // 1. Аудио
         val (audio, audioIdx) = TrackLogic.extractAudioTracks(tracks, metadata)
         audioOptions = audio
-        currentAudioIndex = audioIdx
+        // Пытаемся применить отложенную аудиодорожку
+        var finalAudioIdx = audioIdx
+        pendingAudioId?.let { id ->
+            val foundIdx = audioOptions.indexOfFirst { it.format?.id == id }
+            if (foundIdx != -1) {
+                finalAudioIdx = foundIdx
+                selectTrackByIndex(C.TRACK_TYPE_AUDIO, foundIdx)
+            }
+        }
+        currentAudioIndex = finalAudioIdx
         _currentAudioTrack.postValue(audioOptions.getOrNull(currentAudioIndex))
 
         // 2. Субтитры
         val (subs, subIdx) = TrackLogic.extractSubtitleTracks(tracks, metadata)
         subtitleOptions = subs
-        currentSubtitleIndex = subIdx
+        // Пытаемся применить отложенные субтитры
+        var finalSubIdx = subIdx
+        pendingSubtitleId?.let { id ->
+            // Специальная обработка для "Выкл"
+            if (id == "disabled") {
+                finalSubIdx = 0
+                selectTrackByIndex(C.TRACK_TYPE_TEXT, 0)
+            } else {
+                val foundIdx = subtitleOptions.indexOfFirst { it.format?.id == id }
+                if (foundIdx != -1) {
+                    finalSubIdx = foundIdx
+                    selectTrackByIndex(C.TRACK_TYPE_TEXT, foundIdx)
+                }
+            }
+        }
+        currentSubtitleIndex = finalSubIdx
         _currentSubtitleTrack.postValue(subtitleOptions.getOrNull(currentSubtitleIndex))
+
+        // Очищаем отложенные ID, так как мы их уже применили (или не нашли)
+        pendingAudioId = null
+        pendingSubtitleId = null
 
         // 3. Видео (Quality)
         _videoQualityOptions.postValue(TrackLogic.extractVideoTracks(tracks))
@@ -697,10 +799,22 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun saveCurrentSettings() {
         val uri = currentUri ?: return
+        val p = player ?: return
+
+        val positionToSave = if (p.isCurrentMediaItemLive) 0L else p.currentPosition
+        // Получаем ID текущих дорожек
+        val audioId = _currentAudioTrack.value?.format?.id
+        val subId = if (_currentSubtitleTrack.value?.isOff == true) "disabled"
+        else _currentSubtitleTrack.value?.format?.id
+
         val settings = VideoSettings(
             uri, System.currentTimeMillis(),
             _inputType.value!!, _outputMode.value!!, _anaglyphType.value!!,
-            _swapEyes.value!!, _depth.value!!
+            _swapEyes.value!!, _depth.value!!,
+            lastPosition = positionToSave,
+            duration = p.duration.coerceAtLeast(0L),
+            audioTrackId = audioId,
+            subtitleTrackId = subId
         )
         viewModelScope.launch { repository.saveVideoSettings(settings) }
 
@@ -856,10 +970,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
             if (p.currentMediaItemIndex == index) {
                 // Если мы уже на этом треке и была ошибка перезапускаем его
-                if (isVideoError) p.seekTo(index, 0)
+                if (isVideoError) p.seekTo(index, C.TIME_UNSET) // C.TIME_UNSET для Live означает "край"
             } else {
                 // Переключение на другой трек
-                seekTo(0)
                 p.seekToDefaultPosition(index)
             }
             p.prepare() // На всякий случай

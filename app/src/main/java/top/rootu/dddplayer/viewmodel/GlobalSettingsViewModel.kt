@@ -85,6 +85,9 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     private val _isShowClockEnabled = MutableLiveData(repository.isShowClock())
     val isShowClockEnabled: LiveData<Boolean> = _isShowClockEnabled
 
+    private val _resumeModeAction = MutableLiveData(repository.getResumeMode())
+    val resumeModeAction: LiveData<Int> = _resumeModeAction
+
     private val _upButtonAction = MutableLiveData(repository.getUpButtonAction())
     val upButtonAction: LiveData<Int> = _upButtonAction
     private val _horizontalSwipeAction = MutableLiveData(repository.getHorizontalSwipeAction())
@@ -191,6 +194,13 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     fun setAppLanguage(langCode: String) {
         repository.setAppLanguage(langCode)
         _appLanguage.value = langCode
+    }
+
+    fun cycleResumeModeAction() {
+        val current = _resumeModeAction.value ?: 0
+        val next = (current + 1) % 3 // 0, 1, 2
+        repository.setResumeMode(next)
+        _resumeModeAction.value = next
     }
 
     fun cycleUpButtonAction() {

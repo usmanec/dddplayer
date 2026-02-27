@@ -18,6 +18,7 @@ import android.view.MotionEvent
 import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.PopupMenu
 import android.widget.TextView
 import android.widget.Toast
@@ -39,7 +40,6 @@ import top.rootu.dddplayer.model.PlaybackSpeed
 import top.rootu.dddplayer.model.ResizeMode
 import top.rootu.dddplayer.model.StereoInputType
 import top.rootu.dddplayer.model.StereoOutputMode
-import top.rootu.dddplayer.renderer.OnFpsUpdatedListener
 import top.rootu.dddplayer.renderer.OnSurfaceReadyListener
 import top.rootu.dddplayer.renderer.StereoRenderer
 import top.rootu.dddplayer.ui.adapter.SideMenuAdapter
@@ -333,11 +333,13 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
 
             // Используем центральный оверлей (тот же, что и для кнопок)
             val totalDelta = swipeSeekCurrentPosition - (viewModel.player?.currentPosition ?: 0L)
-            ui.showSeekOverlay(totalDelta, swipeSeekCurrentPosition)
+            val isLive = viewModel.isLive.value ?: false
+            val liveOffset = if (isLive) ((viewModel.duration.value ?: 0L) - swipeSeekCurrentPosition).coerceAtLeast(0) else 0L
+            ui.showSeekOverlay(totalDelta, swipeSeekCurrentPosition, isLive, liveOffset)
 
             // Визуально двигаем сикбар
             ui.seekBar.progress = swipeSeekCurrentPosition.toInt()
-            ui.updateTimeLabels(swipeSeekCurrentPosition, duration)
+            updateTimeLabelsUI(swipeSeekCurrentPosition)
         }
         else if (swipeAction == 2) {
             // === PLAYLIST MODE ===
@@ -510,7 +512,12 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
             override fun onProgressChanged(seekBar: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
                     val duration = seekBar?.max?.toLong() ?: 0L
-                    ui.updateTimeLabels(progress.toLong(), duration)
+                    val isLive = viewModel.isLive.value ?: false
+                    val speed = viewModel.playbackSpeed.value?.value ?: 1.0f
+
+                    val liveOffset = if (isLive) (duration - progress.toLong()).coerceAtLeast(0) else 0L
+
+                    ui.updateTimeLabels(progress.toLong(), duration, speed, isLive, liveOffset)
                 }
             }
             override fun onStartTrackingTouch(seekBar: android.widget.SeekBar?) {
@@ -852,14 +859,12 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
             ui.seekBar.max = duration.toInt()
             // Обновляем метки при изменении длительности
             val current = viewModel.currentPosition.value ?: 0L
-            ui.updateTimeLabels(current, duration)
+            updateTimeLabelsUI(current)
         }
         viewModel.currentPosition.observe(viewLifecycleOwner) { position ->
             if (!viewModel.isUserInteracting) {
                 ui.seekBar.progress = position.toInt()
-                // Обновляем метки при ходе воспроизведения
-                val duration = viewModel.duration.value ?: 0L
-                ui.updateTimeLabels(position, duration)
+                updateTimeLabelsUI(position)
             }
         }
         viewModel.videoTitle.observe(viewLifecycleOwner) { title ->
@@ -901,6 +906,8 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         }
         viewModel.playbackSpeed.observe(viewLifecycleOwner) { speed ->
             ui.buttonSpeed.text = speed.label
+            val pos = viewModel.currentPosition.value ?: 0L
+            updateTimeLabelsUI(pos)
         }
 
         viewModel.resizeMode.observe(viewLifecycleOwner) { mode ->
@@ -1067,6 +1074,66 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
                 TvQuickActions.sendStartAFR(requireContext(), format.frameRate, format.height)
             }
         }
+
+        viewModel.isLive.observe(viewLifecycleOwner) {
+            val pos = viewModel.currentPosition.value ?: 0L
+            updateTimeLabelsUI(pos)
+        }
+
+        viewModel.showResumeDialogEvent.observe(viewLifecycleOwner) { data ->
+            if (data != null) {
+                showResumeDialog(data.first, data.second)
+            }
+        }
+    }
+
+    private fun updateTimeLabelsUI(currentPos: Long) {
+        val player = viewModel.player ?: return
+        val duration = viewModel.duration.value ?: 0L
+        val speed = viewModel.playbackSpeed.value?.value ?: 1.0f
+        val isLive = viewModel.isLive.value ?: false
+        val liveOffset = player.currentLiveOffset
+
+        ui.updateTimeLabels(currentPos, duration, speed, isLive, liveOffset)
+    }
+
+    private fun showResumeDialog(position: Long, duration: Long) {
+        val timeStr = ui.formatTime(position)
+        val totalStr = ui.formatTime(duration)
+
+        timerController.stopControlsTimer()
+
+        val dialog = Dialog(requireContext(), R.style.Theme_App_Dialog)
+        dialog.setContentView(R.layout.dialog_resume)
+        dialog.setCanceledOnTouchOutside(false)
+
+        val messageView = dialog.findViewById<TextView>(R.id.resume_message)
+        val btnResume = dialog.findViewById<Button>(R.id.btn_resume)
+        val btnStartOver = dialog.findViewById<Button>(R.id.btn_start_over)
+
+        messageView.text = getString(R.string.resume_dialog_msg, timeStr, totalStr)
+
+        btnResume.setOnClickListener {
+            viewModel.resumePlayback(position)
+            dialog.dismiss()
+            timerController.resetControlsTimer()
+        }
+
+        btnStartOver.setOnClickListener {
+            viewModel.cancelResume()
+            dialog.dismiss()
+            timerController.resetControlsTimer()
+        }
+
+        dialog.setOnCancelListener {
+            viewModel.cancelResume()
+            timerController.resetControlsTimer()
+        }
+
+        dialog.show()
+
+        // Фокус для Android TV
+        btnResume.requestFocus()
     }
 
     private fun updateVrParams() {
@@ -1237,6 +1304,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
 
     override fun onPause() {
         super.onPause()
+        viewModel.saveCurrentSettings()
         viewModel.player?.playWhenReady = false
         ui.glSurfaceView.onPause()
     }
