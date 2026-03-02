@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -22,6 +23,7 @@ import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.dash.manifest.DashManifest
 import androidx.media3.exoplayer.hls.HlsManifest
+import androidx.media3.exoplayer.hls.playlist.HlsPlaylistTracker
 import kotlinx.coroutines.launch
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
@@ -73,6 +75,9 @@ data class VideoQualityOption(
 
 @UnstableApi
 class PlayerViewModel(application: Application) : AndroidViewModel(application) {
+
+    private var ioRetryCount = 0
+    private val MAX_IO_RETRIES = 3
 
     private val repository = SettingsRepository(application)
 
@@ -255,6 +260,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         override fun onPlaybackStateChanged(playbackState: Int) {
             _isBuffering.value = (playbackState == Player.STATE_BUFFERING)
             if (playbackState == Player.STATE_READY) {
+                ioRetryCount = 0 // Сброс счетчика, если видео успешно заиграло
                 _duration.value = player?.duration
                 // После буферизации или старта обновляем инфо
                 player?.videoFormat?.let { updateVideoInfoBadge(it) }
@@ -273,6 +279,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
 
         override fun onMediaItemTransition(mediaItem: Media3MediaItem?, reason: Int) {
+            ioRetryCount = 0 // Сброс счетчика при смене видео
             handleMediaItemTransition(mediaItem)
         }
 
@@ -354,6 +361,51 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun tryRecoverFromError(error: PlaybackException): Boolean {
         val p = player ?: return false
+        val cause = error.cause
+        val TAG = "tryRecoverFromError"
+
+        // Перехват застрявшего HLS плейлиста
+        if (cause is HlsPlaylistTracker.PlaylistStuckException) {
+            Log.w(TAG, "HLS Playlist stuck. Forcing reload...")
+            val currentIndex = p.currentMediaItemIndex
+            val currentPos = p.currentPosition
+
+            // Для Live прыгаем на край, для VOD восстанавливаем позицию
+            if (p.isCurrentMediaItemLive) {
+                p.seekTo(currentIndex, C.TIME_UNSET)
+            } else {
+                p.seekTo(currentIndex, currentPos)
+            }
+            p.prepare()
+            p.play()
+            return true
+        }
+
+        // Универсальный перехват IO и сетевых ошибок (MKV/MP4/HLS)
+        if (error.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED ||
+            error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
+            error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT) {
+
+            if (ioRetryCount < MAX_IO_RETRIES) {
+                ioRetryCount++
+                Log.w(TAG, "IO Error detected ($ioRetryCount/$MAX_IO_RETRIES). Retrying at current position...")
+
+                val currentIndex = p.currentMediaItemIndex
+                val currentPos = p.currentPosition // Сохраняем текущую точку
+
+                // Собираем новый список MediaItem
+                val newItems = mutableListOf<Media3MediaItem>()
+                for (i in 0 until p.mediaItemCount) {
+                    newItems.add(p.getMediaItemAt(i))
+                }
+
+                // Переподготавливаем плеер и возвращаем его на то же место
+                p.setMediaItems(newItems, currentIndex, currentPos)
+                p.prepare()
+                p.play()
+                return true
+            }
+        }
 
         // Попытка восстановления: Неверно определенный контейнер (скрытый HLS/DASH)
         if (error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED) {
