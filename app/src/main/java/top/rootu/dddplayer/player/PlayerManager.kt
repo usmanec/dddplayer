@@ -17,6 +17,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.audio.ChannelMixingAudioProcessor
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.Renderer
@@ -25,9 +26,12 @@ import androidx.media3.exoplayer.audio.AudioRendererEventListener
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.AudioTrackAudioOutputProvider
 import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.hls.DefaultHlsExtractorFactory
+import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import androidx.media3.extractor.DefaultExtractorsFactory
@@ -171,6 +175,26 @@ class PlayerManager(
         )
     }
 
+    private val tsExtractorFlags = DefaultTsPayloadReaderFactory.FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS or
+            DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
+            DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS or
+            DefaultTsPayloadReaderFactory.FLAG_IGNORE_SPLICE_INFO_STREAM
+
+    private val extractorsFactory = DefaultExtractorsFactory()
+        .setTsExtractorFlags(tsExtractorFlags)
+        .setTsExtractorTimestampSearchBytes(5000 * TsExtractor.TS_PACKET_SIZE)
+        .setMp4ExtractorFlags(
+            Mp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES or
+                    Mp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265
+        )
+        // Включаем поиск метаданных в начале каждого чанка для MKV
+        .setMatroskaExtractorFlags(0)
+        .setConstantBitrateSeekingEnabled(true)
+
+    private val loadErrorHandlingPolicy = object : DefaultLoadErrorHandlingPolicy() {
+        override fun getMinimumLoadableRetryCount(dataType: Int): Int = 5
+    }
+
     fun initializePlayer() {
         if (exoPlayer != null) {
             releasePlayer(saveState = true)
@@ -204,11 +228,13 @@ class PlayerManager(
             MediaCodecSelector.DEFAULT
         }
 
-        // 1. TrackSelector
         val trackSelector = DefaultTrackSelector(appContext)
         val parametersBuilder = trackSelector.buildUponParameters()
             .setAllowInvalidateSelectionsOnRendererCapabilitiesChange(true)
             .setTunnelingEnabled(settingsRepo.isTunnelingEnabled())
+            // Разрешаем плееру игнорировать битые дорожки
+            .setExceedRendererCapabilitiesIfNecessary(true)
+            .setAllowMultipleAdaptiveSelections(true)
 
         // Audio Language
         val audioPref = settingsRepo.getPreferredAudioLang()
@@ -236,18 +262,6 @@ class PlayerManager(
         }
 
         trackSelector.setParameters(parametersBuilder)
-
-        // 2. ExtractorsFactory
-        val extractorsFactory = DefaultExtractorsFactory()
-            .setTsExtractorFlags(DefaultTsPayloadReaderFactory.FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS)
-            .setTsExtractorTimestampSearchBytes(1500 * TsExtractor.TS_PACKET_SIZE)
-            .setMp4ExtractorFlags(
-                Mp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES or
-                        Mp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265
-            )
-            // Включаем поиск метаданных в начале каждого чанка для MKV
-            .setMatroskaExtractorFlags(0)
-            .setConstantBitrateSeekingEnabled(true)
 
         val renderersFactory = object : DefaultRenderersFactory(appContext) {
             init {
@@ -326,16 +340,23 @@ class PlayerManager(
             }
         }.apply {
             setExtensionRendererMode(settingsRepo.getDecoderPriority())
+            setEnableDecoderFallback(true) // Разрешаем софтовый декодер
         }
 
-        // 3. LoadErrorHandlingPolicy
-        val loadErrorHandlingPolicy = object : DefaultLoadErrorHandlingPolicy() {
-            override fun getMinimumLoadableRetryCount(dataType: Int): Int = 5
-        }
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                15000, // minBufferMs
+                50000, // maxBufferMs
+                500,   // bufferForPlaybackMs
+                5000   // bufferForPlaybackAfterRebufferMs
+            )
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
 
-        // 4. Build Player
+        // Build Player
         val player = ExoPlayer.Builder(appContext, renderersFactory)
             .setTrackSelector(trackSelector)
+            .setLoadControl(loadControl)
             .setMediaSourceFactory(
                 DefaultMediaSourceFactory(appContext, extractorsFactory)
                     .setDataSourceFactory(createParsingDataSourceFactory())
@@ -412,12 +433,41 @@ class PlayerManager(
 
         // 6. Restore State
         if (currentMediaItems.isNotEmpty()) {
-            player.setMediaItems(currentMediaItems, currentWindowIndex, currentPosition)
+            val sources = buildMediaSources(currentMediaItems)
+            player.setMediaSources(sources, currentWindowIndex, currentPosition)
             player.playWhenReady = playWhenReady
             player.prepare()
         }
 
         onPlayerCreated?.invoke(player)
+    }
+
+    private fun buildMediaSources(exoItems: List<Media3MediaItem>): List<MediaSource> {
+        // Передаем false вторым параметром. Это заставит плеер скачать первый .ts файл
+        // и проанализировать его структуру, вместо того чтобы гадать по пустому m3u8.
+        val hlsExtractorFactory = DefaultHlsExtractorFactory(tsExtractorFlags, false)
+
+        val hlsMediaSourceFactory = HlsMediaSource.Factory(createParsingDataSourceFactory())
+            .setExtractorFactory(hlsExtractorFactory)
+            .setLoadErrorHandlingPolicy(loadErrorHandlingPolicy)
+
+        val defaultMediaSourceFactory = DefaultMediaSourceFactory(appContext, extractorsFactory)
+            .setDataSourceFactory(createParsingDataSourceFactory())
+            .setLoadErrorHandlingPolicy(loadErrorHandlingPolicy)
+
+        return exoItems.map { exoItem ->
+            val uriStr = exoItem.localConfiguration?.uri?.toString() ?: ""
+            val mimeType = resolvedMediaTypes[uriStr]
+                ?: exoItem.localConfiguration?.mimeType
+                ?: MediaFormatHelper.getVideoMimeType(uriStr.toUri())
+            val isHls = mimeType == MimeTypes.APPLICATION_M3U8
+
+            if (isHls) {
+                hlsMediaSourceFactory.createMediaSource(exoItem)
+            } else {
+                defaultMediaSourceFactory.createMediaSource(exoItem)
+            }
+        }
     }
 
     private fun initLoudnessEnhancer(audioSessionId: Int) {
@@ -494,11 +544,20 @@ class PlayerManager(
                 .setArtworkUri(item.posterUri)
                 .build()
 
+            // Даем плееру больше времени на "переваривание" битых кадров,
+            // отодвигая точку воспроизведения дальше от края трансляции.
+            val liveConfig = Media3MediaItem.LiveConfiguration.Builder()
+                .setTargetOffsetMs(15000) // увеличили до 15 сек
+                .setMaxOffsetMs(30000)    // Максимальное отставание
+                .setMaxPlaybackSpeed(1.05f) // Разрешаем ускоряться до 1.05x чтобы догнать поток
+                .build()
+
             Media3MediaItem.Builder()
                 .setUri(item.uri)
 //                .setMimeType(mimeType)
                 .setMediaMetadata(metadata)
                 .setSubtitleConfigurations(subConfigs)
+                .setLiveConfiguration(liveConfig)
                 .build()
         }
 
@@ -510,7 +569,8 @@ class PlayerManager(
         if (exoPlayer == null) {
             initializePlayer()
         } else {
-            exoPlayer?.setMediaItems(exoItems, startIndex, currentPosition)
+            val sources = buildMediaSources(exoItems)
+            exoPlayer?.setMediaSources(sources, startIndex, currentPosition)
             exoPlayer?.playWhenReady = true
             exoPlayer?.prepare()
         }
