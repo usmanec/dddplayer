@@ -207,7 +207,10 @@ class GlobalSettingsActivity : AppCompatActivity() {
         itemDownmix.setOnClickListener {
             settingsViewModel.toggleStereoDownmix(!switchDownmix.isChecked)
         }
-        itemDownmixConfig.setOnClickListener { showAudioMixDialog() }
+        itemDownmixConfig.setOnClickListener {
+            settingsViewModel.refreshCustomMixParams()
+            showAudioMixDialog()
+        }
 
         // Tunneling
         itemTunneling.setOnClickListener {
@@ -595,8 +598,9 @@ class GlobalSettingsActivity : AppCompatActivity() {
             seekLfe.isEnabled = isCustom
             btnReset.isEnabled = isCustom
 
-            // Если это не кастомный пресет, берем параметры из логики, иначе из ViewModel
-            val params = if (isCustom) settingsViewModel.mixParams.value!! else AudioMixerLogic.getParamsForPreset(preset, settingsViewModel.repository)
+            // Всегда берем самые свежие данные напрямую из репозитория, игнорируя кэш LiveData
+            val params = AudioMixerLogic.getParamsForPreset(preset, settingsViewModel.repository)
+
             updateSeekBars(params)
         }
 
@@ -617,8 +621,8 @@ class GlobalSettingsActivity : AppCompatActivity() {
         val presets = AudioMixerLogic.MixPreset.entries.toTypedArray()
         // Используем контекст Activity для локализации названий пресетов
         val presetNames = presets.map { getString(it.titleResId) }
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, presetNames)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        val adapter = ArrayAdapter(this, R.layout.item_spinner_selected, presetNames)
+        adapter.setDropDownViewResource(R.layout.item_spinner_dropdown)
         spinner.adapter = adapter
 
         val currentPresetId = settingsViewModel.mixPresetId.value ?: AudioMixerLogic.MixPreset.STANDARD.id

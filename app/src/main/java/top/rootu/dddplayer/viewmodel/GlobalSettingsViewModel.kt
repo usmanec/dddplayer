@@ -261,6 +261,10 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
         _mixParams.value = AudioMixerLogic.getParamsForPreset(AudioMixerLogic.MixPreset.CUSTOM, repository)
     }
 
+    fun refreshCustomMixParams() {
+        _mixParams.value = AudioMixerLogic.getParamsForPreset(AudioMixerLogic.MixPreset.CUSTOM, repository)
+    }
+
     // --- UI Helpers (Возвращают ID ресурсов или сырые данные) ---
 
     fun getDecoderValueString(mode: Int): String {
