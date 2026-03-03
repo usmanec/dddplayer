@@ -15,7 +15,7 @@ import top.rootu.dddplayer.utils.getString
 
 class UpdateViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository = SettingsRepository(application)
+    private val repository = SettingsRepository.getInstance(application)
     private val updateManager = UpdateManager(application)
 
     private val _updateInfo = MutableLiveData<UpdateInfo?>()

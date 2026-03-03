@@ -118,6 +118,9 @@ dependencies {
     // Для загрузки изображений
     implementation(libs.coil)
 
+    // поиск утечек
+    debugImplementation(libs.leakcanary.android)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

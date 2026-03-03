@@ -25,7 +25,7 @@ class App : Application(), ImageLoaderFactory {
     }
 
     private fun applyAppLanguage() {
-        val repository = SettingsRepository(this)
+        val repository = SettingsRepository.getInstance(this)
         val langCode = repository.getAppLanguage()
 
         val appLocale = if (langCode == SettingsRepository.LANG_SYSTEM_DEFAULT) {

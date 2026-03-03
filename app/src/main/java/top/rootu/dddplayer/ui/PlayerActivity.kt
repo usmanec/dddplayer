@@ -46,7 +46,7 @@ class PlayerActivity : AppCompatActivity() {
             // Для content:// это может быть не критично, пробуем открыть так.
             // Для file:// это фатально, но ExoPlayer сам выдаст ошибку, которую мы покажем.
             pendingIntent?.let { handleIntent(it) }
-            Toast.makeText(this, "Storage permission denied. Some files may not play.", Toast.LENGTH_LONG).show()
+            Toast.makeText(applicationContext, "Storage permission denied. Some files may not play.", Toast.LENGTH_LONG).show()
         }
         pendingIntent = null
     }

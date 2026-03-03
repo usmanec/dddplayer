@@ -61,7 +61,7 @@ class PlayerManager(
     private val listener: Player.Listener
 ) {
     private val appContext = context.applicationContext
-    private val settingsRepo = SettingsRepository(appContext)
+    private val settingsRepo = SettingsRepository.getInstance(appContext)
 
     var exoPlayer: ExoPlayer? = null
         private set

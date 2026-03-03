@@ -5,6 +5,7 @@ kotlin = "2.2.21"
 ksp = "2.2.21-2.0.4"
 coreKtx = "1.17.0"
 appcompat = "1.7.1"
+leakcanaryAndroid = "2.14"
 leanback = "1.2.0"
 material = "1.13.0"
 constraintlayout = "2.2.1"
@@ -31,6 +32,7 @@ androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "roomVers
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "roomVersion" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "roomVersion" }
 coil = { module = "io.coil-kt:coil", version.ref = "coil" }
+leakcanary-android = { module = "com.squareup.leakcanary:leakcanary-android", version.ref = "leakcanaryAndroid" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
 androidx-fragment-ktx = { group = "androidx.fragment", name = "fragment-ktx", version.ref = "fragmentKtx" }

@@ -79,7 +79,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private var ioRetryCount = 0
     private val MAX_IO_RETRIES = 3
 
-    private val repository = SettingsRepository(application)
+    private val repository = SettingsRepository.getInstance(application)
 
     // Делегат для 3D/VR настроек
     val anaglyphDelegate = AnaglyphDelegate(repository)
@@ -1387,6 +1387,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         // Сохраняем текущее состояние перед пересозданием
         playerManager.releasePlayer(saveState = true)
         playerManager.initializePlayer()
+    }
+
+    fun clearToast() {
+        _toastMessage.value = null
     }
 
     override fun onCleared() {

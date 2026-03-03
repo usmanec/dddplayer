@@ -194,7 +194,7 @@ object TrackLogic {
             }
 
             val bitrate = if (format.bitrate != Format.NO_VALUE) {
-                "${format.bitrate / 1000}kbps"
+                "${format.bitrate / 1000}k"
             } else {
                 ""
             }

@@ -252,10 +252,10 @@ class GlobalSettingsActivity : AppCompatActivity() {
 
         // Calibration (Placeholder)
         itemCalibrateVr.setOnClickListener {
-            Toast.makeText(this, getString(R.string.develop_tost), Toast.LENGTH_SHORT).show()
+            Toast.makeText(applicationContext, getString(R.string.develop_tost), Toast.LENGTH_SHORT).show()
         }
         itemCalibrateAnaglyph.setOnClickListener {
-            Toast.makeText(this, getString(R.string.develop_tost), Toast.LENGTH_SHORT).show()
+            Toast.makeText(applicationContext, getString(R.string.develop_tost), Toast.LENGTH_SHORT).show()
         }
 
         // Crash Test

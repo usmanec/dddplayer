@@ -15,7 +15,7 @@ import top.rootu.dddplayer.logic.AudioMixerLogic
  * Инкапсулирует логику чтения/записи из SettingsRepository и предоставляет LiveData для UI.
  */
 class GlobalSettingsViewModel(application: Application) : AndroidViewModel(application) {
-    val repository = SettingsRepository(application)
+    val repository = SettingsRepository.getInstance(application)
 
     // --- Playback Settings ---
     private val _decoderPriority = MutableLiveData(repository.getDecoderPriority())

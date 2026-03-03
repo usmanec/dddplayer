@@ -7,7 +7,8 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import top.rootu.dddplayer.model.StereoOutputMode
 import top.rootu.dddplayer.renderer.StereoRenderer
 
-class SettingsRepository(context: Context) {
+class SettingsRepository private constructor(context: Context) {
+
     private val db = AppDatabase.getDatabase(context)
     private val prefs: SharedPreferences =
         context.getSharedPreferences("global_prefs", Context.MODE_PRIVATE)
@@ -19,6 +20,19 @@ class SettingsRepository(context: Context) {
         const val RESUME_ASK = 0
         const val RESUME_ALWAYS = 1
         const val RESUME_NEVER = 2
+
+        @Volatile
+        private var instance: SettingsRepository? = null
+
+        /**
+         * Получение единственного экземпляра репозитория (Singleton).
+         * Гарантирует потокобезопасность при инициализации.
+         */
+        fun getInstance(context: Context): SettingsRepository {
+            return instance ?: synchronized(this) {
+                instance ?: SettingsRepository(context.applicationContext).also { instance = it }
+            }
+        }
     }
 
     suspend fun getVideoSettings(uri: String): VideoSettings? {

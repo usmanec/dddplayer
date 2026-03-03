@@ -27,6 +27,7 @@ import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.recyclerview.widget.RecyclerView
@@ -70,7 +71,8 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
     private var sideMenuAdapter: SideMenuAdapter? = null
 
     // Контроллеры
-    private lateinit var ui: PlayerUiController
+    private var _ui: PlayerUiController? = null
+    private val ui get() = _ui!!
     private lateinit var inputHandler: PlayerInputHandler
     private lateinit var timerController: PlayerTimerController
 
@@ -114,9 +116,10 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         val view = inflater.inflate(R.layout.player_fragment, container, false)
 
-        ui = PlayerUiController(view)
+        _ui = PlayerUiController(view)
 
         timerController = PlayerTimerController(
+            scope = viewLifecycleOwner.lifecycleScope,
             onHideControls = { ui.hideControls() },
             onHideSettings = {
                 if (settingsViewModel.isSettingsPanelVisible.value == true) {
@@ -130,7 +133,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         )
 
         // Используем Application Context для репозитория, чтобы избежать утечек
-        val settingsRepo = SettingsRepository(requireContext().applicationContext)
+        val settingsRepo = SettingsRepository.getInstance(requireContext().applicationContext)
 
         // Устанавливаем видимость часов на основе настроек
         ui.setStandaloneClockEnabled(settingsRepo.isShowClock())
@@ -445,7 +448,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
             if (isOsdVisible || isSideMenuVisible) return@setOnClickListener
 
             // Получаем текущую настройку действия кнопки "Вверх"
-            val settingsRepo = SettingsRepository(requireContext().applicationContext)
+            val settingsRepo = SettingsRepository.getInstance(requireContext().applicationContext)
 
             when (settingsRepo.getUpButtonAction()) {
                 1 -> { // OSD (Быстрые настройки)
@@ -850,7 +853,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
 
         updateViewModel.toastMessage.observe(viewLifecycleOwner) { msg ->
             if (msg != null) {
-                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                Toast.makeText(requireContext().applicationContext, msg, Toast.LENGTH_LONG).show()
                 updateViewModel.clearToast()
             }
         }
@@ -875,7 +878,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
                 val size = p.mediaItemCount
 
                 // Получаем настройку
-                val settingsRepo = SettingsRepository(requireContext().applicationContext)
+                val settingsRepo = SettingsRepository.getInstance(requireContext().applicationContext)
                 val showIndex = settingsRepo.isShowPlaylistIndexEnabled()
 
                 // Передаем в UI
@@ -1020,14 +1023,14 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
 
         viewModel.toastMessage.observe(viewLifecycleOwner) { msg ->
             if (msg != null) {
-                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                updateViewModel.clearToast()
+                Toast.makeText(requireContext().applicationContext, msg, Toast.LENGTH_LONG).show()
+                viewModel.clearToast()
             }
         }
 
         // === ИНТЕГРАЦИЯ AFR ===
         viewModel.afrTriggerEvent.observe(viewLifecycleOwner) { format ->
-            val settingsRepo = SettingsRepository(requireContext().applicationContext)
+            val settingsRepo = SettingsRepository.getInstance(requireContext().applicationContext)
 
             if (settingsRepo.isFrameRateMatchingEnabled()) {
 
@@ -1221,14 +1224,14 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
     private fun showPlaylist() {
         val playlist = viewModel.currentPlaylist.value ?: emptyList()
         if (playlist.isEmpty()) {
-            Toast.makeText(context, getString(R.string.msg_playlist_empty), Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext().applicationContext, getString(R.string.msg_playlist_empty), Toast.LENGTH_SHORT).show()
             return
         }
 
         timerController.stopControlsTimer()
         ui.hideControls()
 
-        val settingsRepo = SettingsRepository(requireContext().applicationContext)
+        val settingsRepo = SettingsRepository.getInstance(requireContext().applicationContext)
         val showIndex = settingsRepo.isShowPlaylistIndexEnabled()
 
         ui.showPlaylistDialog(
@@ -1288,7 +1291,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
     override fun onResume() {
         super.onResume()
         // Обновляем настройку свайпа при возврате на экран
-        val settingsRepo = SettingsRepository(requireContext().applicationContext)
+        val settingsRepo = SettingsRepository.getInstance(requireContext().applicationContext)
         swipeAction = settingsRepo.getHorizontalSwipeAction()
 
         // Обновляем видимость часов (на случай, если изменили в настройках)
@@ -1327,11 +1330,12 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         activity?.let {
             val afrHelper = AutoFrameRateHelper.instance(requireContext())
             afrHelper.restoreOriginalState(it)
-
+            afrHelper.setListener(null)
             // Останавливаем tvQuickActions
             TvQuickActions.sendStopAFR(it)
         }
 
+        _ui = null
         super.onDestroyView()
     }
 
