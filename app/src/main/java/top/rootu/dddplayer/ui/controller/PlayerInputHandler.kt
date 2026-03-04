@@ -80,6 +80,7 @@ class PlayerInputHandler(
         when (event.keyCode) {
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                 if (!ui.controlsView.isVisible) {
+                    viewModel.togglePlayPause()
                     onShowControls()
                     return true
                 }
