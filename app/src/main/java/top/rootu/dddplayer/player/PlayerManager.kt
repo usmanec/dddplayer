@@ -58,8 +58,9 @@ import androidx.media3.common.MediaItem as Media3MediaItem
 
 class PlayerManager(
     private val context: Context,
-    private val listener: Player.Listener
+    listener: Player.Listener
 ) {
+    private var playerListener: Player.Listener? = listener
     private val appContext = context.applicationContext
     private val settingsRepo = SettingsRepository.getInstance(appContext)
 
@@ -393,7 +394,7 @@ class PlayerManager(
             initLoudnessEnhancer(player.audioSessionId)
         }
 
-        player.addListener(listener)
+        playerListener?.let { player.addListener(it) }
 
         // --- MediaSession ---
         if (player.canAdvertiseSession()) {
@@ -583,7 +584,7 @@ class PlayerManager(
                 currentPosition = player.currentPosition
                 playWhenReady = player.playWhenReady
             }
-            player.removeListener(listener)
+            playerListener?.let { player.removeListener(it) }
             player.release()
         }
         mediaSession?.release()
@@ -591,6 +592,18 @@ class PlayerManager(
         loudnessEnhancer?.release()
         loudnessEnhancer = null
         exoPlayer = null
+
+        // ==========================================
+        // ИСПРАВЛЕНИЕ УТЕЧКИ ПАМЯТИ
+        // Разрываем связи с ViewModel. Даже если фоновый поток ExoPlayer
+        // будет удерживать PlayerManager еще какое-то время,
+        // PlayerManager больше не будет держать ViewModel.
+        // ==========================================
+        playerListener = null
+        onMetadataAvailable = null
+        onPlayerCreated = null
+        onVideoFormatChanged = null
+        onAudioOutputFormatChanged = null
     }
 
     fun getTrackMetadata(): Map<Int, UnifiedMetadataReader.TrackInfo> = currentTrackInfo
