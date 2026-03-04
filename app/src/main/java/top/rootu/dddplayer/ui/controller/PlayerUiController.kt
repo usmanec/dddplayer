@@ -49,6 +49,7 @@ class PlayerUiController(private val rootView: View) {
     val glSurfaceView: StereoGLSurfaceView = rootView.findViewById(R.id.gl_surface_view)
 
     // Views
+    val dimOverlay: View = rootView.findViewById(R.id.dim_overlay)
     val touchZoneTop: View = rootView.findViewById(R.id.touch_zone_top)
     val subtitleView: SubtitleView = rootView.findViewById(R.id.subtitle_view)
     val subtitleSplitContainer: View = rootView.findViewById(R.id.subtitle_split_container)
@@ -740,6 +741,22 @@ class PlayerUiController(private val rootView: View) {
             String.format(Locale.getDefault(), "%d:%02d:%02d", hours, minutes, seconds)
         } else {
             String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
+        }
+    }
+
+    fun animateDimming(targetAlpha: Float) {
+        if (targetAlpha > 0f) {
+            dimOverlay.isVisible = true
+            dimOverlay.animate()
+                .alpha(targetAlpha)
+                .setDuration(800) // Плавное затемнение (800мс)
+                .start()
+        } else {
+            dimOverlay.animate()
+                .alpha(0f)
+                .setDuration(300) // Быстрое осветление (300мс)
+                .withEndAction { dimOverlay.isVisible = false }
+                .start()
         }
     }
 }

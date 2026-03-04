@@ -31,6 +31,9 @@ import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import top.rootu.dddplayer.BuildConfig
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
@@ -61,6 +64,7 @@ import kotlin.math.abs
 
 class PlayerFragment : Fragment(), OnSurfaceReadyListener {
 
+    private var dimJob: Job? = null
     private var zoomDialog: Dialog? = null
     private val viewModel: PlayerViewModel by activityViewModels()
     private val settingsViewModel: SettingsViewModel by viewModels()
@@ -193,6 +197,9 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
 
         // Вешаем слушатель на корневой контейнер
         view.findViewById<View>(R.id.root_container).setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_DOWN) {
+                resetDimTimer() // Осветляем при касании
+            }
             if (event.action == MotionEvent.ACTION_UP) {
                 touchHandler.onActionUp()
             }
@@ -246,6 +253,12 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
 
     fun handleKeyEvent(event: KeyEvent): Boolean {
         if (settingsViewModel.isSettingsPanelVisible.value == true) timerController.resetSettingsTimer()
+
+        // Осветляем экран, если пользователь нажал любую кнопку на пульте
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            resetDimTimer()
+        }
+
         val handled = inputHandler.handleKeyEvent(event, activity?.currentFocus)
         return handled
     }
@@ -791,6 +804,22 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         sideMenuDialog?.show()
     }
 
+    private fun resetDimTimer() {
+        dimJob?.cancel()
+        ui.animateDimming(0f) // Сразу осветляем экран при любой активности
+
+        val isPlaying = viewModel.isPlaying.value == true
+        if (!isPlaying) {
+            val dimLevel = SettingsRepository.getInstance(requireContext()).getPauseDimLevel()
+            if (dimLevel > 0) {
+                dimJob = viewLifecycleOwner.lifecycleScope.launch {
+                    delay(5000) // Ждем 5 секунд бездействия на паузе
+                    ui.animateDimming(dimLevel / 100f)
+                }
+            }
+        }
+    }
+
     private fun observeViewModel() {
         viewModel.isPlaying.observe(viewLifecycleOwner) { isPlaying ->
             if (isPlaying) {
@@ -801,6 +830,9 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
                 }
             }
             ui.playPauseButton.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow)
+
+            // Сбрасываем таймер затемнения при снятии/постановке на паузу
+            resetDimTimer()
         }
         // Фатальная ошибка (плеер стоп)
         viewModel.fatalError.observe(viewLifecycleOwner) { error ->

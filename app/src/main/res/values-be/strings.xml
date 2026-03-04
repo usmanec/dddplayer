@@ -167,6 +167,8 @@
     <string name="swipe_pull_exit">Цягніце для выхаду</string>
     <string name="swipe_release_next">Адпусціце для пераключэння</string>
     <string name="swipe_release_exit">Адпусціце для выхаду</string>
+    <string name="pref_pause_dim">Зацьмняць экран на паўзе</string>
+    <string name="pref_pause_dim_desc">Абараняе OLED экраны ад выгарання</string>
 
     <!-- Resume Playback -->
     <string name="pref_resume_mode">Аднаўленне прагляду</string>

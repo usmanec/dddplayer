@@ -248,6 +248,29 @@
                     android:focusable="false" />
             </LinearLayout>
 
+            <!-- Затемнение на паузе -->
+            <LinearLayout
+                android:id="@+id/item_pause_dim"
+                style="@style/SettingsItemContainer">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:duplicateParentState="true"
+                    android:orientation="vertical">
+                    <TextView
+                        style="@style/SettingsItemTitle"
+                        android:text="@string/pref_pause_dim" />
+                    <TextView
+                        style="@style/SettingsItemDesc"
+                        android:text="@string/pref_pause_dim_desc" />
+                </LinearLayout>
+                <TextView
+                    android:id="@+id/text_pause_dim_value"
+                    style="@style/SettingsItemValue"
+                    tools:text="60%" />
+            </LinearLayout>
+
             <!-- Dolby Vision -->
             <LinearLayout
                 android:id="@+id/item_dv"

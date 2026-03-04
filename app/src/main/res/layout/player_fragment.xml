@@ -66,6 +66,32 @@
             android:background="@color/transparent" />
     </LinearLayout>
 
+    <!-- Одиночные часы в правом верхнем углу (с черным контуром) -->
+    <top.rootu.dddplayer.ui.widget.OutlineTextClock
+        android:id="@+id/standalone_clock"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="33dp"
+        android:layout_marginEnd="28dp"
+        android:format12Hour="h:mm a"
+        android:format24Hour="HH:mm"
+        android:textColor="@color/tv_white"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:visibility="gone"
+        tools:visibility="visible" />
+
+    <!-- === ОВЕРЛЕЙ ЗАТЕМНЕНИЯ (ДЛЯ OLED) === -->
+    <View
+        android:id="@+id/dim_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/black"
+        android:alpha="0"
+        android:visibility="gone"
+        android:importantForAccessibility="no" />
+
     <!-- === ЭЛЕМЕНТЫ ДЛЯ ЖЕСТОВ === -->
 
     <!-- Индикатор Громкости/Яркости (Центр) -->
@@ -362,22 +388,6 @@
         android:focusable="false"
         android:background="@color/transparent"
         tools:ignore="KeyboardInaccessibleWidget" />
-
-    <!-- Одиночные часы в правом верхнем углу (с черным контуром) -->
-    <top.rootu.dddplayer.ui.widget.OutlineTextClock
-        android:id="@+id/standalone_clock"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|end"
-        android:layout_marginTop="33dp"
-        android:layout_marginEnd="28dp"
-        android:format12Hour="h:mm a"
-        android:format24Hour="HH:mm"
-        android:textColor="@color/tv_white"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:visibility="gone"
-        tools:visibility="visible" />
 
     <!-- Панель настроек -->
     <include

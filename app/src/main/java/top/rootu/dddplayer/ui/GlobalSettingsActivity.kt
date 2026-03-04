@@ -95,6 +95,8 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var switchShowIndex: SwitchCompat
     private lateinit var itemShowClock: LinearLayout
     private lateinit var switchShowClock: SwitchCompat
+    private lateinit var itemPauseDim: LinearLayout
+    private lateinit var textPauseDimValue: TextView
 
     // Список языков для выбора аудио/субтитров (ISO 639-1)
     private val trackLanguages = listOf(
@@ -194,6 +196,8 @@ class GlobalSettingsActivity : AppCompatActivity() {
         switchShowIndex = findViewById(R.id.switch_show_index)
         itemShowClock = findViewById(R.id.item_show_clock)
         switchShowClock = findViewById(R.id.switch_show_clock)
+        itemPauseDim = findViewById(R.id.item_pause_dim)
+        textPauseDimValue = findViewById(R.id.text_pause_dim_value)
     }
 
     private fun setupListeners() {
@@ -329,6 +333,8 @@ class GlobalSettingsActivity : AppCompatActivity() {
                 applyAppLocale(selectedCode)
             }
         }
+
+        itemPauseDim.setOnClickListener { settingsViewModel.cyclePauseDimLevel() }
     }
 
     private fun observeViewModel() {
@@ -406,6 +412,10 @@ class GlobalSettingsActivity : AppCompatActivity() {
         settingsViewModel.isRememberZoomEnabled.observe(this) { switchRememberZoom.isChecked = it }
         settingsViewModel.isShowPlaylistIndexEnabled.observe(this) { switchShowIndex.isChecked = it }
         settingsViewModel.isShowClockEnabled.observe(this) { switchShowClock.isChecked = it }
+
+        settingsViewModel.pauseDimLevel.observe(this) { level ->
+            textPauseDimValue.text = if (level == 0) getString(R.string.track_off) else "$level%"
+        }
 
         // Update ViewModel
         updateViewModel.updateInfo.observe(this) { updateUpdateUI() }

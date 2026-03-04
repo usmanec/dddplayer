@@ -60,6 +60,8 @@ class SettingsRepository private constructor(context: Context) {
     fun setZoomScalePercent(percent: Int) = prefs.edit { putInt("video_zoom_scale", percent) }
 
     // --- UI Settings ---
+    fun getPauseDimLevel(): Int = prefs.getInt("pause_dim_level", 60)
+    fun setPauseDimLevel(level: Int) = prefs.edit { putInt("pause_dim_level", level) }
     fun isShowPlaylistIndexEnabled(): Boolean = prefs.getBoolean("show_playlist_index", true)
     fun setShowPlaylistIndexEnabled(enabled: Boolean) = prefs.edit { putBoolean("show_playlist_index", enabled) }
 

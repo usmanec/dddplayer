@@ -76,6 +76,8 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     val appLanguage: LiveData<String> = _appLanguage
 
     // --- UI Settings ---
+    private val _pauseDimLevel = MutableLiveData(repository.getPauseDimLevel())
+    val pauseDimLevel: LiveData<Int> = _pauseDimLevel
     private val _isRememberZoomEnabled = MutableLiveData(repository.isRememberZoomEnabled())
     val isRememberZoomEnabled: LiveData<Boolean> = _isRememberZoomEnabled
 
@@ -172,6 +174,14 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     fun toggleSkipSilence(enabled: Boolean) {
         repository.setSkipSilenceEnabled(enabled)
         _isSkipSilenceEnabled.value = enabled
+    }
+
+    fun cyclePauseDimLevel() {
+        val current = _pauseDimLevel.value ?: 60
+        // Цикл: 0 (Выкл) -> 10 -> 20 -> ... -> 80 -> 90 -> 100 -> 0
+        val next = if (current >= 100) 0 else current + 10
+        repository.setPauseDimLevel(next)
+        _pauseDimLevel.value = next
     }
 
     fun cycleLoudnessBoost() {

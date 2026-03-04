@@ -191,6 +191,8 @@
     <string name="swipe_pull_exit">Pull to exit</string>
     <string name="swipe_release_next">Release to switch</string>
     <string name="swipe_release_exit">Release to exit</string>
+    <string name="pref_pause_dim">Dim screen on pause</string>
+    <string name="pref_pause_dim_desc">Protects OLED screens from burn-in</string>
 
     <!-- Resume Playback -->
     <string name="pref_resume_mode">Resume playback</string>

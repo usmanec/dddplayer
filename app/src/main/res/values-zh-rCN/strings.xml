@@ -176,6 +176,8 @@
     <string name="swipe_pull_exit">拉动退出</string>
     <string name="swipe_release_next">松开切换</string>
     <string name="swipe_release_exit">松开退出</string>
+    <string name="pref_pause_dim">暂停时调暗屏幕</string>
+    <string name="pref_pause_dim_desc">保护 OLED 屏幕免受烧屏影响</string>
 
     <!-- Resume Playback -->
     <string name="pref_resume_mode">恢复播放</string>
