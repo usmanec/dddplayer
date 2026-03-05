@@ -1385,7 +1385,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun restartPlayer() {
         // Сохраняем текущее состояние перед пересозданием
-        playerManager.releasePlayer(saveState = true)
+        playerManager.releasePlayer(isFinalRelease = false, saveState = true)
         playerManager.initializePlayer()
     }
 
@@ -1396,6 +1396,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     override fun onCleared() {
         super.onCleared()
         handler.removeCallbacks(progressUpdater)
-        playerManager.releasePlayer(saveState = false)
+        playerManager.releasePlayer(isFinalRelease = true, saveState = false)
     }
 }

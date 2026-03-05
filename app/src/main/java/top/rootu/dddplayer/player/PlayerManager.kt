@@ -198,7 +198,7 @@ class PlayerManager(
 
     fun initializePlayer() {
         if (exoPlayer != null) {
-            releasePlayer(saveState = true)
+            releasePlayer(isFinalRelease = false, saveState = true)
         }
 
         // === Кастомный MediaCodecSelector для Dolby Vision Fallback ===
@@ -577,7 +577,7 @@ class PlayerManager(
         }
     }
 
-    fun releasePlayer(saveState: Boolean = true) {
+    fun releasePlayer(isFinalRelease: Boolean = false, saveState: Boolean = true) {
         exoPlayer?.let { player ->
             if (saveState) {
                 currentWindowIndex = player.currentMediaItemIndex
@@ -593,17 +593,15 @@ class PlayerManager(
         loudnessEnhancer = null
         exoPlayer = null
 
-        // ==========================================
-        // ИСПРАВЛЕНИЕ УТЕЧКИ ПАМЯТИ
-        // Разрываем связи с ViewModel. Даже если фоновый поток ExoPlayer
-        // будет удерживать PlayerManager еще какое-то время,
-        // PlayerManager больше не будет держать ViewModel.
-        // ==========================================
-        playerListener = null
-        onMetadataAvailable = null
-        onPlayerCreated = null
-        onVideoFormatChanged = null
-        onAudioOutputFormatChanged = null
+        // Зануляем коллбеки ТОЛЬКО если это полное уничтожение плеера (выход из приложения),
+        // чтобы не сломать "горячую перезагрузку" при смене настроек.
+        if (isFinalRelease) {
+            playerListener = null
+            onMetadataAvailable = null
+            onPlayerCreated = null
+            onVideoFormatChanged = null
+            onAudioOutputFormatChanged = null
+        }
     }
 
     fun getTrackMetadata(): Map<Int, UnifiedMetadataReader.TrackInfo> = currentTrackInfo
