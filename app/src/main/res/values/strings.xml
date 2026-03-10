@@ -172,10 +172,15 @@
     <string name="pref_up_action_osd">Quick Settings Panel</string>
     <string name="pref_up_action_menu">Settings Menu (Side)</string>
     <string name="pref_up_action_none">Nothing</string>
+    <string name="pref_ok_action">\'OK\' Button Action</string>
+    <string name="pref_ok_action_desc">What to do when pressing \'OK\' in the player</string>
+    <string name="pref_ok_action_pause">Toggle Pause</string>
+    <string name="pref_ok_action_pause_panel">Pause + Panel</string>
+    <string name="pref_ok_action_panel">Show Panel</string>
     <string name="pref_remember_zoom">Remember zoom</string>
     <string name="pref_remember_zoom_desc">Apply the last selected zoom mode to all videos</string>
-    <string name="pref_show_clock">Show clock</string>
-    <string name="pref_show_clock_desc">Display clock in the top right corner (over video)</string>
+    <string name="pref_show_clock">Clock &amp; Transparency</string>
+    <string name="pref_show_clock_desc">You can enable the clock in the top right corner and set its transparency</string>
     <string name="pref_show_playlist_index">Playlist index</string>
     <string name="pref_show_playlist_index_desc">Display the sequence number over the video thumbnail</string>
     <string name="pref_swipe_horizontal">Horizontal swipe</string>

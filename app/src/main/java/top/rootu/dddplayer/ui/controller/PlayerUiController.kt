@@ -89,6 +89,7 @@ class PlayerUiController(private val rootView: View) {
     val prevButton: ImageButton = controlsView.findViewById(R.id.button_prev)
     val nextButton: ImageButton = controlsView.findViewById(R.id.button_next)
     val seekBar: SeekBar = controlsView.findViewById(R.id.seek_bar)
+    val bufferingValueTextView: TextView = controlsView.findViewById(R.id.buffering_value)
     val timeCurrentTextView: TextView = controlsView.findViewById(R.id.time_current)
     val timeDurationTextView: TextView = controlsView.findViewById(R.id.time_duration)
     val buttonQuality: TextView = controlsView.findViewById(R.id.button_quality)
@@ -151,8 +152,8 @@ class PlayerUiController(private val rootView: View) {
     private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
     private val timeFormatSeconds = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
-    // Состояние из настроек (показываем ли часы)
-    private var isStandaloneClockEnabled: Boolean = false
+    // часы
+    private var clockTransparency: Int = -1 // -1 = выкл, 0-100 = уровень
 
     init {
         // Настройка ленты
@@ -166,13 +167,18 @@ class PlayerUiController(private val rootView: View) {
         optionsRecycler.itemAnimator = null
     }
 
-    fun setStandaloneClockEnabled(enabled: Boolean) {
-        isStandaloneClockEnabled = enabled
+    fun updateClockTransparency(transparency: Int) {
+        this.clockTransparency = transparency
+        if (transparency != -1) {
+            // Преобразуем ПРОЗРАЧНОСТЬ в НЕПРОЗРАЧНОСТЬ (alpha)
+            val opacity = (100 - transparency) / 100f
+            standaloneClock.alpha = opacity
+        }
         updateClockVisibility()
     }
 
     private fun updateClockVisibility() {
-        standaloneClock.isVisible = isStandaloneClockEnabled && !topInfoPanel.isVisible
+        standaloneClock.isVisible = clockTransparency != -1 && !topInfoPanel.isVisible
     }
 
     fun showVolumeIndicator(percent: Int) {
@@ -697,6 +703,7 @@ class PlayerUiController(private val rootView: View) {
             bufferingContainer.isVisible = false
             bufferingSplitContainer.isVisible = false
         }
+//        bufferingValueTextView.text = "Буфер: " + rootView.context.getString(R.string.percentage_int_format, percent) // todo Буфер
     }
 
     fun updateStereoLayout(mode: StereoOutputMode?, separation: Float) {

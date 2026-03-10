@@ -157,10 +157,15 @@
     <string name="pref_up_action_osd">快捷设置面板</string>
     <string name="pref_up_action_menu">设置菜单（侧边）</string>
     <string name="pref_up_action_none">无操作</string>
+    <string name="pref_ok_action">\'OK\' 键动作</string>
+    <string name="pref_ok_action_desc">在播放器中按下 \'OK\' 键时做什么</string>
+    <string name="pref_ok_action_pause">切换暂停</string>
+    <string name="pref_ok_action_pause_panel">暂停 + 面板</string>
+    <string name="pref_ok_action_panel">显示面板</string>
     <string name="pref_remember_zoom">记住缩放</string>
     <string name="pref_remember_zoom_desc">将上次选择的缩放模式应用于所有视频</string>
-    <string name="pref_show_clock">显示时钟</string>
-    <string name="pref_show_clock_desc">在右上角显示时钟（覆盖在视频上）</string>
+    <string name="pref_show_clock">时钟与透明度</string>
+    <string name="pref_show_clock_desc">您可以在右上角启用时钟并设置其透明度</string>
     <string name="pref_show_playlist_index">播放列表序号</string>
     <string name="pref_show_playlist_index_desc">在视频缩略图上显示序号</string>
     <string name="pref_swipe_horizontal">水平滑动</string>

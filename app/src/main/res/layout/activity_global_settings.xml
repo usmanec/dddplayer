@@ -668,12 +668,10 @@
                         style="@style/SettingsItemDesc"
                         android:text="@string/pref_show_clock_desc" />
                 </LinearLayout>
-                <androidx.appcompat.widget.SwitchCompat
-                    android:id="@+id/switch_show_clock"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:clickable="false"
-                    android:focusable="false" />
+                <TextView
+                    android:id="@+id/text_show_clock_value"
+                    style="@style/SettingsItemValue"
+                    tools:text="60%" />
             </LinearLayout>
 
             <!-- Show Playlist Index -->
@@ -726,6 +724,29 @@
                     android:id="@+id/text_up_action_value"
                     style="@style/SettingsItemValue"
                     tools:text="@string/pref_up_action_osd" />
+            </LinearLayout>
+
+            <!-- Кнопка OK -->
+            <LinearLayout
+                android:id="@+id/item_ok_action"
+                style="@style/SettingsItemContainer">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:duplicateParentState="true"
+                    android:orientation="vertical">
+                    <TextView
+                        style="@style/SettingsItemTitle"
+                        android:text="@string/pref_ok_action" />
+                    <TextView
+                        style="@style/SettingsItemDesc"
+                        android:text="@string/pref_ok_action_desc" />
+                </LinearLayout>
+                <TextView
+                    android:id="@+id/text_ok_action_value"
+                    style="@style/SettingsItemValue"
+                    tools:text="Pause + Panel" />
             </LinearLayout>
 
             <!-- Horizontal Swipe -->

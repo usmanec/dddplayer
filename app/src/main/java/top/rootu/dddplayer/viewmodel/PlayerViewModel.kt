@@ -234,9 +234,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 // (ExoPlayer.bufferedPercentage не подходит,
                 // т.к. он показывает % буфера на прогрессе, а не заполненность буфера)
                 val bufferedDuration = p.bufferedPosition - p.currentPosition
-                val targetBuffer = if (bufferedDuration > 6_000L) 50_000L else 5_000L
-                val maxPercent = if (targetBuffer == 5_000L) 99 else 100
-                val percent = ((bufferedDuration * 101) / targetBuffer).toInt().coerceIn(0, maxPercent)
+                val targetBuffer = 50_000L // if (bufferedDuration > 6_000L) 50_000L else 5_000L
+                val maxPercent = 100 // if (targetBuffer == 5_000L) 99 else 100
+                val percent = ((bufferedDuration * 100) / targetBuffer).toInt().coerceIn(0, maxPercent)
                 _bufferedPercentage.value = percent
 
                 // Если AFR еще не сработал, проверяем формат

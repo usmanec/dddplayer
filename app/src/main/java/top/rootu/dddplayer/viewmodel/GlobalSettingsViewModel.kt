@@ -84,14 +84,18 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     private val _isShowPlaylistIndexEnabled = MutableLiveData(repository.isShowPlaylistIndexEnabled())
     val isShowPlaylistIndexEnabled: LiveData<Boolean> = _isShowPlaylistIndexEnabled
 
-    private val _isShowClockEnabled = MutableLiveData(repository.isShowClock())
-    val isShowClockEnabled: LiveData<Boolean> = _isShowClockEnabled
+    private val _clockTransparency = MutableLiveData(repository.getClockTransparency())
+    val clockTransparency: LiveData<Int> = _clockTransparency
 
     private val _resumeModeAction = MutableLiveData(repository.getResumeMode())
     val resumeModeAction: LiveData<Int> = _resumeModeAction
 
     private val _upButtonAction = MutableLiveData(repository.getUpButtonAction())
     val upButtonAction: LiveData<Int> = _upButtonAction
+
+    private val _okButtonAction = MutableLiveData(repository.getOkButtonAction())
+    val okButtonAction: LiveData<Int> = _okButtonAction
+
     private val _horizontalSwipeAction = MutableLiveData(repository.getHorizontalSwipeAction())
     val horizontalSwipeAction: LiveData<Int> = _horizontalSwipeAction
 
@@ -107,9 +111,18 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
         _isShowPlaylistIndexEnabled.value = enabled
     }
 
-    fun toggleShowClock(enabled: Boolean) {
-        repository.setShowClock(enabled)
-        _isShowClockEnabled.value = enabled
+    fun cycleClockTransparency() {
+        val current = _clockTransparency.value ?: 60
+
+        // цикл: Выкл (-1) -> 0% -> 20% -> 40% -> 60% -> 80% -> Выкл (-1)
+        val next = when {
+            current == -1 -> 0      // С Выкл. переходим на 0% прозрачности (полностью видимо)
+            current >= 80 -> -1     // С 80% прозрачности переходим на Выкл.
+            else -> current + 20    // Увеличиваем прозрачность
+        }
+
+        repository.setClockTransparency(next)
+        _clockTransparency.value = next
     }
 
     fun toggleDecoderPriority() {
@@ -218,6 +231,13 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
         val next = (current + 1) % 3 // 0, 1, 2
         repository.setUpButtonAction(next)
         _upButtonAction.value = next
+    }
+
+    fun cycleOkButtonAction() {
+        val current = _okButtonAction.value ?: 1
+        val next = (current + 1) % 3 // 0, 1, 2
+        repository.setOkButtonAction(next)
+        _okButtonAction.value = next
     }
 
     fun cycleHorizontalSwipeAction() {

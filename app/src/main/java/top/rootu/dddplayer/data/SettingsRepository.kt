@@ -139,18 +139,28 @@ class SettingsRepository private constructor(context: Context) {
     // Действие кнопки "Вверх" ( 0 = Nothing, 1 = OSD, 2 = Side Menu)
     fun getUpButtonAction(): Int = prefs.getInt("up_button_action", 1)
     fun setUpButtonAction(action: Int) = prefs.edit { putInt("up_button_action", action) }
+
+    // Действие кнопки "OK" (0 = Pause, 1 = Pause+Panel, 2 = Panel)
+    fun getOkButtonAction(): Int = prefs.getInt("ok_button_action", 1) // По умолчанию Pause+Panel
+    fun setOkButtonAction(action: Int) = prefs.edit { putInt("ok_button_action", action) }
+
     // Горизонтальный свайп ( 0 = None, 1 = Seek, 2 = Playlist)
     fun getHorizontalSwipeAction(): Int = prefs.getInt("horizontal_swipe_action", 2)
     fun setHorizontalSwipeAction(action: Int) = prefs.edit { putInt("horizontal_swipe_action", action) }
 
-    fun isShowClock(): Boolean = prefs.getBoolean("show_clock", false)
-    fun setShowClock(enabled: Boolean) = prefs.edit { putBoolean("show_clock", enabled) }
+    fun isShowBuffer(): Boolean = prefs.getBoolean("show_buffer", false)
+    fun setShowBuffer(enabled: Boolean) = prefs.edit { putBoolean("show_buffer", enabled) }
+
+    // Храним уровень прозрачности часов (-1 = выкл, 0-100 = уровень)
+    fun getClockTransparency(): Int = prefs.getInt("clock_transparency", 40)
+    fun setClockTransparency(transparency: Int) = prefs.edit { putInt("clock_transparency", transparency) }
 
     // Сигнатура настроек, требующих полного перезапуска плеера
-    fun getHardSettingsSignature(): String {
+    fun getHardSettingsSignature(): Int {
         val videoParams = "${getDecoderPriority()}_${isTunnelingEnabled()}_${isMapDvToHevcEnabled()}"
         val audioDownmix = "${isStereoDownmixEnabled()}_${getMixPreset()}}_${getMixFront()}_${getMixCenter()}_${getMixRear()}_${getMixMiddle()}_${getMixLfe()}"
-        return "${videoParams}_${audioDownmix}"
+        val audioParams = "${isSkipSilenceEnabled()}_${getLoudnessBoost()}_${audioDownmix}"
+        return "${videoParams}_${audioParams}".hashCode()
     }
 
     // --- Global Preferences Helpers ---

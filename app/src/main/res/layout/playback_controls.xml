@@ -59,6 +59,18 @@
         app:layout_constraintEnd_toEndOf="parent"
         tools:text="00:01:55" />
 
+    <TextView
+        android:id="@+id/buffering_value"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/text_tertiary"
+        android:textSize="12sp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="1dp"
+        app:layout_constraintBottom_toTopOf="@id/seek_bar"
+        app:layout_constraintEnd_toStartOf="@+id/time_duration"
+        tools:text="Буфер: 95%" />
+
     <LinearLayout
         android:id="@+id/left_controls"
         android:layout_width="0dp"

@@ -80,8 +80,18 @@ class PlayerInputHandler(
         when (event.keyCode) {
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                 if (!ui.controlsView.isVisible) {
-                    viewModel.togglePlayPause()
-                    onShowControls()
+                    when (repo.getOkButtonAction()) {
+                        0 -> { // Только Пауза
+                            viewModel.togglePlayPause()
+                        }
+                        1 -> { // Пауза + Панель (старое поведение)
+                            viewModel.togglePlayPause()
+                            onShowControls()
+                        }
+                        2 -> { // Только Панель
+                            onShowControls()
+                        }
+                    }
                     return true
                 }
             }

@@ -148,10 +148,15 @@
     <string name="pref_up_action_osd">Панэль налад</string>
     <string name="pref_up_action_menu">Меню налад (Бакавое)</string>
     <string name="pref_up_action_none">Нічога</string>
+    <string name="pref_ok_action">Дзеянне кнопкі \'OK\'</string>
+    <string name="pref_ok_action_desc">Што рабіць пры націску \'OK\' у плэеры</string>
+    <string name="pref_ok_action_pause">Пераключыць паўзу</string>
+    <string name="pref_ok_action_pause_panel">Паўза + Панэль</string>
+    <string name="pref_ok_action_panel">Паказаць панэль</string>
     <string name="pref_remember_zoom">Запамінаць маштаб</string>
     <string name="pref_remember_zoom_desc">Ужываць апошні выбраны рэжым маштабавання да ўсіх відэа</string>
-    <string name="pref_show_clock">Паказваць гадзіннік</string>
-    <string name="pref_show_clock_desc">Паказваць гадзіннік у правым верхнім куце (паверх відэа)</string>
+    <string name="pref_show_clock">Гадзіннік і празрыстасць</string>
+    <string name="pref_show_clock_desc">Можна ўключыць гадзіннік у правым верхнім куце і задаць яго празрыстасць</string>
     <string name="pref_show_playlist_index">Нумар у плэйлісце</string>
     <string name="pref_show_playlist_index_desc">Паказваць парадкавы нумар паверх мініяцюры відэа</string>
     <string name="pref_swipe_horizontal">Гарызантальны свайп</string>

@@ -140,7 +140,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         val settingsRepo = SettingsRepository.getInstance(requireContext().applicationContext)
 
         // Устанавливаем видимость часов на основе настроек
-        ui.setStandaloneClockEnabled(settingsRepo.isShowClock())
+        ui.updateClockTransparency(settingsRepo.getClockTransparency())
 
         inputHandler = PlayerInputHandler(
             viewModel, settingsViewModel, ui,
@@ -963,9 +963,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         }
 
         viewModel.bufferedPercentage.observe(viewLifecycleOwner) { percent ->
-            if (viewModel.isBuffering.value == true) {
-                ui.updateBufferingState(true, viewModel.outputMode.value, percent)
-            }
+            ui.updateBufferingState(viewModel.isBuffering.value == true, viewModel.outputMode.value, percent)
         }
 
         viewModel.bufferedPosition.observe(viewLifecycleOwner) { bufferedPos ->
@@ -1327,7 +1325,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         swipeAction = settingsRepo.getHorizontalSwipeAction()
 
         // Обновляем видимость часов (на случай, если изменили в настройках)
-        ui.setStandaloneClockEnabled(settingsRepo.isShowClock())
+        ui.updateClockTransparency(settingsRepo.getClockTransparency())
 
         // Проверяем, нужно ли перезапустить плеер из-за смены настроек
         viewModel.checkSettingsAndRestart()
