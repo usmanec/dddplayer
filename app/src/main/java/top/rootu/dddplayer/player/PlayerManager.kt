@@ -33,19 +33,25 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.exoplayer.upstream.DefaultAllocator
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.mp4.Mp4Extractor
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import androidx.media3.extractor.ts.TsExtractor
 import androidx.media3.session.MediaSession
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
+import okhttp3.Request
 import top.rootu.dddplayer.App.Companion.USER_AGENT
 import top.rootu.dddplayer.data.SettingsRepository
 import top.rootu.dddplayer.logic.AudioMixerLogic
+import top.rootu.dddplayer.logic.M3uParser
 import top.rootu.dddplayer.logic.UnifiedMetadataReader
 import top.rootu.dddplayer.model.MediaItem
 import top.rootu.dddplayer.utils.MediaFormatHelper
+import java.io.InputStream
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.util.concurrent.ConcurrentHashMap
@@ -56,6 +62,27 @@ import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 import androidx.media3.common.MediaItem as Media3MediaItem
 
+private class BufferLoadControl(
+    val allocator: DefaultAllocator,
+    targetBufferBytes: Int,
+    maxBufferMs: Int
+) : DefaultLoadControl(
+    allocator,
+    (maxBufferMs * 0.9).toInt(),
+    (maxBufferMs * 0.9).toInt(),
+    maxBufferMs, // Используем кастомное значение
+    maxBufferMs, // Используем кастомное значение для локального воспроизведения
+    DEFAULT_BUFFER_FOR_PLAYBACK_MS,
+    DEFAULT_BUFFER_FOR_PLAYBACK_FOR_LOCAL_PLAYBACK_MS,
+    DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS,
+    DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_FOR_LOCAL_PLAYBACK_MS,
+    targetBufferBytes,
+    DEFAULT_PRIORITIZE_TIME_OVER_SIZE_THRESHOLDS,
+    DEFAULT_PRIORITIZE_TIME_OVER_SIZE_THRESHOLDS_FOR_LOCAL_PLAYBACK,
+    DEFAULT_BACK_BUFFER_DURATION_MS,
+    DEFAULT_RETAIN_BACK_BUFFER_FROM_KEYFRAME
+)
+
 class PlayerManager(
     private val context: Context,
     listener: Player.Listener
@@ -65,6 +92,9 @@ class PlayerManager(
     private val settingsRepo = SettingsRepository.getInstance(appContext)
 
     var exoPlayer: ExoPlayer? = null
+        private set
+
+    lateinit var allocator: DefaultAllocator
         private set
 
     private var mediaSession: MediaSession? = null
@@ -196,6 +226,45 @@ class PlayerManager(
         override fun getMinimumLoadableRetryCount(dataType: Int): Int = 5
     }
 
+    suspend fun expandM3uIfNeeded(items: List<MediaItem>): List<MediaItem> = withContext(Dispatchers.IO) {
+        if (items.size != 1) return@withContext items
+
+        val rootItem = items[0]
+        val path = rootItem.uri.path?.lowercase() ?: ""
+
+        if (!path.endsWith(".m3u") && !path.endsWith(".m3u8")) {
+            return@withContext items
+        }
+
+        try {
+            val content: String
+            val inputStream: InputStream?
+
+            if (rootItem.uri.scheme?.startsWith("http") == true) {
+                val requestBuilder = Request.Builder().url(rootItem.uri.toString())
+                rootItem.headers.forEach { (k, v) -> requestBuilder.addHeader(k, v) }
+
+                val response = okHttpClient.newCall(requestBuilder.build()).execute()
+                if (!response.isSuccessful) return@withContext items
+
+                content = response.body?.string() ?: ""
+                inputStream = content.byteInputStream()
+            } else {
+                inputStream = appContext.contentResolver.openInputStream(rootItem.uri)
+                content = inputStream?.bufferedReader()?.use { it.readText() } ?: ""
+            }
+
+            if (M3uParser.isPlaylist(content)) {
+                val parsed = M3uParser.parse(content.byteInputStream(), rootItem.uri, rootItem.headers)
+                if (parsed.isNotEmpty()) return@withContext parsed
+            }
+        } catch (e: Exception) {
+            Log.e("PlayerManager", "M3U expansion failed: ${e.message}")
+        }
+
+        return@withContext items
+    }
+
     fun initializePlayer() {
         if (exoPlayer != null) {
             releasePlayer(isFinalRelease = false, saveState = true)
@@ -284,33 +353,33 @@ class PlayerManager(
                     // Если нужен Downmix -> создаем свой Sink с процессором
 
                     // Ограничиваем аудиобуффер, чтобы не упасть по памяти
-                    val bufferSizeProvider = DefaultAudioSink.AudioTrackBufferSizeProvider {
-                            minSize, encoding, outputMode, pcmFrameSize, sampleRate, bitrate, speed ->
-
-                        // Получаем стандартный размер, рассчитанный ExoPlayer
-                        val standardSize = DefaultAudioSink.AudioTrackBufferSizeProvider.DEFAULT
-                            .getBufferSizeInBytes(
-                                minSize,
-                                encoding,
-                                outputMode,
-                                pcmFrameSize,
-                                sampleRate,
-                                bitrate,
-                                speed
-                            )
-
-                        standardSize.coerceAtMost(256 * 1024) // 256КБ должно хватить
-                    }
-
-                    val audioOutputProvider = AudioTrackAudioOutputProvider.Builder(appContext)
-                        .setAudioTrackBufferSizeProvider(bufferSizeProvider)
-                        .build()
+//                    val bufferSizeProvider = DefaultAudioSink.AudioTrackBufferSizeProvider {
+//                            minSize, encoding, outputMode, pcmFrameSize, sampleRate, bitrate, speed ->
+//
+//                        // Получаем стандартный размер, рассчитанный ExoPlayer
+//                        val standardSize = DefaultAudioSink.AudioTrackBufferSizeProvider.DEFAULT
+//                            .getBufferSizeInBytes(
+//                                minSize,
+//                                encoding,
+//                                outputMode,
+//                                pcmFrameSize,
+//                                sampleRate,
+//                                bitrate,
+//                                speed
+//                            )
+//
+//                        standardSize.coerceAtMost(256 * 1024) // 256КБ должно хватить
+//                    }
+//
+//                    val audioOutputProvider = AudioTrackAudioOutputProvider.Builder(appContext)
+//                        .setAudioTrackBufferSizeProvider(bufferSizeProvider)
+//                        .build()
                     //~ Ограничиваем аудиобуффер, чтобы не упасть по памяти
 
                     val sinkBuilder = DefaultAudioSink.Builder(appContext)
                         .setEnableAudioOutputPlaybackParameters(true)
                         .setEnableFloatOutput(false) // Важно для стабильности Downmix на старых чипах
-                        .setAudioOutputProvider(audioOutputProvider) // Ограничиваем аудиобуффер, чтобы не упасть по памяти
+//                        .setAudioOutputProvider(audioOutputProvider) // Ограничиваем аудиобуффер, чтобы не упасть по памяти
 
                     val mixingProcessor = ChannelMixingAudioProcessor()
                     val matrices = AudioMixerLogic.createMatrices(settingsRepo)
@@ -344,15 +413,16 @@ class PlayerManager(
             setEnableDecoderFallback(true) // Разрешаем софтовый декодер
         }
 
-        val loadControl = DefaultLoadControl.Builder()
-            .setBufferDurationsMs(
-                15000, // minBufferMs
-                50000, // maxBufferMs
-                500,   // bufferForPlaybackMs
-                5000   // bufferForPlaybackAfterRebufferMs
-            )
-            .setPrioritizeTimeOverSizeThresholds(true)
-            .build()
+        allocator = DefaultAllocator(true, C.DEFAULT_BUFFER_SEGMENT_SIZE)
+
+        val targetBufferMB = settingsRepo.getTargetBufferCorrectMB()
+        val targetBufferBytes = if (targetBufferMB == -1) C.LENGTH_UNSET else targetBufferMB * 1024 * 1024
+
+        // Если задан буфер в МБ, отключаем лимит по времени (ставим 50_000_000 мс = ~13 часов),
+        // чтобы плеер качал до тех пор, пока не заполнит указанный объем памяти.
+        val maxBufferMs = if (targetBufferMB == -1) DefaultLoadControl.DEFAULT_MAX_BUFFER_MS else 50_000_000
+
+        val loadControl = BufferLoadControl(allocator, targetBufferBytes, maxBufferMs)
 
         // Build Player
         val player = ExoPlayer.Builder(appContext, renderersFactory)
@@ -432,7 +502,7 @@ class PlayerManager(
 
         this.exoPlayer = player
 
-        // 6. Restore State
+        // Restore State
         if (currentMediaItems.isNotEmpty()) {
             val sources = buildMediaSources(currentMediaItems)
             player.setMediaSources(sources, currentWindowIndex, currentPosition)
@@ -526,7 +596,7 @@ class PlayerManager(
         currentTrackInfo = emptyMap()
         resolvedMediaTypes.clear() // Очищаем кэш типов при новой загрузке
 
-        if (items.isNotEmpty()) {
+        if (items.isNotEmpty() && startIndex in items.indices) {
             baseHttpFactory.setDefaultRequestProperties(items[startIndex].headers)
         }
 
@@ -550,15 +620,23 @@ class PlayerManager(
             val liveConfig = Media3MediaItem.LiveConfiguration.Builder()
                 .setTargetOffsetMs(15000) // увеличили до 15 сек
                 .setMaxOffsetMs(30000)    // Максимальное отставание
-                .setMaxPlaybackSpeed(1.05f) // Разрешаем ускоряться до 1.05x чтобы догнать поток
+//                .setMaxPlaybackSpeed(1.05f) // Разрешаем ускоряться до 1.05x чтобы догнать поток
+                .build()
+
+            val requestMetadata = Media3MediaItem.RequestMetadata.Builder()
+                .setExtras(android.os.Bundle().apply {
+                    item.headers.forEach { (k, v) -> putString(k, v) }
+                })
                 .build()
 
             Media3MediaItem.Builder()
+                .setMediaId(item.uuid)
                 .setUri(item.uri)
 //                .setMimeType(mimeType)
                 .setMediaMetadata(metadata)
                 .setSubtitleConfigurations(subConfigs)
                 .setLiveConfiguration(liveConfig)
+                .setRequestMetadata(requestMetadata)
                 .build()
         }
 

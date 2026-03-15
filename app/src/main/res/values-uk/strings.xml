@@ -147,6 +147,7 @@
     <string name="pref_up_action_desc">Що відкривати при натисканні \'Вгору\' в плеєрі</string>
     <string name="pref_up_action_osd">Панель налаштувань</string>
     <string name="pref_up_action_menu">Меню налаштувань (Бічне)</string>
+    <string name="pref_up_action_info">Інфо-панель</string>
     <string name="pref_up_action_none">Нічого</string>
     <string name="pref_ok_action">Дія кнопки \'OK\'</string>
     <string name="pref_ok_action_desc">Що робити при натисканні \'OK\' у плеєрі</string>
@@ -174,6 +175,31 @@
     <string name="swipe_release_exit">Відпустіть для виходу</string>
     <string name="pref_pause_dim">Затемнювати екран на паузі</string>
     <string name="pref_pause_dim_desc">Захищає OLED екрани від вигоряння</string>
+
+    <string name="pref_startup_playlist">Плейлист при запуску</string>
+    <string name="pref_startup_playlist_desc">Посилання на M3U плейлист</string>
+    <string name="pref_startup_playlist_not_set">Не задано</string>
+    <string name="dialog_input_url_title">Введіть посилання на плейлист</string>
+    <string name="dialog_input_url_hint">http://...</string>
+    <string name="save">Зберегти</string>
+
+    <string name="pref_live_mode">Управління для ефіру</string>
+    <string name="pref_live_mode_desc">ОК - список, Вліво/Вправо - канали</string>
+    <string name="pref_track_change_info">Інформація при зміні треку</string>
+    <string name="pref_track_change_info_desc">Відображати верхню інфопанель при зміні треку</string>
+
+    <string name="pref_buffer_display">Відображення буфера</string>
+    <string name="pref_buffer_display_desc">Де показувати відсоток буферизації</string>
+    <string name="buffer_off">Вимк</string>
+    <string name="buffer_panel">В панелі управління</string>
+    <string name="buffer_clock">Поруч з годинником</string>
+    <string name="pref_buffer_size">Розмір буфера</string>
+    <string name="pref_buffer_size_desc">Об\'єм ОЗП для відеобуферизації</string>
+    <string name="buffer_size_auto">Авто</string>
+    <string name="buffer_size_mb">%d МБ</string>
+    <string name="buffer_percentage">Буфер: %d%%</string>
+    <string name="select_group">Виберіть групу</string>
+    <string name="group_all">Всі</string>
 
     <!-- Resume Playback -->
     <string name="pref_resume_mode">Відновлення перегляду</string>

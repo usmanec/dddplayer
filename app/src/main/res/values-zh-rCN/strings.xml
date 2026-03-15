@@ -156,6 +156,7 @@
     <string name="pref_up_action_desc">在播放器中按"上"键时打开什么</string>
     <string name="pref_up_action_osd">快捷设置面板</string>
     <string name="pref_up_action_menu">设置菜单（侧边）</string>
+    <string name="pref_up_action_info">信息面板</string>
     <string name="pref_up_action_none">无操作</string>
     <string name="pref_ok_action">\'OK\' 键动作</string>
     <string name="pref_ok_action_desc">在播放器中按下 \'OK\' 键时做什么</string>
@@ -183,6 +184,31 @@
     <string name="swipe_release_exit">松开退出</string>
     <string name="pref_pause_dim">暂停时调暗屏幕</string>
     <string name="pref_pause_dim_desc">保护 OLED 屏幕免受烧屏影响</string>
+
+    <string name="pref_startup_playlist">启动播放列表</string>
+    <string name="pref_startup_playlist_desc">M3U播放列表链接</string>
+    <string name="pref_startup_playlist_not_set">未设置</string>
+    <string name="dialog_input_url_title">输入播放列表链接</string>
+    <string name="dialog_input_url_hint">http://...</string>
+    <string name="save">保存</string>
+
+    <string name="pref_live_mode">直播模式控制</string>
+    <string name="pref_live_mode_desc">确定 - 列表，左右 - 切换频道</string>
+    <string name="pref_track_change_info">切换曲目时显示信息</string>
+    <string name="pref_track_change_info_desc">切换曲目时显示顶部信息面板</string>
+
+    <string name="pref_buffer_display">缓冲显示</string>
+    <string name="pref_buffer_display_desc">在哪里显示缓冲百分比</string>
+    <string name="buffer_off">关闭</string>
+    <string name="buffer_panel">在控制面板中</string>
+    <string name="buffer_clock">在时钟旁边</string>
+    <string name="pref_buffer_size">缓冲区大小</string>
+    <string name="pref_buffer_size_desc">用于视频缓冲的 RAM 量</string>
+    <string name="buffer_size_auto">自动</string>
+    <string name="buffer_size_mb">%d MB</string>
+    <string name="buffer_percentage">缓冲: %d%%</string>
+    <string name="select_group">选择分组</string>
+    <string name="group_all">全部</string>
 
     <!-- Resume Playback -->
     <string name="pref_resume_mode">恢复播放</string>

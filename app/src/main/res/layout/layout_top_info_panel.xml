@@ -10,7 +10,7 @@
     <!-- Постер -->
     <androidx.cardview.widget.CardView
         android:id="@+id/poster_card"
-        android:layout_width="wrap_content"
+        android:layout_width="96dp"
         android:layout_height="54dp"
         app:cardCornerRadius="4dp"
         app:cardElevation="0dp"
@@ -21,9 +21,8 @@
 
         <ImageView
             android:id="@+id/video_poster"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:adjustViewBounds="true"
             android:contentDescription="@string/pic"
             android:scaleType="fitCenter"
             android:src="@drawable/tv_banner"
@@ -71,16 +70,14 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent">
 
-        <TextClock
+        <TextView
             android:id="@+id/text_clock"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:format12Hour="h:mm a"
-            android:format24Hour="HH:mm"
             android:textColor="@color/tv_white"
             android:textSize="18sp"
             android:textStyle="bold"
-            tools:text="19:36" />
+            tools:text="95% • 19:36" />
 
         <TextView
             android:id="@+id/text_ends_at"

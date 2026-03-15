@@ -21,13 +21,12 @@ private const val TAG = "ParsingDataSource"
 
 // 1. Размер буфера в оперативной памяти (RAM).
 // 64 КБ - стандартный размер чанка IO. Этого достаточно для потока.
-// Это решает проблему OutOfMemoryError.
 private const val PIPE_BUFFER_SIZE = 64 * 1024
 
 // 2. Максимальный объем данных, который мы готовы скормить парсеру.
-// Если метаданные не найдены в первых 50 МБ, мы прекращаем попытки,
+// Если метаданные не найдены в первых 32 МБ, мы прекращаем попытки,
 // чтобы не блокировать загрузку видео слишком долго.
-private const val MAX_BYTES_TO_PARSE = 50 * 1024 * 1024 // 50 MB
+private const val MAX_BYTES_TO_PARSE = 32 * 1024 * 1024
 
 class ParsingDataSource(
     private val upstream: DataSource,
@@ -36,7 +35,7 @@ class ParsingDataSource(
 ) : DataSource {
 
     private var teeDataSource: TeeDataSource? = null
-    private var parsingScope: CoroutineScope? = null
+    private var parsingJob: Job? = null // Используем Job напрямую для контроля
 
     private val pipeSink = object : DataSink {
         private var pipedOut: PipedOutputStream? = null
@@ -49,7 +48,7 @@ class ParsingDataSource(
         override fun open(dataSpec: DataSpec) {
             // Запускаем парсинг только если это начало файла и метаданные еще не были распарсены
             if (dataSpec.position == 0L && !isMetadataParsed()) {
-                closePipes() // Закрываем старые потоки на всякий случай
+                stopParsing() // Чистим всё старое
                 totalBytesWritten = 0
                 isParsingActive = true
 
@@ -62,9 +61,8 @@ class ParsingDataSource(
                     return
                 }
 
-                // Создаем новый scope для каждой задачи парсинга
-                parsingScope = CoroutineScope(Dispatchers.IO + Job())
-                parsingScope?.launch {
+                // Запускаем парсинг в отдельном Job
+                parsingJob = CoroutineScope(Dispatchers.IO).launch {
                     try {
                         Log.d(TAG, "Start parsing metadata...")
                         val metadata = UnifiedMetadataReader.parse(pipedIn!!)
@@ -77,8 +75,7 @@ class ParsingDataSource(
                             onMetadataParsed(metadata.associateBy { it.trackId })
                         }
                     } catch (e: Exception) {
-                        // Pipe closed, Interrupted, etc. - это нормальные сценарии завершения
-                        Log.w(TAG, "Metadata parsing stopped: ${e.message}")
+                        // Ошибка или закрытие потока - норма
                     } finally {
                         // Гарантированно закрываем потоки в конце
                         isParsingActive = false
@@ -111,22 +108,22 @@ class ParsingDataSource(
         }
 
         override fun close() {
-            stopParsing()
+            // Не вызываем stopParsing здесь, так как ExoPlayer может закрыть Sink,
+            // но DataSource еще должен жить.
         }
 
-        private fun stopParsing() {
-            if (isParsingActive) {
-                isParsingActive = false
-                parsingScope?.cancel() // Отменяем корутину
-                closePipes()
-            }
+        fun stopParsing() {
+            isParsingActive = false
+            parsingJob?.cancel()
+            parsingJob = null
+            closePipes()
         }
 
         private fun closePipes() {
-            try { pipedIn?.close() } catch (_: Exception) {}
             try { pipedOut?.close() } catch (_: Exception) {}
-            pipedIn = null
+            try { pipedIn?.close() } catch (_: Exception) {}
             pipedOut = null
+            pipedIn = null
         }
     }
 
@@ -149,10 +146,11 @@ class ParsingDataSource(
 
     override fun close() {
         try {
-            teeDataSource?.close() ?: upstream.close()
+            // ВАЖНО: При закрытии DataSource мы ОБЯЗАНЫ убить парсер
+            pipeSink.stopParsing()
+            teeDataSource?.close()
         } finally {
-            // Гарантированно отменяем корутину и закрываем потоки при закрытии DataSource
-            pipeSink.close()
+            upstream.close()
             teeDataSource = null
         }
     }

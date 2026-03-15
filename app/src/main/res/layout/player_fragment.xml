@@ -67,20 +67,19 @@
     </LinearLayout>
 
     <!-- Одиночные часы в правом верхнем углу (с черным контуром) -->
-    <top.rootu.dddplayer.ui.widget.OutlineTextClock
+    <top.rootu.dddplayer.ui.widget.OutlineTextView
         android:id="@+id/standalone_clock"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="top|end"
         android:layout_marginTop="33dp"
         android:layout_marginEnd="28dp"
-        android:format12Hour="h:mm a"
-        android:format24Hour="HH:mm"
         android:textColor="@color/tv_white"
         android:textSize="18sp"
         android:textStyle="bold"
         android:visibility="gone"
-        tools:visibility="visible" />
+        tools:visibility="visible"
+        tools:text="95% • 19:36" />
 
     <!-- === ОВЕРЛЕЙ ЗАТЕМНЕНИЯ (ДЛЯ OLED) === -->
     <View
@@ -153,30 +152,41 @@
             android:gravity="center_horizontal"
             android:orientation="vertical">
 
-            <ImageView
-                android:id="@+id/icon_swipe_prev"
-                android:layout_width="64dp"
-                android:layout_height="64dp"
-                android:src="@drawable/ic_skip_previous"
-                app:tint="@color/tv_white" />
+            <androidx.cardview.widget.CardView
+                android:id="@+id/card_swipe_prev_poster"
+                android:layout_width="128dp"
+                android:layout_height="72dp"
+                app:cardCornerRadius="4dp"
+                app:cardBackgroundColor="@color/bg_placeholder_card"
+                app:cardElevation="0dp"
+                android:layout_marginBottom="16dp">
+                <ImageView
+                    android:id="@+id/icon_swipe_prev"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_skip_previous"
+                    app:tint="@color/tv_white" />
+            </androidx.cardview.widget.CardView>
 
             <TextView
                 android:id="@+id/text_swipe_prev_title"
-                android:layout_width="wrap_content"
+                android:layout_width="250dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:maxWidth="300dp"
                 android:gravity="center"
                 android:text="Previous Video Title"
                 android:textColor="@color/tv_white"
                 android:textSize="18sp"
+                android:maxLines="2"
+                android:ellipsize="end"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/text_swipe_prev_hint"
-                android:layout_width="wrap_content"
+                android:layout_width="250dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
+                android:gravity="center"
                 android:text="@string/swipe_pull_next"
                 android:textColor="@color/text_secondary"
                 android:textSize="14sp" />
@@ -200,30 +210,41 @@
             android:gravity="center_horizontal"
             android:orientation="vertical">
 
-            <ImageView
-                android:id="@+id/icon_swipe_next"
-                android:layout_width="64dp"
-                android:layout_height="64dp"
-                android:src="@drawable/ic_skip_next"
-                app:tint="@color/tv_white" />
+            <androidx.cardview.widget.CardView
+                android:id="@+id/card_swipe_next_poster"
+                android:layout_width="128dp"
+                android:layout_height="72dp"
+                app:cardCornerRadius="4dp"
+                app:cardBackgroundColor="@color/bg_placeholder_card"
+                app:cardElevation="0dp"
+                android:layout_marginBottom="16dp">
+                <ImageView
+                    android:id="@+id/icon_swipe_next"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_skip_next"
+                    app:tint="@color/tv_white" />
+            </androidx.cardview.widget.CardView>
 
             <TextView
                 android:id="@+id/text_swipe_next_title"
-                android:layout_width="wrap_content"
+                android:layout_width="250dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:maxWidth="300dp"
                 android:gravity="center"
                 android:text="Next Video Title"
                 android:textColor="@color/tv_white"
                 android:textSize="18sp"
+                android:maxLines="2"
+                android:ellipsize="end"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/text_swipe_next_hint"
-                android:layout_width="wrap_content"
+                android:layout_width="250dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
+                android:gravity="center"
                 android:text="@string/swipe_pull_next"
                 android:textColor="@color/text_secondary"
                 android:textSize="14sp" />

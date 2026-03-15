@@ -8,6 +8,8 @@ data class MediaItem(
     val title: String? = null,
     val filename: String? = null,
     val posterUri: Uri? = null,
+    val group: String? = null,
+    val absoluteIndex: Int = 0,
     val headers: Map<String, String> = emptyMap(),
     val subtitles: List<SubtitleItem> = emptyList(),
     val startPositionMs: Long = 0,

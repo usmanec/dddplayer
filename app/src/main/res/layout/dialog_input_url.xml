@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="400dp"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_dialog"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:id="@+id/dialog_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/dialog_input_url_title"
+        android:textColor="@color/tv_white"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp"/>
+
+    <EditText
+        android:id="@+id/edit_url"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_error_details"
+        android:hint="@string/dialog_input_url_hint"
+        android:textColorHint="@color/text_tertiary"
+        android:textColor="@color/tv_white"
+        android:padding="16dp"
+        android:inputType="textUri"
+        android:maxLines="1"
+        android:singleLine="true"
+        android:imeOptions="actionDone"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:gravity="end">
+
+        <Button
+            android:id="@+id/btn_cancel"
+            style="?android:attr/buttonBarButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/cancel_uppercase"
+            android:background="@drawable/bg_crash_btn_secondary"
+            android:textColor="@color/selector_settings_secondary"
+            android:paddingHorizontal="16dp"/>
+
+        <Button
+            android:id="@+id/btn_save"
+            style="?android:attr/buttonBarButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="@string/save"
+            android:background="@drawable/bg_crash_btn_primary"
+            android:textColor="@color/selector_settings_primary"
+            android:paddingHorizontal="16dp"/>
+    </LinearLayout>
+</LinearLayout>

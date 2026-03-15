@@ -78,6 +78,7 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     // --- UI Settings ---
     private val _pauseDimLevel = MutableLiveData(repository.getPauseDimLevel())
     val pauseDimLevel: LiveData<Int> = _pauseDimLevel
+
     private val _isRememberZoomEnabled = MutableLiveData(repository.isRememberZoomEnabled())
     val isRememberZoomEnabled: LiveData<Boolean> = _isRememberZoomEnabled
 
@@ -99,7 +100,49 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     private val _horizontalSwipeAction = MutableLiveData(repository.getHorizontalSwipeAction())
     val horizontalSwipeAction: LiveData<Int> = _horizontalSwipeAction
 
+    // --- App Settings ---
+    private val _startupPlaylistUri = MutableLiveData(repository.getStartupPlaylistUri())
+    val startupPlaylistUri: LiveData<String?> = _startupPlaylistUri
+
+    private val _isLiveModeEnabled = MutableLiveData(repository.isLiveModeEnabled())
+    val isLiveModeEnabled: LiveData<Boolean> = _isLiveModeEnabled
+
+    private val _isShowInfoOnTrackChange = MutableLiveData(repository.isShowInfoOnTrackChange())
+    val isShowInfoOnTrackChange: LiveData<Boolean> = _isShowInfoOnTrackChange
+
+    private val _bufferDisplayMode = MutableLiveData(repository.getBufferDisplayMode())
+    val bufferDisplayMode: LiveData<Int> = _bufferDisplayMode
+    private val _targetBufferMB = MutableLiveData(repository.getTargetBufferCorrectMB())
+    val targetBufferMB: LiveData<Int> = _targetBufferMB
+    val targetBufferOptions = repository.getTargetBufferOptions()
+
     // --- Actions ---
+
+    fun setStartupPlaylistUri(uri: String?) {
+        val finalUri = if (uri.isNullOrBlank()) null else uri.trim()
+        repository.setStartupPlaylistUri(finalUri)
+        _startupPlaylistUri.value = finalUri
+    }
+
+    fun toggleLiveMode(enabled: Boolean) {
+        repository.setLiveModeEnabled(enabled)
+        _isLiveModeEnabled.value = enabled
+    }
+
+    fun toggleShowInfoOnTrackChange(enabled: Boolean) {
+        repository.setShowInfoOnTrackChange(enabled)
+        _isShowInfoOnTrackChange.value = enabled
+    }
+
+    fun setBufferDisplayMode(mode: Int) {
+        repository.setBufferDisplayMode(mode)
+        _bufferDisplayMode.value = mode
+    }
+
+    fun setTargetBufferMB(sizeInMB: Int) {
+        repository.setTargetBufferMB(sizeInMB)
+        _targetBufferMB.value = sizeInMB
+    }
 
     fun toggleRememberZoom(enabled: Boolean) {
         repository.setRememberZoomEnabled(enabled)
@@ -219,32 +262,24 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
         _appLanguage.value = langCode
     }
 
-    fun cycleResumeModeAction() {
-        val current = _resumeModeAction.value ?: 0
-        val next = (current + 1) % 3 // 0, 1, 2
-        repository.setResumeMode(next)
-        _resumeModeAction.value = next
+    fun setResumeModeAction(action: Int) {
+        repository.setResumeMode(action)
+        _resumeModeAction.value = action
     }
 
-    fun cycleUpButtonAction() {
-        val current = _upButtonAction.value ?: 1
-        val next = (current + 1) % 3 // 0, 1, 2
-        repository.setUpButtonAction(next)
-        _upButtonAction.value = next
+    fun setUpButtonAction(action: Int) {
+        repository.setUpButtonAction(action)
+        _upButtonAction.value = action
     }
 
-    fun cycleOkButtonAction() {
-        val current = _okButtonAction.value ?: 1
-        val next = (current + 1) % 3 // 0, 1, 2
-        repository.setOkButtonAction(next)
-        _okButtonAction.value = next
+    fun setOkButtonAction(action: Int) {
+        repository.setOkButtonAction(action)
+        _okButtonAction.value = action
     }
 
-    fun cycleHorizontalSwipeAction() {
-        val current = _horizontalSwipeAction.value ?: 0
-        val next = (current + 1) % 3 // 0, 1, 2
-        repository.setHorizontalSwipeAction(next)
-        _horizontalSwipeAction.value = next
+    fun setHorizontalSwipeAction(action: Int) {
+        repository.setHorizontalSwipeAction(action)
+        _horizontalSwipeAction.value = action
     }
 
     // --- Downmix Logic ---
@@ -295,7 +330,7 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
         _mixParams.value = AudioMixerLogic.getParamsForPreset(AudioMixerLogic.MixPreset.CUSTOM, repository)
     }
 
-    // --- UI Helpers (Возвращают ID ресурсов или сырые данные) ---
+    // --- UI Helpers ---
 
     fun getDecoderValueString(mode: Int): String {
         return when (mode) {

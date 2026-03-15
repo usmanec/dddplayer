@@ -16,6 +16,7 @@
         android:layout_width="112dp"
         android:layout_height="63dp"
         app:cardCornerRadius="4dp"
+        app:cardElevation="0dp"
         app:cardBackgroundColor="@color/bg_placeholder_card"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
@@ -26,7 +27,7 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:contentDescription="@string/pic"
-            android:scaleType="centerCrop"
+            android:scaleType="fitCenter"
             tools:src="@tools:sample/backgrounds/scenic" />
 
         <!-- Текст заглушки (номер), если постера нет -->

@@ -63,12 +63,12 @@
         android:id="@+id/buffering_value"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textColor="@color/text_tertiary"
+        android:textColor="@color/tv_white"
         android:textSize="12sp"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="1dp"
-        app:layout_constraintBottom_toTopOf="@id/seek_bar"
-        app:layout_constraintEnd_toStartOf="@+id/time_duration"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="-2dp"
+        app:layout_constraintTop_toBottomOf="@id/seek_bar"
+        app:layout_constraintStart_toStartOf="@+id/seek_bar"
         tools:text="Буфер: 95%" />
 
     <LinearLayout

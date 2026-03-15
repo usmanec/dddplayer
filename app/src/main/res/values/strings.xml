@@ -171,6 +171,7 @@
     <string name="pref_up_action_desc">What to open when pressing \'Up\' in the player</string>
     <string name="pref_up_action_osd">Quick Settings Panel</string>
     <string name="pref_up_action_menu">Settings Menu (Side)</string>
+    <string name="pref_up_action_info">Info panel</string>
     <string name="pref_up_action_none">Nothing</string>
     <string name="pref_ok_action">\'OK\' Button Action</string>
     <string name="pref_ok_action_desc">What to do when pressing \'OK\' in the player</string>
@@ -198,6 +199,32 @@
     <string name="swipe_release_exit">Release to exit</string>
     <string name="pref_pause_dim">Dim screen on pause</string>
     <string name="pref_pause_dim_desc">Protects OLED screens from burn-in</string>
+
+    <!-- Playlist & Live -->
+    <string name="pref_startup_playlist">Startup Playlist</string>
+    <string name="pref_startup_playlist_desc">URL to M3U playlist</string>
+    <string name="pref_startup_playlist_not_set">Not set</string>
+    <string name="dialog_input_url_title">Enter Playlist URL</string>
+    <string name="dialog_input_url_hint">http://...</string>
+    <string name="save">Save</string>
+
+    <string name="pref_live_mode">Live Mode Controls</string>
+    <string name="pref_live_mode_desc">OK - playlist, Left/Right - zapping</string>
+    <string name="pref_track_change_info">Info on track change</string>
+    <string name="pref_track_change_info_desc">Show top info panel when track changes</string>
+
+    <string name="pref_buffer_display">Buffer Display</string>
+    <string name="pref_buffer_display_desc">Where to show buffering percentage</string>
+    <string name="buffer_off">Off</string>
+    <string name="buffer_panel">In control panel</string>
+    <string name="buffer_clock">Near the clock</string>
+    <string name="pref_buffer_size">Buffer size</string>
+    <string name="pref_buffer_size_desc">Amount of RAM for video buffering</string>
+    <string name="buffer_size_auto">Auto</string>
+    <string name="buffer_size_mb">%d MB</string>
+    <string name="buffer_percentage">Buffer: %d%%</string>
+    <string name="select_group">Select Group</string>
+    <string name="group_all">All</string>
 
     <!-- Resume Playback -->
     <string name="pref_resume_mode">Resume playback</string>

@@ -136,8 +136,65 @@ class SettingsRepository private constructor(context: Context) {
     fun getResumeMode(): Int = prefs.getInt("resume_mode", RESUME_ASK)
     fun setResumeMode(mode: Int) = prefs.edit { putInt("resume_mode", mode) }
 
-    // Действие кнопки "Вверх" ( 0 = Nothing, 1 = OSD, 2 = Side Menu)
-    fun getUpButtonAction(): Int = prefs.getInt("up_button_action", 1)
+    fun saveLastPlayedChannel(uri: String?, title: String?, group: String?) {
+        prefs.edit {
+            putString("last_channel_uri", uri)
+            putString("last_channel_title", title)
+            putString("last_channel_group", group)
+        }
+    }
+
+    fun getLastPlayedChannel(): Triple<String?, String?, String?> {
+        return Triple(
+            prefs.getString("last_channel_uri", null),
+            prefs.getString("last_channel_title", null),
+            prefs.getString("last_channel_group", null)
+        )
+    }
+
+    // Плейлист при запуске
+    fun getStartupPlaylistUri(): String? = prefs.getString("startup_playlist_uri", null)
+    fun setStartupPlaylistUri(uri: String?) = prefs.edit { putString("startup_playlist_uri", uri) }
+
+    // Эфирный режим
+    fun isLiveModeEnabled(): Boolean = prefs.getBoolean("live_mode_control", true)
+    fun setLiveModeEnabled(enabled: Boolean) = prefs.edit { putBoolean("live_mode_control", enabled) }
+
+    // Инфопанель при смене трека
+    fun isShowInfoOnTrackChange(): Boolean = prefs.getBoolean("show_info_on_change", true)
+    fun setShowInfoOnTrackChange(enabled: Boolean) = prefs.edit { putBoolean("show_info_on_change", enabled) }
+
+    // Отображение буфера (0 = Выкл, 1 = В панели, 2 = У часов)
+    fun getBufferDisplayMode(): Int = prefs.getInt("buffer_display_mode", 0)
+    fun setBufferDisplayMode(mode: Int) = prefs.edit { putInt("buffer_display_mode", mode) }
+
+    // Размер буфера в мегабайтах (-1 = Авто)
+    fun getTargetBufferOptions(): List<Int> {
+        val uiReserveMB = 96
+        val bufferSizeOptions = listOf(-1, 16, 32, 48, 64, 96, 128, 160, 192, 224, 256, 320, 352, 384, 448, 512, 768, 1024) // -1 for Auto
+        val maxHeapMB = Runtime.getRuntime().maxMemory() / 1024 / 1024
+
+        // Разрешаем выбирать буфер, от кучи с учетом резерва под UI
+        val safeLimit = (maxHeapMB - uiReserveMB).toInt()
+
+        return bufferSizeOptions.filter { it == -1 || it <= safeLimit || it <= 64}
+    }
+    fun getTargetBufferCorrectMB(): Int {
+        val availableOptions = getTargetBufferOptions()
+        val currentVal = getTargetBufferMB()
+        var currentIndex = availableOptions.indexOf(currentVal)
+        if (currentIndex < 0) {
+            currentIndex = 0
+            setTargetBufferMB(availableOptions[currentIndex])
+        }
+
+        return availableOptions[currentIndex]
+    }
+    fun getTargetBufferMB(): Int = prefs.getInt("target_buffer_mb", -1)
+    fun setTargetBufferMB(sizeInMB: Int) = prefs.edit { putInt("target_buffer_mb", sizeInMB) }
+
+    // Действие кнопки "Вверх" ( 0 = Nothing, 1 = OSD, 2 = Side Menu, 3=InfoPanel)
+    fun getUpButtonAction(): Int = prefs.getInt("up_button_action", 3)
     fun setUpButtonAction(action: Int) = prefs.edit { putInt("up_button_action", action) }
 
     // Действие кнопки "OK" (0 = Pause, 1 = Pause+Panel, 2 = Panel)
@@ -160,7 +217,7 @@ class SettingsRepository private constructor(context: Context) {
         val videoParams = "${getDecoderPriority()}_${isTunnelingEnabled()}_${isMapDvToHevcEnabled()}"
         val audioDownmix = "${isStereoDownmixEnabled()}_${getMixPreset()}}_${getMixFront()}_${getMixCenter()}_${getMixRear()}_${getMixMiddle()}_${getMixLfe()}"
         val audioParams = "${isSkipSilenceEnabled()}_${getLoudnessBoost()}_${audioDownmix}"
-        return "${videoParams}_${audioParams}".hashCode()
+        return "${videoParams}_${audioParams}_${getTargetBufferMB()}".hashCode()
     }
 
     // --- Global Preferences Helpers ---

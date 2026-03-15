@@ -77,19 +77,21 @@ class PlayerInputHandler(
         // 2. Навигация в плеере
         if (ui.controlsView.isVisible) onResetHideTimer()
 
+        val isLiveMode = viewModel.isOverallLiveMode()
+
         when (event.keyCode) {
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                 if (!ui.controlsView.isVisible) {
-                    when (repo.getOkButtonAction()) {
-                        0 -> { // Только Пауза
-                            viewModel.togglePlayPause()
-                        }
-                        1 -> { // Пауза + Панель (старое поведение)
-                            viewModel.togglePlayPause()
-                            onShowControls()
-                        }
-                        2 -> { // Только Панель
-                            onShowControls()
+                    if (isLiveMode) {
+                        onShowPlaylist() // В эфирном режиме ОК - это плейлист
+                    } else {
+                        when (repo.getOkButtonAction()) {
+                            0 -> viewModel.togglePlayPause()  // Только Пауза
+                            1 -> { // Пауза + Панель (старое поведение)
+                                viewModel.togglePlayPause()
+                                onShowControls()
+                            }
+                            2 -> onShowControls() // Только Панель
                         }
                     }
                     return true
@@ -117,13 +119,22 @@ class PlayerInputHandler(
                     onHideControls()
                     return true
                 } else if (!ui.controlsView.isVisible) {
-                    when (repo.getUpButtonAction()) {
+                    val action = if (isLiveMode) 3 else repo.getUpButtonAction()
+                    when (action) {
                         1 -> { // OSD
                             viewModel.prepareSettingsPanel()
                             settingsViewModel.openPanel(viewModel.availableSettings.value ?: emptyList())
                         }
                         2 -> onShowMainMenu() // Боковое меню
-                        // 0 -> Ничего
+                        3 -> {
+                            if (ui.topInfoPanel.isVisible) {
+                                // Если панель уже есть, то показываем боковое меню
+                                onShowMainMenu()
+                            } else {
+                                // Показать только инфопанель
+                                ui.showInfoPanelOnly()
+                            }
+                        }
                     }
                     return true
                 }
@@ -131,10 +142,14 @@ class PlayerInputHandler(
 
             KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> {
                 if (!ui.controlsView.isVisible) {
-                    // Показываем контролы и фокусируемся на сикбаре
-                    ui.showControls(focusOnSeekBar = true)
-                    onResetHideTimer()
-                    // Поглощаем событие, чтобы не было прыжка при открытии панели
+                    if (isLiveMode) {
+                        // Эфирный режим: Влево/Вправо - переключение каналов
+                        val direction = if (event.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) 1 else -1
+                        viewModel.zapChannel(direction)
+                    } else {
+                        ui.showControls(focusOnSeekBar = true)
+                        onResetHideTimer()
+                    }
                     return true
                 }
 
@@ -164,6 +179,11 @@ class PlayerInputHandler(
                 return true
             }
         }
+
+        if (event.keyCode != KeyEvent.KEYCODE_DPAD_LEFT && event.keyCode != KeyEvent.KEYCODE_DPAD_RIGHT) {
+            viewModel.stopZap()
+        }
+
         return false
     }
 

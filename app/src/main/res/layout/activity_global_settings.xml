@@ -75,6 +75,29 @@
                 style="@style/SettingsSectionHeader"
                 android:text="@string/pref_general_header" />
 
+            <!-- Размер буфера -->
+            <LinearLayout
+                android:id="@+id/item_buffer_size"
+                style="@style/SettingsItemContainer">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:duplicateParentState="true"
+                    android:orientation="vertical">
+                    <TextView
+                        style="@style/SettingsItemTitle"
+                        android:text="@string/pref_buffer_size" />
+                    <TextView
+                        style="@style/SettingsItemDesc"
+                        android:text="@string/pref_buffer_size_desc" />
+                </LinearLayout>
+                <TextView
+                    android:id="@+id/text_buffer_size_value"
+                    style="@style/SettingsItemValue"
+                    tools:text="Авто" />
+            </LinearLayout>
+
             <!-- Декодер -->
             <LinearLayout
                 android:id="@+id/item_decoder"
@@ -627,6 +650,41 @@
                 style="@style/SettingsSectionHeader"
                 android:layout_marginTop="24dp"
                 android:text="@string/pref_sec_app" />
+
+            <!-- Startup Playlist -->
+            <LinearLayout android:id="@+id/item_startup_playlist" style="@style/SettingsItemContainer">
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:duplicateParentState="true">
+                    <TextView style="@style/SettingsItemTitle" android:text="@string/pref_startup_playlist" />
+                    <TextView android:id="@+id/text_startup_playlist_value" style="@style/SettingsItemDesc" tools:text="http://..." />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Live Mode -->
+            <LinearLayout android:id="@+id/item_live_mode" style="@style/SettingsItemContainer">
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:duplicateParentState="true">
+                    <TextView style="@style/SettingsItemTitle" android:text="@string/pref_live_mode" />
+                    <TextView style="@style/SettingsItemDesc" android:text="@string/pref_live_mode_desc" />
+                </LinearLayout>
+                <androidx.appcompat.widget.SwitchCompat android:id="@+id/switch_live_mode" android:layout_width="wrap_content" android:layout_height="wrap_content" android:clickable="false" android:focusable="false" />
+            </LinearLayout>
+
+            <!-- Info Panel on track change -->
+            <LinearLayout android:id="@+id/item_track_change_info" style="@style/SettingsItemContainer">
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:duplicateParentState="true">
+                    <TextView style="@style/SettingsItemTitle" android:text="@string/pref_track_change_info" />
+                    <TextView style="@style/SettingsItemDesc" android:text="@string/pref_track_change_info_desc" />
+                </LinearLayout>
+                <androidx.appcompat.widget.SwitchCompat android:id="@+id/switch_track_change_info" android:layout_width="wrap_content" android:layout_height="wrap_content" android:clickable="false" android:focusable="false" />
+            </LinearLayout>
+
+            <!-- Отображение буфера -->
+            <LinearLayout android:id="@+id/item_buffer_display" style="@style/SettingsItemContainer">
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:duplicateParentState="true">
+                    <TextView style="@style/SettingsItemTitle" android:text="@string/pref_buffer_display" />
+                    <TextView style="@style/SettingsItemDesc" android:text="@string/pref_buffer_display_desc" />
+                </LinearLayout>
+                <TextView android:id="@+id/text_buffer_display_value" style="@style/SettingsItemValue" tools:text="Выкл" />
+            </LinearLayout>
 
             <!-- Resume Mode -->
             <LinearLayout

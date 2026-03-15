@@ -30,6 +30,7 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.C
 import androidx.media3.common.Player
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -46,6 +47,7 @@ import top.rootu.dddplayer.model.StereoInputType
 import top.rootu.dddplayer.model.StereoOutputMode
 import top.rootu.dddplayer.renderer.OnSurfaceReadyListener
 import top.rootu.dddplayer.renderer.StereoRenderer
+import top.rootu.dddplayer.ui.adapter.ChoiceAdapter
 import top.rootu.dddplayer.ui.adapter.SideMenuAdapter
 import top.rootu.dddplayer.ui.controller.PlayerInputHandler
 import top.rootu.dddplayer.ui.controller.PlayerTimerController
@@ -113,6 +115,9 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
     private var currentSwipeTargetIsNext: Boolean? = null
     private var currentSwipeIsExit: Boolean = false
 
+    private val infoHideHandler = Handler(Looper.getMainLooper())
+    private val hideInfoRunnable = Runnable { _ui?.hideInfoPanel() }
+
     // Храним ссылку на GL Surface
     private var glSurface: Surface? = null
 
@@ -133,7 +138,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
                     view.findViewById<View>(R.id.root_container)?.requestFocus()
                 }
             },
-            clockView = ui.textClock
+            clockViews = listOf(ui.standaloneClock, ui.textClock)
         )
 
         // Используем Application Context для репозитория, чтобы избежать утечек
@@ -362,31 +367,33 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
             swipePlaylistAccumulator += deltaX
             isPlaylistSwipeActive = true
 
+            val isLiveMode = viewModel.isOverallLiveMode()
+
             if (swipePlaylistAccumulator < 0) {
                 // Тянем ВЛЕВО -> NEXT
                 currentSwipeTargetIsNext = true
-                val nextTitle = viewModel.getNextTrackTitle()
+                val targetItem = if (isLiveMode) viewModel.getRelativePlaylistItem(1) else null
+                val nextTitle = targetItem?.title ?: viewModel.getNextTrackTitle()
 
                 if (nextTitle != null) {
                     currentSwipeIsExit = false
-                    // Передаем название следующего видео
-                    ui.updatePlaylistSwipe(swipePlaylistAccumulator, screenWidth, nextTitle, false)
+                    ui.updatePlaylistSwipe(swipePlaylistAccumulator, screenWidth, nextTitle, targetItem?.posterUri, false)
                 } else {
                     currentSwipeIsExit = true
-                    ui.updatePlaylistSwipe(swipePlaylistAccumulator, screenWidth, getString(R.string.action_exit), true)
+                    ui.updatePlaylistSwipe(swipePlaylistAccumulator, screenWidth, getString(R.string.action_exit), null, true)
                 }
             } else {
                 // Тянем ВПРАВО -> PREV
                 currentSwipeTargetIsNext = false
-                val prevTitle = viewModel.getPrevTrackTitle()
+                val targetItem = if (isLiveMode) viewModel.getRelativePlaylistItem(-1) else null
+                val prevTitle = targetItem?.title ?: viewModel.getPrevTrackTitle()
 
                 if (prevTitle != null) {
                     currentSwipeIsExit = false
-                    // Передаем название предыдущего видео
-                    ui.updatePlaylistSwipe(swipePlaylistAccumulator, screenWidth, prevTitle, false)
+                    ui.updatePlaylistSwipe(swipePlaylistAccumulator, screenWidth, prevTitle, targetItem?.posterUri, false)
                 } else {
                     currentSwipeIsExit = true
-                    ui.updatePlaylistSwipe(swipePlaylistAccumulator, screenWidth, getString(R.string.action_exit), true)
+                    ui.updatePlaylistSwipe(swipePlaylistAccumulator, screenWidth, getString(R.string.action_exit), null, true)
                 }
             }
         }
@@ -424,7 +431,14 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
                         requireActivity().finish()
                     } else {
                         // Переключение трека
-                        if (isNext) viewModel.nextTrack() else viewModel.prevTrack()
+                        val isLiveMode = viewModel.isOverallLiveMode()
+
+                        if (isLiveMode) {
+                            val targetItem = viewModel.getRelativePlaylistItem(if (isNext) 1 else -1)
+                            if (targetItem != null) viewModel.playPlaylistItem(viewModel.getAbsoluteIndex(targetItem))
+                        } else {
+                            if (isNext) viewModel.nextTrack() else viewModel.prevTrack()
+                        }
                     }
                 }
             } else {
@@ -438,6 +452,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
             currentSwipeTargetIsNext = null
         }
     }
+
     private fun setupControls() {
         // Навигация в настройках
         ui.btnSettingsPrev.setOnClickListener {
@@ -460,19 +475,34 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
             val isSideMenuVisible = sideMenuDialog?.isShowing == true
             if (isOsdVisible || isSideMenuVisible) return@setOnClickListener
 
-            // Получаем текущую настройку действия кнопки "Вверх"
-            val settingsRepo = SettingsRepository.getInstance(requireContext().applicationContext)
+            val isLiveMode = viewModel.isOverallLiveMode()
 
-            when (settingsRepo.getUpButtonAction()) {
-                1 -> { // OSD (Быстрые настройки)
-                    viewModel.prepareSettingsPanel()
-                    settingsViewModel.openPanel(viewModel.availableSettings.value ?: emptyList())
+            if (isLiveMode) {
+                showPlaylist()
+            } else {
+                // Получаем текущую настройку действия кнопки "Вверх"
+                val settingsRepo = SettingsRepository.getInstance(requireContext().applicationContext)
+                when (settingsRepo.getUpButtonAction()) {
+                    1 -> {
+                        viewModel.prepareSettingsPanel()
+                        settingsViewModel.openPanel(viewModel.availableSettings.value ?: emptyList())
+                    }
+                    2 -> {
+                        ui.hideControls()
+                        showMainMenu()
+                    }
+                    3 -> {
+                        if (ui.topInfoPanel.isVisible) {
+                            // Если панель уже есть, то показываем боковое меню
+                            ui.hideControls()
+                            showMainMenu()
+                        } else {
+                            // Показать только инфопанель
+                            ui.showInfoPanelOnly()
+                        }
+                    }
+                    // 0 -> Ничего не делать
                 }
-                2 -> { // Боковое меню
-                    ui.hideControls()
-                    showMainMenu()
-                }
-                // 0 -> Ничего не делать
             }
         }
 
@@ -660,7 +690,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         val context = requireContext()
 
         zoomDialog?.dismiss()
-        zoomDialog = Dialog(context, R.style.Theme_App_Dialog)
+        zoomDialog = Dialog(requireContext(), R.style.Theme_App_Dialog)
         zoomDialog?.setContentView(R.layout.dialog_zoom_level)
 
         val title = zoomDialog?.findViewById<TextView>(R.id.dialog_title)
@@ -736,6 +766,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         initialFocusId: String? = null,
         onItemSelected: (MenuItem?) -> Unit
     ) {
+        viewModel.stopZap()
         timerController.stopControlsTimer()
         ui.hideControls()
 
@@ -766,6 +797,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         header?.text = title
 
         val recycler = sideMenuDialog?.findViewById<RecyclerView>(R.id.menu_recycler)
+
         if (sideMenuAdapter == null) {
             sideMenuAdapter = SideMenuAdapter { item ->
                 isSelectionMade = true
@@ -821,6 +853,24 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
     }
 
     private fun observeViewModel() {
+        viewModel.showInfoPanelEvent.observe(viewLifecycleOwner) { event ->
+            event.getContentIfNotHandled()?.let {
+                if (!ui.controlsView.isVisible) {
+                    ui.showInfoPanelOnly()
+                }
+            }
+        }
+
+        viewModel.zapPreviewItem.observe(viewLifecycleOwner) { item ->
+            if (item != null) {
+                infoHideHandler.removeCallbacks(hideInfoRunnable)
+                val absIdx = viewModel.getAbsoluteIndex(item)
+                val total = viewModel.playlistSize.value ?: 0
+                val showIdx = SettingsRepository.getInstance(requireContext()).isShowPlaylistIndexEnabled()
+                ui.showInfoPanelWithData(item, absIdx, total, showIdx)
+            }
+        }
+
         viewModel.isPlaying.observe(viewLifecycleOwner) { isPlaying ->
             if (isPlaying) {
                 // Если мы играем, значит фатальной ошибки нет.
@@ -892,9 +942,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
 
         viewModel.duration.observe(viewLifecycleOwner) { duration ->
             ui.seekBar.max = duration.toInt()
-            // Обновляем метки при изменении длительности
-            val current = viewModel.currentPosition.value ?: 0L
-            updateTimeLabelsUI(current)
+            updateTimeLabelsUI(viewModel.currentPosition.value ?: 0L)
         }
         viewModel.currentPosition.observe(viewLifecycleOwner) { position ->
             if (!viewModel.isUserInteracting) {
@@ -919,10 +967,12 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         }
 
         viewModel.hasPrevious.observe(viewLifecycleOwner) {
-            ui.prevButton.alpha = if (it) 1.0f else 0.3f; ui.prevButton.isEnabled = it
+            ui.prevButton.alpha = if (it) 1.0f else 0.3f
+            ui.prevButton.isEnabled = it
         }
         viewModel.hasNext.observe(viewLifecycleOwner) {
-            ui.nextButton.alpha = if (it) 1.0f else 0.3f; ui.nextButton.isEnabled = it
+            ui.nextButton.alpha = if (it) 1.0f else 0.3f
+            ui.nextButton.isEnabled = it
         }
         viewModel.playlistSize.observe(viewLifecycleOwner) { ui.buttonPlaylist.isVisible = it > 1 }
         viewModel.currentQualityName.observe(viewLifecycleOwner) { ui.buttonQuality.text = it }
@@ -959,18 +1009,26 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
 
         viewModel.isBuffering.observe(viewLifecycleOwner) { isBuffering ->
             val percent = viewModel.bufferedPercentage.value ?: 0
-            ui.updateBufferingState(isBuffering, viewModel.outputMode.value, percent)
+            val mode = SettingsRepository.getInstance(requireContext()).getBufferDisplayMode()
+            ui.updateBufferingState(isBuffering, viewModel.outputMode.value, percent, mode)
         }
 
         viewModel.bufferedPercentage.observe(viewLifecycleOwner) { percent ->
-            ui.updateBufferingState(viewModel.isBuffering.value == true, viewModel.outputMode.value, percent)
+            val mode = SettingsRepository.getInstance(requireContext()).getBufferDisplayMode()
+            ui.updateBufferingState(viewModel.isBuffering.value == true, viewModel.outputMode.value, percent, mode)
+
+            if (mode == 2) {
+                timerController.bufferText = "${percent}%"
+            } else {
+                timerController.bufferText = ""
+            }
         }
 
         viewModel.bufferedPosition.observe(viewLifecycleOwner) { bufferedPos ->
             ui.seekBar.secondaryProgress = bufferedPos.toInt()
         }
 
-        // Переключение поверхностей (HDR Fix)
+        // Переключение поверхностей
         viewModel.inputType.observe(viewLifecycleOwner) { type ->
             val isStereo = type != StereoInputType.NONE
             ui.setSurfaceMode(isStereo)
@@ -1093,7 +1151,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
                     override fun onModeCancel() {}
                 })
 
-                // Обертка для совместимости с AFR
+                // Обертка для AFR
                 val afrFormat = object : AfrFormatItem {
                     override fun getWidth() = format.width
                     override fun getHeight() = format.height
@@ -1116,6 +1174,16 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         viewModel.showResumeDialogEvent.observe(viewLifecycleOwner) { data ->
             if (data != null) {
                 showResumeDialog(data.first, data.second)
+            }
+        }
+
+        viewModel.playlistUiState.observe(viewLifecycleOwner) { state ->
+            if (ui.playlistDialog?.isShowing == true) {
+                val rawGroupName = state.groupName ?: "All"
+                val displayGroupName = if (rawGroupName == "All") getString(R.string.group_all) else rawGroupName
+                val count = state.items.size
+                ui.updatePlaylistHeader("$displayGroupName [$count]")
+                ui.updatePlaylistItems(state.items, viewModel.player?.currentMediaItem?.mediaId)
             }
         }
     }
@@ -1252,29 +1320,84 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
     }
 
     private fun showPlaylist() {
-        val playlist = viewModel.currentPlaylist.value ?: emptyList()
-        if (playlist.isEmpty()) {
-            Toast.makeText(requireContext().applicationContext, getString(R.string.msg_playlist_empty), Toast.LENGTH_SHORT).show()
-            return
-        }
+        viewModel.stopZap()
+        val initialState = viewModel.playlistUiState.value ?: return
+        if (initialState.items.isEmpty()) return
 
+        var isSelectionMade = false
         timerController.stopControlsTimer()
         ui.hideControls()
 
         val settingsRepo = SettingsRepository.getInstance(requireContext().applicationContext)
         val showIndex = settingsRepo.isShowPlaylistIndexEnabled()
+        val shouldLoop = viewModel.isM3uPlaylist.value == true || viewModel.isLive.value == true
 
         ui.showPlaylistDialog(
-            items = playlist,
-            currentIndex = viewModel.player?.currentMediaItemIndex ?: 0,
+            items = initialState.items,
+            playingUuid = viewModel.player?.currentMediaItem?.mediaId,
             showIndexBadge = showIndex,
-            onItemSelected = { index ->
-                viewModel.playPlaylistItem(index)
+            shouldLoop = shouldLoop,
+            onItemSelected = { indexInFilteredList ->
+                val item = viewModel.playlistUiState.value?.items?.get(indexInFilteredList)
+                if (item != null) {
+                    isSelectionMade = true
+                    viewModel.playPlaylistItem(viewModel.getAbsoluteIndex(item))
+                }
             },
             onDismiss = {
+                if (!isSelectionMade) {
+                    viewModel.revertToPlayingGroup()
+                }
                 timerController.resetControlsTimer()
             }
         )
+
+        // Клик по заголовку для выбора группы
+        ui.playlistDialog?.findViewById<View>(R.id.playlist_header)?.setOnClickListener {
+            showGroupSelectionDialog()
+        }
+
+        // Принудительно обновляем UI при открытии
+        val rawGroupName = initialState.groupName ?: "All"
+        val displayGroupName = if (rawGroupName == "All") getString(R.string.group_all) else rawGroupName
+        val count = initialState.items.size
+        ui.updatePlaylistHeader("$displayGroupName [$count]")
+
+        ui.playlistDialog?.setOnKeyListener { _, keyCode, event ->
+            if (event.action == KeyEvent.ACTION_DOWN) {
+                when (keyCode) {
+                    KeyEvent.KEYCODE_DPAD_LEFT -> { viewModel.cycleGroup(-1); return@setOnKeyListener true }
+                    KeyEvent.KEYCODE_DPAD_RIGHT -> { viewModel.cycleGroup(1); return@setOnKeyListener true }
+                }
+            }
+            false
+        }
+    }
+
+    private fun showGroupSelectionDialog() {
+        val state = viewModel.playlistUiState.value ?: return
+        val groups = state.availableGroups
+        if (groups.isEmpty()) return
+
+        val currentIndex = groups.indexOf(state.groupName ?: "All").coerceAtLeast(0)
+        val displayGroups = groups.map { if (it == "All") getString(R.string.group_all) else it }
+
+        val dialog = Dialog(requireContext(), R.style.Theme_App_Dialog)
+        dialog.setContentView(R.layout.dialog_list_choice)
+        dialog.findViewById<TextView>(R.id.dialog_title).text = getString(R.string.select_group)
+
+        val recycler = dialog.findViewById<RecyclerView>(R.id.dialog_recycler_view)
+        recycler.layoutManager = LinearLayoutManager(requireContext())
+        recycler.adapter = ChoiceAdapter(displayGroups, currentIndex) { selectedIdx ->
+            viewModel.selectGroup(groups[selectedIdx]) // Передаем оригинальное имя группы
+            dialog.dismiss()
+        }
+        dialog.show()
+
+        recycler.post {
+            (recycler.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(currentIndex, 0)
+            recycler.postDelayed({ recycler.findViewHolderForAdapterPosition(currentIndex)?.itemView?.requestFocus() }, 50)
+        }
     }
 
     private fun showQualityPopup() {
@@ -1350,6 +1473,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         timerController.cleanup()
         inputHandler.cleanup()
         doubleTapResetHandler.removeCallbacksAndMessages(null)
+        infoHideHandler.removeCallbacksAndMessages(null)
 
         // Освобождаем GL ресурсы
         stereoRenderer?.release()

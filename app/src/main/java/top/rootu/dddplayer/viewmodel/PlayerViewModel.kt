@@ -19,11 +19,13 @@ import androidx.media3.common.VideoSize
 import androidx.media3.common.text.Cue
 import androidx.media3.common.text.CueGroup
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.dash.manifest.DashManifest
 import androidx.media3.exoplayer.hls.HlsManifest
 import androidx.media3.exoplayer.hls.playlist.HlsPlaylistTracker
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
@@ -73,6 +75,27 @@ data class VideoQualityOption(
     val isAuto: Boolean = false
 )
 
+// Состояние плейлиста для UI
+data class PlaylistUiState(
+    val items: List<MediaItem> = emptyList(),
+    val groupName: String? = null,
+    val availableGroups: List<String> = emptyList()
+)
+
+// Обертка для одноразовых событий LiveData
+open class Event<out T>(private val content: T) {
+    var hasBeenHandled = false
+        private set
+    fun getContentIfNotHandled(): T? {
+        return if (hasBeenHandled) {
+            null
+        } else {
+            hasBeenHandled = true
+            content
+        }
+    }
+}
+
 @UnstableApi
 class PlayerViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -109,6 +132,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     val cues: LiveData<List<Cue>> = _cues
 
     // Playlist State
+    var allPlaylistItems = listOf<MediaItem>()
+        private set
+    private val _playlistUiState = MutableLiveData(PlaylistUiState())
+    val playlistUiState: LiveData<PlaylistUiState> = _playlistUiState
     private val _currentPlaylist = MutableLiveData<List<MediaItem>>()
     val currentPlaylist: LiveData<List<MediaItem>> = _currentPlaylist
     private val _currentWindowIndex = MutableLiveData(0)
@@ -184,6 +211,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private val _isLive = MutableLiveData<Boolean>()
     val isLive: LiveData<Boolean> = _isLive
 
+    private val _isSessionLive = MutableLiveData(false)
+    val isSessionLive: LiveData<Boolean> = _isSessionLive
+
     // Храним ID, которые нужно применить, когда треки загрузятся (восстановление треков)
     private var pendingAudioId: String? = null
     private var pendingSubtitleId: String? = null
@@ -218,36 +248,121 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private val _showResumeDialogEvent = MutableLiveData<Pair<Long, Long>?>()
     val showResumeDialogEvent: LiveData<Pair<Long, Long>?> = _showResumeDialogEvent
 
+    private val _isM3uPlaylist = MutableLiveData(false)
+    val isM3uPlaylist: LiveData<Boolean> = _isM3uPlaylist
+    private var zapJob: kotlinx.coroutines.Job? = null
+    private val _zapPreviewItem = MutableLiveData<MediaItem?>(null)
+    val zapPreviewItem: LiveData<MediaItem?> = _zapPreviewItem
+
     // Храним хэш настроек при старте
     private var lastSettingsHash = repository.getHardSettingsSignature()
+
+    private val _showInfoPanelEvent = MutableLiveData<Event<Unit>>()
+    val showInfoPanelEvent: LiveData<Event<Unit>> = _showInfoPanelEvent
+
+    /**
+     * Логика "запинга" (переключение каналов влево-вправо с задержкой)
+     */
+    fun zapChannel(direction: Int) {
+        val state = _playlistUiState.value ?: return
+        val currentGroupItems = state.items
+        if (currentGroupItems.isEmpty()) return
+
+        // Ищем по UUID (mediaId в ExoPlayer)
+        val currentIdxInGroup = currentGroupItems.indexOfFirst { it.uuid == (_zapPreviewItem.value?.uuid ?: "") }
+            .let {
+                if (it == -1) {
+                    val playingUuid = player?.currentMediaItem?.mediaId
+                    currentGroupItems.indexOfFirst { item -> item.uuid == playingUuid }
+                } else it
+            }
+            .let { if (it == -1) 0 else it }
+
+        val nextIdxInGroup = (currentIdxInGroup + direction + currentGroupItems.size) % currentGroupItems.size
+        val targetItem = currentGroupItems[nextIdxInGroup]
+
+        _zapPreviewItem.value = targetItem
+
+        zapJob?.cancel()
+        zapJob = viewModelScope.launch {
+            delay(1500)
+            playPlaylistItem(getAbsoluteIndex(targetItem))
+            _zapPreviewItem.value = null
+        }
+    }
+
+    fun stopZap() {
+        zapJob?.cancel()
+        _zapPreviewItem.value = null
+    }
+
+    fun selectGroup(groupName: String?) {
+        val currentState = _playlistUiState.value ?: return
+        val targetGroup = groupName ?: "All"
+
+        val filtered = if (targetGroup == "All") allPlaylistItems else allPlaylistItems.filter { it.group == targetGroup }
+
+        _playlistUiState.value = currentState.copy(
+            items = filtered,
+            groupName = targetGroup
+        )
+    }
 
     private val progressUpdater = object : Runnable {
         override fun run() {
             val p = playerManager.exoPlayer ?: return
-            if (p.isPlaying || p.isLoading) {
-                if (!isUserInteracting) {
-                    _currentPosition.value = p.currentPosition
-                }
-                _bufferedPosition.value = p.bufferedPosition
 
-                // Логика расчета процента буферизации вперед
-                // (ExoPlayer.bufferedPercentage не подходит,
-                // т.к. он показывает % буфера на прогрессе, а не заполненность буфера)
-                val bufferedDuration = p.bufferedPosition - p.currentPosition
-                val targetBuffer = 50_000L // if (bufferedDuration > 6_000L) 50_000L else 5_000L
-                val maxPercent = 100 // if (targetBuffer == 5_000L) 99 else 100
-                val percent = ((bufferedDuration * 100) / targetBuffer).toInt().coerceIn(0, maxPercent)
-                _bufferedPercentage.value = percent
+            if (!isUserInteracting) {
+                _currentPosition.postValue(p.currentPosition)
+            }
+            _bufferedPosition.postValue(p.bufferedPosition)
 
-                // Если AFR еще не сработал, проверяем формат
-                if (!afrAppliedForCurrentItem) {
-                    val format = p.videoFormat
-                    if (format != null) {
-                        updateVideoInfoBadge(format) // Обновляем инфо, а он сам решит, запускать ли детектор
+            val allocatedBytes = playerManager.allocator.totalBytesAllocated
+            val targetBufferMB = repository.getTargetBufferMB()
+
+            val percent = if (targetBufferMB != -1) {
+                // РУЧНОЙ РЕЖИМ: Пользователь задал жесткий лимит в МБ.
+                // Лимит по времени (50 сек) мы отключили в PlayerManager.
+                // Считаем процент ТОЛЬКО по байтам.
+                val maxBufferBytes = targetBufferMB * 1024L * 1024L
+                ((allocatedBytes * 100L) / maxBufferBytes).toInt().coerceIn(0, 100)
+            } else {
+                // РЕЖИМ "АВТО": ExoPlayer динамически считает целевой буфер на основе выбранных треков.
+                // Повторяем его внутреннюю логику для идеальной точности:
+                var dynamicMaxBytes = 0L
+                p.currentTracks.groups.forEach { group ->
+                    if (group.isSelected) {
+                        when (group.type) {
+                            C.TRACK_TYPE_VIDEO -> dynamicMaxBytes += DefaultLoadControl.DEFAULT_VIDEO_BUFFER_SIZE
+                            C.TRACK_TYPE_AUDIO -> dynamicMaxBytes += DefaultLoadControl.DEFAULT_AUDIO_BUFFER_SIZE
+                            C.TRACK_TYPE_TEXT -> dynamicMaxBytes += DefaultLoadControl.DEFAULT_TEXT_BUFFER_SIZE
+                        }
                     }
                 }
+
+                // Fallback, если треки еще не прогрузились
+                if (dynamicMaxBytes == 0L) {
+                    dynamicMaxBytes = DefaultLoadControl.DEFAULT_MUXED_BUFFER_SIZE.toLong()
+                }
+
+                val percentByBytes = ((allocatedBytes * 100L) / dynamicMaxBytes).toInt()
+
+                // Считаем процент по времени (50 секунд)
+                val maxBufferMs = DefaultLoadControl.DEFAULT_MAX_BUFFER_MS.toLong()
+                val bufferedDurationMs = (p.bufferedPosition - p.currentPosition).coerceAtLeast(0)
+                val percentByTime = ((bufferedDurationMs * 100L) / maxBufferMs).toInt()
+
+                // Буфер считается полным (100%), если выполнилось ХОТЯ БЫ ОДНО условие
+                maxOf(percentByBytes, percentByTime).coerceIn(0, 100)
             }
-            handler.postDelayed(this, 200)
+
+            _bufferedPercentage.postValue(percent)
+
+            if (!afrAppliedForCurrentItem) {
+                p.videoFormat?.let { updateVideoInfoBadge(it) }
+            }
+
+            handler.postDelayed(this, 250)
         }
     }
 
@@ -255,19 +370,26 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             _isPlaying.value = isPlaying
             updateProgressUpdaterState()
+            if (isPlaying) {
+                ioRetryCount = 0
+            }
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
             _isBuffering.value = (playbackState == Player.STATE_BUFFERING)
             if (playbackState == Player.STATE_READY) {
-                ioRetryCount = 0 // Сброс счетчика, если видео успешно заиграло
                 _duration.value = player?.duration
                 // После буферизации или старта обновляем инфо
                 player?.videoFormat?.let { updateVideoInfoBadge(it) }
             }
             if (playbackState == Player.STATE_ENDED) _playbackEnded.value = true
             updateProgressUpdaterState()
-            _isLive.value = player?.isCurrentMediaItemLive ?: false
+
+            val isCurrentItemLive = player?.isCurrentMediaItemLive ?: false
+            _isLive.value = isCurrentItemLive
+            if (isCurrentItemLive) {
+                _isSessionLive.value = true
+            }
         }
 
         override fun onPlayerError(error: PlaybackException) {
@@ -279,7 +401,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
 
         override fun onMediaItemTransition(mediaItem: Media3MediaItem?, reason: Int) {
-            ioRetryCount = 0 // Сброс счетчика при смене видео
             handleMediaItemTransition(mediaItem)
         }
 
@@ -349,13 +470,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun updateProgressUpdaterState() {
         val p = playerManager.exoPlayer ?: return
-        val shouldRun = p.isPlaying || p.playbackState == Player.STATE_BUFFERING
-
+        val shouldRun = p.playbackState != Player.STATE_IDLE && p.playbackState != Player.STATE_ENDED
+        handler.removeCallbacks(progressUpdater)
         if (shouldRun) {
-            handler.removeCallbacks(progressUpdater)
             handler.post(progressUpdater)
-        } else {
-            handler.removeCallbacks(progressUpdater)
         }
     }
 
@@ -369,20 +487,15 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             Log.w(TAG, "HLS Playlist stuck. Forcing reload...")
             val currentIndex = p.currentMediaItemIndex
             val currentPos = p.currentPosition
-
-            // Для Live прыгаем на край, для VOD восстанавливаем позицию
-            if (p.isCurrentMediaItemLive) {
-                p.seekTo(currentIndex, C.TIME_UNSET)
-            } else {
-                p.seekTo(currentIndex, currentPos)
-            }
+            if (p.isCurrentMediaItemLive) p.seekTo(currentIndex, C.TIME_UNSET) else p.seekTo(currentIndex, currentPos)
             p.prepare()
             p.play()
             return true
         }
 
-        // Универсальный перехват IO и сетевых ошибок (MKV/MP4/HLS)
-        if (error.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED ||
+        // Перехват ошибок для повторных попыток воспроизведения
+        if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW ||
+            error.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED ||
             error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
             error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT) {
 
@@ -501,6 +614,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         pendingAudioId = null
         pendingSubtitleId = null
 
+        if (repository.isShowInfoOnTrackChange()) {
+            _showInfoPanelEvent.postValue(Event(Unit))
+        }
+
         player?.let { p ->
             val title = mediaItem?.mediaMetadata?.title?.toString()
             currentUri = mediaItem?.localConfiguration?.uri?.toString()
@@ -524,6 +641,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, false)
                 .build()
             p.trackSelectionParameters = params
+
+            if (_isM3uPlaylist.value == true) {
+                val currentItem = allPlaylistItems.getOrNull(p.currentMediaItemIndex)
+                if (currentItem != null) {
+                    repository.saveLastPlayedChannel(uri = currentItem.uri.toString(), title = currentItem.title, group = currentItem.group)
+                }
+            }
 
             if (currentUri != null) {
                 viewModelScope.launch {
@@ -796,8 +920,18 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         _currentPosition.value = pos
     }
     fun togglePlayPause() = playerManager.togglePlayPause()
-    fun nextTrack() { if (player?.hasNextMediaItem() == true) player!!.seekToNextMediaItem() }
-    fun prevTrack() { if (player?.hasPreviousMediaItem() == true) player!!.seekToPreviousMediaItem() }
+    fun nextTrack() {
+        player?.let {
+            if (it.hasNextMediaItem())
+                playPlaylistItem(it.currentMediaItemIndex + 1)
+        }
+    }
+    fun prevTrack() {
+        player?.let {
+            if (it.hasPreviousMediaItem())
+                playPlaylistItem(it.currentMediaItemIndex - 1)
+        }
+    }
 
     fun setPlaybackSpeed(speed: PlaybackSpeed) {
         _playbackSpeed.value = speed
@@ -823,11 +957,63 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun loadPlaylist(items: List<MediaItem>, startIndex: Int) {
-        _currentPlaylist.value = items
-        val startPos = items.getOrNull(startIndex)?.startPositionMs ?: 0L
-        playerManager.loadPlaylist(items, startIndex, startPos)
+    fun loadPlaylist(items: List<MediaItem>, startIndex: Int, startPosMs: Long = 0) {
+        _isSessionLive.value = false
+
+        val indexedItems = items.mapIndexed { index, item -> item.copy(absoluteIndex = index) }
+        this.allPlaylistItems = indexedItems
+
+        val groups = indexedItems.mapNotNull { it.group }.distinct().toMutableList()
+        if (groups.isNotEmpty()) groups.add(0, "All")
+
+        val startItem = indexedItems.getOrNull(startIndex)
+        val startGroup = startItem?.group ?: "All"
+        val filtered = if (startGroup == "All") indexedItems else indexedItems.filter { it.group == startGroup }
+
+        _playlistUiState.value = PlaylistUiState(items = filtered, groupName = startGroup, availableGroups = groups)
+        _currentPlaylist.value = indexedItems
+        _playlistSize.value = indexedItems.size
+
+        val intentStartPosition = indexedItems.getOrNull(startIndex)?.startPositionMs ?: 0L
+        val finalStartPosition = if (startPosMs > 0) startPosMs else intentStartPosition
+        val startPos = if (finalStartPosition <= 0L) C.TIME_UNSET else finalStartPosition
+
+        playerManager.loadPlaylist(indexedItems, startIndex, startPos)
         viewModelScope.launch { repository.cleanupOldSettings() }
+    }
+
+    fun loadMedia(items: List<MediaItem>, startIndex: Int) {
+        viewModelScope.launch {
+            val finalItems = playerManager.expandM3uIfNeeded(items)
+            var finalStartIndex = startIndex
+            if (finalItems.size > 1 || items.getOrNull(0)?.uri?.path?.endsWith(".m3u") == true) {
+                _isM3uPlaylist.value = true
+                val (savedUri, savedTitle, savedGroup) = repository.getLastPlayedChannel()
+                if (savedUri != null || savedTitle != null) {
+                    val foundIndex = finalItems.indexOfFirst { item -> (item.uri.toString() == savedUri || item.title == savedTitle) && item.group == savedGroup }
+                    if (foundIndex != -1) finalStartIndex = foundIndex
+                }
+            } else {
+                _isM3uPlaylist.value = false
+            }
+            loadPlaylist(finalItems, finalStartIndex)
+        }
+    }
+
+    fun cycleGroup(direction: Int) {
+        val currentState = _playlistUiState.value ?: return
+        val groups = currentState.availableGroups
+        if (groups.isEmpty()) return
+
+        val currentIndex = groups.indexOf(currentState.groupName ?: "All")
+        val nextIndex = (currentIndex + direction + groups.size) % groups.size
+        val nextGroup = groups[nextIndex]
+        val filtered = if (nextGroup == "All") allPlaylistItems else allPlaylistItems.filter { it.group == nextGroup }
+        _playlistUiState.value = currentState.copy(items = filtered, groupName = nextGroup)
+    }
+
+    fun getAbsoluteIndex(item: MediaItem): Int {
+        return allPlaylistItems.indexOfFirst { it.uuid == item.uuid }.coerceAtLeast(0)
     }
 
     // --- Settings Logic ---
@@ -1018,6 +1204,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             val params = p.trackSelectionParameters.buildUpon()
                 .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, false)
                 .build()
+
+            p.stop() // Сброс текущего соединения
             p.trackSelectionParameters = params
 
             if (p.currentMediaItemIndex == index) {
@@ -1391,6 +1579,36 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun clearToast() {
         _toastMessage.value = null
+    }
+
+    fun revertToPlayingGroup() {
+        val playingUuid = player?.currentMediaItem?.mediaId
+        val playingItem = allPlaylistItems.find { it.uuid == playingUuid }
+        selectGroup(playingItem?.group ?: "All")
+    }
+
+    fun getRelativePlaylistItem(offset: Int): MediaItem? {
+        val state = _playlistUiState.value ?: return null
+        val currentGroupItems = state.items
+        if (currentGroupItems.isEmpty()) return null
+
+        val playingUuid = player?.currentMediaItem?.mediaId
+        val currentIdxInGroup = currentGroupItems.indexOfFirst { it.uuid == playingUuid }
+
+        if (currentIdxInGroup == -1) return null
+
+        val targetIdx = (currentIdxInGroup + offset + currentGroupItems.size) % currentGroupItems.size
+        return currentGroupItems[targetIdx]
+    }
+
+    fun isOverallLiveMode(): Boolean {
+        if (!repository.isLiveModeEnabled()) return false
+        if ((playlistSize.value ?: 0) <= 1) return false
+
+        val hasMultipleGroups = (playlistUiState.value?.availableGroups?.size ?: 0) > 1
+        val hasPlayedLiveStream = isSessionLive.value == true
+
+        return hasMultipleGroups || hasPlayedLiveStream
     }
 
     override fun onCleared() {

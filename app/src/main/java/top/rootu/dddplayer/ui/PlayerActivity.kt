@@ -21,6 +21,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.util.UnstableApi
 import top.rootu.dddplayer.BuildConfig
 import top.rootu.dddplayer.R
+import top.rootu.dddplayer.data.SettingsRepository
 import top.rootu.dddplayer.utils.IntentUtils
 import top.rootu.dddplayer.viewmodel.PlayerViewModel
 
@@ -54,9 +55,12 @@ class PlayerActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        val settingsRepo = SettingsRepository.getInstance(this)
+        val startupUri = settingsRepo.getStartupPlaylistUri()
+
         // Проверяем, как запущено приложение
-        if (!BuildConfig.DEBUG && isLaunchedFromLauncher(intent)) {
-            // Запуск из лаунчера -> Идем в настройки
+        if (isLaunchedFromLauncher(intent) && startupUri.isNullOrEmpty() && !BuildConfig.DEBUG) {
+            // Запуск из лаунчера, плейлист НЕ задан, и это РЕЛИЗ -> Идем в настройки
             val settingsIntent = Intent(this, GlobalSettingsActivity::class.java)
             startActivity(settingsIntent)
             finish()
@@ -163,21 +167,27 @@ class PlayerActivity : AppCompatActivity() {
         shouldReturnResult = intent.getBooleanExtra("return_result", false)
 
         val (playlist, startIndex) = IntentUtils.parseIntent(this, intent)
-        when {
-            playlist.isNotEmpty() -> {
-                viewModel.loadPlaylist(playlist, startIndex)
-            }
-            BuildConfig.DEBUG -> {
+
+        if (playlist.isNotEmpty()) {
+            viewModel.loadMedia(playlist, startIndex)
+        } else {
+            // Если интент пустой, проверяем настройку стартового плейлиста
+            val settingsRepo = SettingsRepository.getInstance(this)
+            val startupUri = settingsRepo.getStartupPlaylistUri()
+
+            if (!startupUri.isNullOrEmpty()) {
+                viewModel.loadMedia(
+                    listOf(top.rootu.dddplayer.model.MediaItem(startupUri.toUri())),
+                    0
+                )
+            } else if (BuildConfig.DEBUG) {
                 // Дефолтное видео для теста (только в DEBUG)
                 val defaultUri = "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
 //                val defaultUri = "http://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8"
-                viewModel.loadPlaylist(
+                viewModel.loadMedia(
                     listOf(top.rootu.dddplayer.model.MediaItem(defaultUri.toUri())),
                     0
                 )
-            }
-            else -> {
-                // В релизе, если нет данных, ничего не делаем.
             }
         }
     }

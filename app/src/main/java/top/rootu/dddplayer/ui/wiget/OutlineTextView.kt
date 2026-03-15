@@ -5,16 +5,16 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.util.AttributeSet
-import android.widget.TextClock
+import androidx.appcompat.widget.AppCompatTextView
 
 /**
- * Кастомные часы с поддержкой четкой обводки (stroke) текста.
+ * Кастомный TextView с поддержкой четкой обводки (stroke) текста.
  */
-class OutlineTextClock @JvmOverloads constructor(
+class OutlineTextView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
-    defStyleAttr: Int = 0
-) : TextClock(context, attrs, defStyleAttr) {
+    defStyleAttr: Int = android.R.attr.textViewStyle
+) : AppCompatTextView(context, attrs, defStyleAttr) {
 
     private var strokeColor = Color.BLACK
     private var strokeWidth = 0f

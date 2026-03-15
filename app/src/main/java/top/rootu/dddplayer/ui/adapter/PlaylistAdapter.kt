@@ -1,6 +1,7 @@
 package top.rootu.dddplayer.ui.adapter
 
 import android.graphics.Color
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -14,24 +15,21 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import coil.dispose
 import coil.load
-import coil.transform.RoundedCornersTransformation
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.model.MediaItem
 
 class PlaylistAdapter(
+    private val onLoopRequest: (Int) -> Unit, // Колбэк для зацикливания
     private val onItemClick: (Int) -> Unit
 ) : ListAdapter<MediaItem, PlaylistAdapter.ViewHolder>(MediaItemDiffCallback()) {
 
-    private var currentPlayingIndex: Int = -1
-
-    // Поле для хранения настройки
+    private var playingItemUuid: String? = null
     private var showIndexBadge: Boolean = true
+    var shouldLoop: Boolean = false // Флаг зацикливания
 
-    fun setCurrentIndex(index: Int) {
-        val oldIndex = currentPlayingIndex
-        currentPlayingIndex = index
-        if (oldIndex in 0 until itemCount) notifyItemChanged(oldIndex)
-        if (currentPlayingIndex in 0 until itemCount) notifyItemChanged(currentPlayingIndex)
+    fun setPlayingItemUuid(uuid: String?) {
+        playingItemUuid = uuid
+        notifyDataSetChanged() // Перерисовываем список
     }
 
     // Метод для обновления настройки извне
@@ -49,7 +47,8 @@ class PlaylistAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(getItem(position), position, position == currentPlayingIndex)
+        val item = getItem(position)
+        holder.bind(item, item.uuid == playingItemUuid)
     }
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -66,14 +65,38 @@ class PlaylistAdapter(
                     onItemClick(pos)
                 }
             }
+
+            // ЦЕНТРИРОВАНИЕ ПРИ ФОКУСЕ
+            itemView.setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) {
+                    val pos = bindingAdapterPosition
+                    if (pos != RecyclerView.NO_POSITION) {
+                        val rv = v.parent as? RecyclerView
+                        // Используем плавную прокрутку только если элемент не в центре
+                        rv?.smoothScrollToPosition(pos)
+                    }
+                }
+            }
+
+            // ЛОГИКА ЗАЦИКЛИВАНИЯ (на уровне элемента)
+            itemView.setOnKeyListener { _, keyCode, event ->
+                if (shouldLoop && event.action == KeyEvent.ACTION_DOWN) {
+                    val pos = bindingAdapterPosition
+                    if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN && pos == itemCount - 1) {
+                        onLoopRequest(0) // Прыгаем в начало
+                        return@setOnKeyListener true
+                    }
+                    if (keyCode == KeyEvent.KEYCODE_DPAD_UP && pos == 0) {
+                        onLoopRequest(itemCount - 1) // Прыгаем в конец
+                        return@setOnKeyListener true
+                    }
+                }
+                false
+            }
         }
 
-        fun bind(item: MediaItem, position: Int, isPlaying: Boolean) {
-            // 1. Заголовок
-            val displayTitle = item.title ?: item.filename ?: "Video ${position + 1}"
-            title.text = displayTitle
-
-            // 2. Выделение текущего
+        fun bind(item: MediaItem, isPlaying: Boolean) {
+            title.text = item.title ?: item.filename ?: "Video"
             if (isPlaying) {
                 title.setTextColor("#000000".toColorInt())
                 itemView.isSelected = true
@@ -82,8 +105,7 @@ class PlaylistAdapter(
                 itemView.isSelected = false
             }
 
-            // 3. Постер и Номер
-            val numberText = (position + 1).toString()
+            val numberText = (item.absoluteIndex + 1).toString()
 
             // Важно: очищаем слушатели предыдущего запроса
             poster.dispose()
@@ -100,7 +122,6 @@ class PlaylistAdapter(
 
                 poster.load(item.posterUri) {
                     crossfade(true)
-                    transformations(RoundedCornersTransformation(4f))
                     listener(
                         onSuccess = { _, _ ->
                             // Картинка есть -> скрываем заглушку, показываем бейдж
