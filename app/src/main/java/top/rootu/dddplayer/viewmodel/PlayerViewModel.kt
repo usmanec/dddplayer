@@ -26,6 +26,9 @@ import androidx.media3.exoplayer.hls.HlsManifest
 import androidx.media3.exoplayer.hls.playlist.HlsPlaylistTracker
 import kotlinx.coroutines.launch
 import top.rootu.dddplayer.R
+import top.rootu.dddplayer.bridge.BridgeConfig
+import top.rootu.dddplayer.bridge.BridgeDispatcher
+import top.rootu.dddplayer.bridge.BridgeEvent
 import top.rootu.dddplayer.data.SettingsRepository
 import top.rootu.dddplayer.data.VideoSettings
 import top.rootu.dddplayer.logic.AnaglyphLogic
@@ -81,6 +84,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private val repository = SettingsRepository.getInstance(application)
 
+    private var bridgeConfig: BridgeConfig = BridgeConfig()
+    private var bridgeDispatcher: BridgeDispatcher? = null
+    private var lastBridgeTickAt = 0L
+
     // Делегат для 3D/VR настроек
     val anaglyphDelegate = AnaglyphDelegate(repository)
 
@@ -94,6 +101,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     // Детектор FPS
     private val fpsDetector = RuntimeFpsDetector()
+
+    fun setBridgeDispatcher(dispatcher: BridgeDispatcher?, config: BridgeConfig) {
+        bridgeDispatcher = dispatcher
+        bridgeConfig = config
+    }
 
     private val _currentPosition = MutableLiveData<Long>()
     val currentPosition: LiveData<Long> = _currentPosition
@@ -247,6 +259,24 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     }
                 }
             }
+
+            val now = System.currentTimeMillis()
+            if (bridgeConfig.enabled && bridgeConfig.emitPosition && now - lastBridgeTickAt >= bridgeConfig.positionIntervalMs) {
+                bridgeDispatcher?.emit(
+                    BridgeEvent.PositionTick(
+                        sessionId = bridgeConfig.sessionId,
+                        ts = now,
+                        uri = p.currentMediaItem?.localConfiguration?.uri?.toString(),
+                        position = p.currentPosition,
+                        duration = normalizeDuration(p.duration),
+                        bufferedPosition = p.bufferedPosition,
+                        bufferedPercentage = _bufferedPercentage.value,
+                        windowIndex = p.currentMediaItemIndex,
+                        title = p.currentMediaItem?.mediaMetadata?.title?.toString()
+                    )
+                )
+                lastBridgeTickAt = now
+            }
             handler.postDelayed(this, 200)
         }
     }
@@ -255,6 +285,17 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             _isPlaying.value = isPlaying
             updateProgressUpdaterState()
+            bridgeDispatcher?.emit(
+                BridgeEvent.PlaybackStateChanged(
+                    sessionId = bridgeConfig.sessionId,
+                    ts = System.currentTimeMillis(),
+                    uri = player?.currentMediaItem?.localConfiguration?.uri?.toString(),
+                    isPlaying = isPlaying,
+                    isBuffering = _isBuffering.value == true,
+                    position = player?.currentPosition,
+                    duration = player?.duration
+                )
+            )
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
@@ -265,8 +306,34 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 // После буферизации или старта обновляем инфо
                 player?.videoFormat?.let { updateVideoInfoBadge(it) }
             }
-            if (playbackState == Player.STATE_ENDED) _playbackEnded.value = true
+            if (playbackState == Player.STATE_ENDED) {
+                _playbackEnded.value = true
+                val p = player
+                bridgeDispatcher?.emit(
+                    BridgeEvent.PlaybackEnded(
+                        sessionId = bridgeConfig.sessionId,
+                        ts = System.currentTimeMillis(),
+                        uri = p?.currentMediaItem?.localConfiguration?.uri?.toString(),
+                        windowIndex = p?.currentMediaItemIndex ?: 0,
+                        playlistSize = p?.mediaItemCount ?: 0,
+                        title = p?.currentMediaItem?.mediaMetadata?.title?.toString(),
+                        position = p?.currentPosition,
+                        duration = p?.duration?.let { normalizeDuration(it) }
+                    )
+                )
+            }
             updateProgressUpdaterState()
+            bridgeDispatcher?.emit(
+                BridgeEvent.PlaybackStateChanged(
+                    sessionId = bridgeConfig.sessionId,
+                    ts = System.currentTimeMillis(),
+                    uri = player?.currentMediaItem?.localConfiguration?.uri?.toString(),
+                    isPlaying = player?.isPlaying == true,
+                    isBuffering = _isBuffering.value == true,
+                    position = player?.currentPosition,
+                    duration = player?.duration
+                )
+            )
             _isLive.value = player?.isCurrentMediaItemLive ?: false
         }
 
@@ -276,11 +343,36 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             }
             _fatalError.postValue(error)
             _isPlaying.postValue(false)
+            bridgeDispatcher?.emit(
+                BridgeEvent.Error(
+                    sessionId = bridgeConfig.sessionId,
+                    ts = System.currentTimeMillis(),
+                    uri = player?.currentMediaItem?.localConfiguration?.uri?.toString(),
+                    code = error.errorCodeName,
+                    message = error.message
+                )
+            )
         }
 
         override fun onMediaItemTransition(mediaItem: Media3MediaItem?, reason: Int) {
             ioRetryCount = 0 // Сброс счетчика при смене видео
             handleMediaItemTransition(mediaItem)
+            val p = player
+            bridgeDispatcher?.emit(
+                BridgeEvent.PlaylistItemChanged(
+                    sessionId = bridgeConfig.sessionId,
+                    ts = System.currentTimeMillis(),
+                    uri = mediaItem?.localConfiguration?.uri?.toString(),
+                    windowIndex = p?.currentMediaItemIndex ?: 0,
+                    playlistSize = p?.mediaItemCount ?: 0,
+                    title = mediaItem?.mediaMetadata?.title?.toString(),
+                    reason = bridgeTransitionReason(reason),
+                    position = p?.currentPosition,
+                    duration = p?.duration?.let { normalizeDuration(it) },
+                    hasPrevious = p?.hasPreviousMediaItem() == true,
+                    hasNext = p?.hasNextMediaItem() == true
+                )
+            )
         }
 
         override fun onVideoSizeChanged(videoSize: VideoSize) {
@@ -303,6 +395,15 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             if (reason == Player.DISCONTINUITY_REASON_SEEK) {
                 // При перемотке просто останавливаем текущий процесс детекции, если он был запущен.
                 fpsDetector.stop(player)
+                bridgeDispatcher?.emit(
+                    BridgeEvent.SeekCompleted(
+                        sessionId = bridgeConfig.sessionId,
+                        ts = System.currentTimeMillis(),
+                        uri = player?.currentMediaItem?.localConfiguration?.uri?.toString(),
+                        fromPosition = oldPosition.positionMs,
+                        toPosition = newPosition.positionMs
+                    )
+                )
             }
         }
     }
@@ -823,9 +924,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun loadPlaylist(items: List<MediaItem>, startIndex: Int) {
+    fun loadPlaylist(items: List<MediaItem>, startIndex: Int, startPosMs: Long? = null) {
         _currentPlaylist.value = items
-        val startPos = items.getOrNull(startIndex)?.startPositionMs ?: 0L
+        val startPos = startPosMs ?: items.getOrNull(startIndex)?.startPositionMs ?: 0L
         playerManager.loadPlaylist(items, startIndex, startPos)
         viewModelScope.launch { repository.cleanupOldSettings() }
     }
@@ -1391,6 +1492,35 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun clearToast() {
         _toastMessage.value = null
+    }
+
+
+    private fun normalizeDuration(value: Long): Long? {
+        return if (value <= 0 || value == C.TIME_UNSET) null else value
+    }
+
+    private fun bridgeTransitionReason(reason: Int): String {
+        return when (reason) {
+            Player.MEDIA_ITEM_TRANSITION_REASON_AUTO -> "auto"
+            Player.MEDIA_ITEM_TRANSITION_REASON_SEEK -> "seek"
+            Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED -> "playlist_changed"
+            Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT -> "repeat"
+            else -> "unknown"
+        }
+    }
+
+    fun emitUserAction(action: String, payload: Map<String, String> = emptyMap()) {
+        if (!bridgeConfig.enabled || !bridgeConfig.emitUserActions) return
+
+        bridgeDispatcher?.emit(
+            BridgeEvent.UserAction(
+                sessionId = bridgeConfig.sessionId,
+                ts = System.currentTimeMillis(),
+                uri = player?.currentMediaItem?.localConfiguration?.uri?.toString(),
+                action = action,
+                payload = payload
+            )
+        )
     }
 
     override fun onCleared() {

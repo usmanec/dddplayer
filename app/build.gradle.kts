@@ -91,6 +91,7 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.fragment.ktx)
     implementation(libs.okhttp)
+    implementation(libs.gson)
 
     // Media3 dependencies
     implementation(libs.media3.exoplayer)

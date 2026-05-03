@@ -91,6 +91,10 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         if (doubleTapSeekSeconds != 0) {
             val current = viewModel.currentPosition.value ?: 0L
             val target = current + (doubleTapSeekSeconds * 1000L)
+            viewModel.emitUserAction(
+                if (doubleTapSeekSeconds > 0) "double_tap_seek_forward" else "double_tap_seek_backward",
+                mapOf("target_position" to target.coerceAtLeast(0).toString())
+            )
             viewModel.seekTo(target.coerceAtLeast(0))
             doubleTapSeekSeconds = 0
         }
@@ -397,6 +401,10 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
 
         // 1. Завершение перемотки
         if (swipeAction == 1 && isSwipeSeeking) {
+            viewModel.emitUserAction(
+                "swipe_seek_commit",
+                mapOf("target_position" to swipeSeekCurrentPosition.toString())
+            )
             viewModel.seekTo(swipeSeekCurrentPosition)
             ui.hideSeekOverlay()
             isSwipeSeeking = false
@@ -421,9 +429,11 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
                 ui.animatePlaylistSwipeConfirm(isNext) {
                     if (currentSwipeIsExit) {
                         // Логика выхода
+                        viewModel.emitUserAction("swipe_exit")
                         requireActivity().finish()
                     } else {
                         // Переключение трека
+                        viewModel.emitUserAction(if (isNext) "swipe_playlist_next" else "swipe_playlist_prev")
                         if (isNext) viewModel.nextTrack() else viewModel.prevTrack()
                     }
                 }
@@ -479,33 +489,53 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         ui.controlsView.setOnClickListener { timerController.resetControlsTimer() }
 
         // Кнопки плеера
-        ui.playPauseButton.setOnClickListener { viewModel.togglePlayPause() }
-        ui.rewindButton.setOnClickListener { viewModel.seekBack() }
-        ui.ffwdButton.setOnClickListener { viewModel.seekForward() }
-        ui.prevButton.setOnClickListener { viewModel.prevTrack() }
-        ui.nextButton.setOnClickListener { viewModel.nextTrack() }
+        ui.playPauseButton.setOnClickListener {
+            viewModel.emitUserAction("play_pause_click")
+            viewModel.togglePlayPause()
+        }
+        ui.rewindButton.setOnClickListener {
+            viewModel.emitUserAction("rewind_click")
+            viewModel.seekBack()
+        }
+        ui.ffwdButton.setOnClickListener {
+            viewModel.emitUserAction("ffwd_click")
+            viewModel.seekForward()
+        }
+        ui.prevButton.setOnClickListener {
+            viewModel.emitUserAction("prev_click")
+            viewModel.prevTrack()
+        }
+        ui.nextButton.setOnClickListener {
+            viewModel.emitUserAction("next_click")
+            viewModel.nextTrack()
+        }
 
         ui.buttonSpeed.setOnClickListener {
+            viewModel.emitUserAction("open_speed_menu")
             ui.hideControls()
             showPlaybackSpeedMenu()
         }
 
         ui.buttonResize.setOnClickListener {
+            viewModel.emitUserAction("open_resize_menu")
             ui.hideControls()
             showResizeMenu()
         }
 
         ui.buttonAudio.setOnClickListener {
+            viewModel.emitUserAction("open_audio_menu")
             ui.hideControls()
             showAudioTrackMenu()
         }
 
         ui.buttonSubs.setOnClickListener {
+            viewModel.emitUserAction("open_subtitles_menu")
             ui.hideControls()
             showSubtitlesMenu()
         }
 
         ui.buttonSettings.setOnClickListener {
+            viewModel.emitUserAction("open_main_menu")
             ui.hideControls()
             showMainMenu()
         }
@@ -520,8 +550,14 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
             true
         }
 
-        ui.buttonPlaylist.setOnClickListener { showPlaylist() }
-        ui.buttonQuality.setOnClickListener { showQualityPopup() }
+        ui.buttonPlaylist.setOnClickListener {
+            viewModel.emitUserAction("open_playlist_dialog")
+            showPlaylist()
+        }
+        ui.buttonQuality.setOnClickListener {
+            viewModel.emitUserAction("open_quality_menu")
+            showQualityPopup()
+        }
 
         // SeekBar
         ui.seekBar.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
@@ -541,7 +577,13 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
                 timerController.stopControlsTimer()
             }
             override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {
-                seekBar?.progress?.let { viewModel.seekTo(it.toLong()) }
+                seekBar?.progress?.let {
+                    viewModel.emitUserAction(
+                        "seekbar_release",
+                        mapOf("target_position" to it.toLong().toString())
+                    )
+                    viewModel.seekTo(it.toLong())
+                }
                 viewModel.isUserInteracting = false
                 timerController.resetControlsTimer()
             }

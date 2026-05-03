@@ -1,0 +1,678 @@
+*** Begin Patch
+*** Add File: app/src/main/java/top/rootu/dddplayer/bridge/BridgeConfig.kt
++package top.rootu.dddplayer.bridge
++
++/**
++ * Configuration for the bridge between DDDPlayer and external clients such as
++ * Lampa/Lampac.
++ *
++ * @param enabled whether the bridge is enabled
++ * @param sessionId optional identifier for the current session
++ * @param mode the transport mode used by the bridge
++ * @param callbackUrl optional callback URL for HTTP transport
++ * @param token optional auth token for HTTP requests
++ * @param emitPosition whether position ticks should be emitted periodically
++ * @param emitUserActions whether user action events should be emitted
++ * @param positionIntervalMs interval in milliseconds between position ticks
++ * @param client name of the client using the bridge (e.g. "lampa", "lampac")
++ */
++data class BridgeConfig(
++    val enabled: Boolean = false,
++    val sessionId: String? = null,
++    val mode: BridgeMode = BridgeMode.BROADCAST,
++    val callbackUrl: String? = null,
++    val token: String? = null,
++    val emitPosition: Boolean = true,
++    val emitUserActions: Boolean = true,
++    val positionIntervalMs: Long = 1000L,
++    val client: String = "custom"
++)
++
++/**
++ * Transport mode for the bridge.
++ */
++enum class BridgeMode {
++    BROADCAST,
++    HTTP,
++    WEBSOCKET
++}
+*** End Patch
+*** Begin Patch
+*** Add File: app/src/main/java/top/rootu/dddplayer/bridge/BridgeEvent.kt
++package top.rootu.dddplayer.bridge
++
++/**
++ * Base sealed class representing events emitted by the bridge.
++ *
++ * All events carry the session id, timestamp and current media uri.
++ */
++sealed class BridgeEvent {
++    abstract val sessionId: String?
++    abstract val ts: Long
++    abstract val uri: String?
++
++    data class SessionStarted(
++        override val sessionId: String?,
++        override val ts: Long,
++        override val uri: String?,
++        val title: String?,
++        val playlistSize: Int,
++        val startIndex: Int
++    ) : BridgeEvent()
++
++    data class SessionFinished(
++        override val sessionId: String?,
++        override val ts: Long,
++        override val uri: String?,
++        val position: Long?,
++        val duration: Long?,
++        val endBy: String
++    ) : BridgeEvent()
++
++    data class PlaybackStateChanged(
++        override val sessionId: String?,
++        override val ts: Long,
++        override val uri: String?,
++        val isPlaying: Boolean,
++        val isBuffering: Boolean,
++        val position: Long?,
++        val duration: Long?
++    ) : BridgeEvent()
++
++    data class PositionTick(
++        override val sessionId: String?,
++        override val ts: Long,
++        override val uri: String?,
++        val position: Long?,
++        val duration: Long?,
++        val bufferedPosition: Long?,
++        val bufferedPercentage: Int?
++    ) : BridgeEvent()
++
++    data class SeekCompleted(
++        override val sessionId: String?,
++        override val ts: Long,
++        override val uri: String?,
++        val fromPosition: Long?,
++        val toPosition: Long?
++    ) : BridgeEvent()
++
++    data class PlaylistItemChanged(
++        override val sessionId: String?,
++        override val ts: Long,
++        override val uri: String?,
++        val windowIndex: Int,
++        val title: String?
++    ) : BridgeEvent()
++
++    data class UserAction(
++        override val sessionId: String?,
++        override val ts: Long,
++        override val uri: String?,
++        val action: String,
++        val payload: Map<String, String> = emptyMap()
++    ) : BridgeEvent()
++
++    data class Error(
++        override val sessionId: String?,
++        override val ts: Long,
++        override val uri: String?,
++        val code: String?,
++        val message: String?
++    ) : BridgeEvent()
++}
+*** End Patch
+*** Begin Patch
+*** Add File: app/src/main/java/top/rootu/dddplayer/bridge/BridgeTransport.kt
++package top.rootu.dddplayer.bridge
++
++/**
++ * Interface for bridge transports.
++ *
++ * A transport is responsible for delivering bridge events to an external client.
++ */
++interface BridgeTransport {
++    fun send(event: BridgeEvent)
++}
+*** End Patch
+*** Begin Patch
+*** Add File: app/src/main/java/top/rootu/dddplayer/bridge/BridgeDispatcher.kt
++package top.rootu.dddplayer.bridge
++
++/**
++ * Dispatcher used by the player to emit bridge events to the configured transport.
++ *
++ * The dispatcher simply forwards events to the underlying transport if the bridge is enabled.
++ */
++class BridgeDispatcher(
++    private val config: BridgeConfig,
++    private val transport: BridgeTransport
++) {
++    fun emit(event: BridgeEvent) {
++        if (!config.enabled) return
++        transport.send(event)
++    }
++}
+*** End Patch
+*** Begin Patch
+*** Add File: app/src/main/java/top/rootu/dddplayer/bridge/BroadcastTransport.kt
++package top.rootu.dddplayer.bridge
++
++import android.content.Context
++import android.content.Intent
++import com.google.gson.Gson
++
++/**
++ * Transport implementation that sends bridge events via Android broadcasts.
++ *
++ * This transport is intended for on-device integrations such as Lampa.
++ * The broadcast action name is fixed; clients should register a BroadcastReceiver
++ * for this action to receive events.
++ */
++class BroadcastTransport(
++    private val context: Context,
++    private val packageName: String? = null
++) : BridgeTransport {
++
++    private val gson = Gson()
++
++    override fun send(event: BridgeEvent) {
++        val intent = Intent(ACTION_EVENT)
++        packageName?.let { intent.setPackage(it) }
++        intent.putExtra(EXTRA_EVENT_JSON, gson.toJson(event))
++        intent.putExtra(EXTRA_EVENT_TYPE, event::class.simpleName)
++        context.sendBroadcast(intent)
++    }
++
++    companion object {
++        /**
++         * Action name used for all bridge event broadcasts.
++         */
++        const val ACTION_EVENT = "top.rootu.dddplayer.bridge.EVENT"
++        /**
++         * Extra name carrying the JSON-encoded event.
++         */
++        const val EXTRA_EVENT_JSON = "event_json"
++        /**
++         * Extra name carrying the simple class name of the event.
++         */
++        const val EXTRA_EVENT_TYPE = "event_type"
++    }
++}
+*** End Patch
+*** Begin Patch
+*** Update File: app/src/main/java/top/rootu/dddplayer/utils/IntentUtils.kt
+@@
+-import android.content.Context
+-import android.content.Intent
+-import android.net.Uri
++import android.content.Context
++import android.content.Intent
++import android.net.Uri
++import top.rootu.dddplayer.bridge.BridgeConfig
++import top.rootu.dddplayer.bridge.BridgeMode
+@@ object IntentUtils {
+     fun parseIntent(context: Context, intent: Intent): Pair<List<MediaItem>, Int> {
+@@
+         return Pair(playlist, startIndex)
+     }
++
++    /**
++     * Parse bridge configuration extras from the given intent.
++     *
++     * Returns a BridgeConfig describing how the player should emit events to an external client.
++     * If no bridge extras are set the returned config will have enabled = false.
++     */
++    fun parseBridgeConfig(intent: Intent): BridgeConfig {
++        val enabled = intent.getBooleanExtra("bridge_enabled", false)
++        val sessionId = intent.getStringExtra("bridge_session_id")
++        val modeString = intent.getStringExtra("bridge_mode")?.lowercase()
++        val mode = when (modeString) {
++            "http" -> BridgeMode.HTTP
++            "websocket" -> BridgeMode.WEBSOCKET
++            else -> BridgeMode.BROADCAST
++        }
++        val callbackUrl = intent.getStringExtra("bridge_callback_url")
++        val token = intent.getStringExtra("bridge_token")
++        val emitPosition = intent.getBooleanExtra("bridge_emit_position", true)
++        val emitUserActions = intent.getBooleanExtra("bridge_emit_user_actions", true)
++        val intervalMs = intent.getLongExtra("bridge_position_interval_ms", 1000L)
++        val client = intent.getStringExtra("bridge_client") ?: "custom"
++
++        return BridgeConfig(
++            enabled = enabled,
++            sessionId = sessionId,
++            mode = mode,
++            callbackUrl = callbackUrl,
++            token = token,
++            emitPosition = emitPosition,
++            emitUserActions = emitUserActions,
++            positionIntervalMs = intervalMs,
++            client = client
++        )
++    }
+*** End Patch
+*** Begin Patch
+*** Update File: app/src/main/java/top/rootu/dddplayer/ui/PlayerActivity.kt
+@@
+ import android.app.PendingIntent
+@@
+ import top.rootu.dddplayer.utils.IntentUtils
++import top.rootu.dddplayer.bridge.BridgeConfig
++import top.rootu.dddplayer.bridge.BridgeDispatcher
++import top.rootu.dddplayer.bridge.BridgeEvent
++import top.rootu.dddplayer.bridge.BridgeMode
++import top.rootu.dddplayer.bridge.BroadcastTransport
+@@
+     private var shouldReturnResult: Boolean = false
+     private var isCompleted: Boolean = false
+     private var pendingIntent: PendingIntent? = null
++    // Bridge related fields
++    private var bridgeConfig: BridgeConfig = BridgeConfig()
++    private var bridgeDispatcher: BridgeDispatcher? = null
++    private var finishReason: String = "user"
+@@
+     private fun handleIntent(intent: Intent?) {
+         if (intent == null) return
+@@
+-        shouldReturnResult = intent.getBooleanExtra("return_result", false)
++        shouldReturnResult = intent.getBooleanExtra("return_result", false)
++        // Parse bridge configuration
++        bridgeConfig = IntentUtils.parseBridgeConfig(intent)
++        if (bridgeConfig.enabled) {
++            bridgeDispatcher = when (bridgeConfig.mode) {
++                BridgeMode.BROADCAST -> {
++                    BridgeDispatcher(
++                        bridgeConfig,
++                        BroadcastTransport(this)
++                    )
++                }
++                else -> {
++                    // Default to broadcast for unsupported modes
++                    BridgeDispatcher(
++                        bridgeConfig,
++                        BroadcastTransport(this)
++                    )
++                }
++            }
++        }
+@@
+-            playlist.isNotEmpty() -> {
+-                viewModel.loadPlaylist(playlist, startIndex)
++            playlist.isNotEmpty() -> {
++                viewModel.loadPlaylist(playlist, startIndex)
++                // Pass dispatcher to view model
++                viewModel.setBridgeDispatcher(bridgeDispatcher, bridgeConfig)
++                // Emit session started event
++                bridgeDispatcher?.emit(
++                    BridgeEvent.SessionStarted(
++                        sessionId = bridgeConfig.sessionId,
++                        ts = System.currentTimeMillis(),
++                        uri = playlist.getOrNull(startIndex)?.uri?.toString(),
++                        title = playlist.getOrNull(startIndex)?.mediaMetadata?.title?.toString(),
++                        playlistSize = playlist.size,
++                        startIndex = startIndex
++                    )
++                )
+*** End Patch
+*** Begin Patch
+*** Update File: app/src/main/java/top/rootu/dddplayer/ui/PlayerActivity.kt
+@@
+     override fun finish() {
+-        viewModel.saveCurrentSettings()
+-
+-        val resultIntent = Intent(ACTION_RESULT)
+-        if (shouldReturnResult) {
+-            val position = if (isCompleted) viewModel.duration.value else viewModel.currentPosition.value
+-            resultIntent.data = viewModel.currentMediaItem.value?.playableUri
+-            resultIntent.putExtra("position", position)
+-            resultIntent.putExtra("duration", viewModel.duration.value)
+-            resultIntent.putExtra("end_by", if (isCompleted) "completion" else "user")
+-            setResult(Activity.RESULT_OK, resultIntent)
+-        }
+-        super.finish()
++        viewModel.saveCurrentSettings()
++        // Emit session finished event
++        val currentUri = viewModel.currentMediaItem.value?.playableUri
++        val duration = viewModel.duration.value
++        val position = if (finishReason == "completion") duration else viewModel.currentPosition.value
++        bridgeDispatcher?.emit(
++            BridgeEvent.SessionFinished(
++                sessionId = bridgeConfig.sessionId,
++                ts = System.currentTimeMillis(),
++                uri = currentUri?.toString(),
++                position = position,
++                duration = duration,
++                endBy = finishReason
++            )
++        )
++        if (shouldReturnResult) {
++            val resultIntent = Intent(ACTION_RESULT)
++            resultIntent.data = currentUri
++            resultIntent.putExtra("position", position)
++            resultIntent.putExtra("duration", duration)
++            resultIntent.putExtra("end_by", finishReason)
++            setResult(Activity.RESULT_OK, resultIntent)
++        }
++        super.finish()
+     }
+*** End Patch
+*** Begin Patch
+*** Update File: app/src/main/java/top/rootu/dddplayer/viewmodel/PlayerViewModel.kt
+@@
+-import android.net.Uri
++import android.net.Uri
++import top.rootu.dddplayer.bridge.BridgeConfig
++import top.rootu.dddplayer.bridge.BridgeDispatcher
++import top.rootu.dddplayer.bridge.BridgeEvent
+@@
+ class PlayerViewModel(
+@@
+ ) : ViewModel(), Player.Listener {
+@@
+-    // Existing declarations...
++    // Bridge dispatcher and config
++    private var bridgeConfig: BridgeConfig = BridgeConfig()
++    private var bridgeDispatcher: BridgeDispatcher? = null
++    private var lastTickSentAt: Long = 0L
++
++    /**
++     * Attach the given dispatcher and config to this ViewModel.
++     *
++     * This should be called from PlayerActivity once the bridge has been configured.
++     */
++    fun setBridgeDispatcher(dispatcher: BridgeDispatcher?, config: BridgeConfig) {
++        bridgeDispatcher = dispatcher
++        bridgeConfig = config
++    }
+@@
+     private val progressUpdater = object : Runnable {
+@@
+         override fun run() {
+             val currentPlayer = player ?: return
+@@
+             _bufferedPosition.value = currentPlayer.bufferedPosition
+-
+-            handler.postDelayed(this, PROGRESS_UPDATE_INTERVAL_MS)
++            // Emit position ticks via bridge
++            val now = System.currentTimeMillis()
++            if (bridgeConfig.enabled && bridgeConfig.emitPosition) {
++                if (now - lastTickSentAt >= bridgeConfig.positionIntervalMs) {
++                    bridgeDispatcher?.emit(
++                        BridgeEvent.PositionTick(
++                            sessionId = bridgeConfig.sessionId,
++                            ts = now,
++                            uri = currentPlayer.currentMediaItem?.localConfiguration?.uri?.toString(),
++                            position = currentPlayer.currentPosition,
++                            duration = currentPlayer.duration,
++                            bufferedPosition = currentPlayer.bufferedPosition,
++                            bufferedPercentage = _bufferedPercentage.value
++                        )
++                    )
++                    lastTickSentAt = now
++                }
++            }
++            handler.postDelayed(this, PROGRESS_UPDATE_INTERVAL_MS)
+         }
+     }
+@@
+         override fun onIsPlayingChanged(isPlaying: Boolean) {
+@@
+             updateProgressUpdaterState()
++            // Emit playback state change
++            val p = player
++            bridgeDispatcher?.emit(
++                BridgeEvent.PlaybackStateChanged(
++                    sessionId = bridgeConfig.sessionId,
++                    ts = System.currentTimeMillis(),
++                    uri = p?.currentMediaItem?.localConfiguration?.uri?.toString(),
++                    isPlaying = isPlaying,
++                    isBuffering = _isBuffering.value == true,
++                    position = p?.currentPosition,
++                    duration = p?.duration
++                )
++            )
+         }
+@@
+         override fun onPlaybackStateChanged(playbackState: Int) {
+@@
+             _isBuffering.value = playbackState == Player.STATE_BUFFERING
+@@
+-            // Existing code may update UI etc.
++            // Emit state change after updating
++            val p = player
++            bridgeDispatcher?.emit(
++                BridgeEvent.PlaybackStateChanged(
++                    sessionId = bridgeConfig.sessionId,
++                    ts = System.currentTimeMillis(),
++                    uri = p?.currentMediaItem?.localConfiguration?.uri?.toString(),
++                    isPlaying = p?.isPlaying == true,
++                    isBuffering = _isBuffering.value == true,
++                    position = p?.currentPosition,
++                    duration = p?.duration
++                )
++            )
+         }
+@@
+         override fun onPlayerError(error: PlaybackException) {
+@@
+             // Post value to LiveData
+             _fatalError.postValue(error)
+             _isPlaying.postValue(false)
++            // Emit error event
++            bridgeDispatcher?.emit(
++                BridgeEvent.Error(
++                    sessionId = bridgeConfig.sessionId,
++                    ts = System.currentTimeMillis(),
++                    uri = player?.currentMediaItem?.localConfiguration?.uri?.toString(),
++                    code = error.errorCodeName,
++                    message = error.message
++                )
++            )
+         }
+@@
+         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+@@
+             updateTrackState()
++            // Emit playlist item changed
++            bridgeDispatcher?.emit(
++                BridgeEvent.PlaylistItemChanged(
++                    sessionId = bridgeConfig.sessionId,
++                    ts = System.currentTimeMillis(),
++                    uri = mediaItem?.localConfiguration?.uri?.toString(),
++                    windowIndex = player?.currentMediaItemIndex ?: 0,
++                    title = mediaItem?.mediaMetadata?.title?.toString()
++                )
++            )
+         }
+@@
+         override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
+@@
+             if (reason == DISCONTINUITY_REASON_SEEK) {
+                 val difference = newPosition.positionMs - oldPosition.positionMs
+                 if (abs(difference) < 200) return
+             }
+@@
++            // If a seek occurred emit a SeekCompleted event
++            if (reason == DISCONTINUITY_REASON_SEEK) {
++                bridgeDispatcher?.emit(
++                    BridgeEvent.SeekCompleted(
++                        sessionId = bridgeConfig.sessionId,
++                        ts = System.currentTimeMillis(),
++                        uri = player?.currentMediaItem?.localConfiguration?.uri?.toString(),
++                        fromPosition = oldPosition.positionMs,
++                        toPosition = newPosition.positionMs
++                    )
++                )
++            }
+         }
+@@
+     // add at bottom
++    /**
++     * Emit a user action through the bridge if enabled.
++     *
++     * @param action the action string to emit (e.g. "play_pause_click")
++     * @param payload optional additional information about the action
++     */
++    fun emitUserAction(action: String, payload: Map<String, String> = emptyMap()) {
++        if (!bridgeConfig.enabled || !bridgeConfig.emitUserActions) return
++        val p = player
++        bridgeDispatcher?.emit(
++            BridgeEvent.UserAction(
++                sessionId = bridgeConfig.sessionId,
++                ts = System.currentTimeMillis(),
++                uri = p?.currentMediaItem?.localConfiguration?.uri?.toString(),
++                action = action,
++                payload = payload
++            )
++        )
++    }
+*** End Patch
+*** Begin Patch
+*** Update File: app/src/main/java/top/rootu/dddplayer/ui/PlayerFragment.kt
+@@ private fun setupControls() {
+-        ui.playPauseButton.setOnClickListener { viewModel.togglePlayPause() }
+-        ui.rewindButton.setOnClickListener { viewModel.seekBack() }
+-        ui.ffwdButton.setOnClickListener { viewModel.seekForward() }
+-        ui.prevButton.setOnClickListener { viewModel.prevTrack() }
+-        ui.nextButton.setOnClickListener { viewModel.nextTrack() }
++        ui.playPauseButton.setOnClickListener {
++            viewModel.emitUserAction("play_pause_click")
++            viewModel.togglePlayPause()
++        }
++        ui.rewindButton.setOnClickListener {
++            viewModel.emitUserAction("rewind_click")
++            viewModel.seekBack()
++        }
++        ui.ffwdButton.setOnClickListener {
++            viewModel.emitUserAction("ffwd_click")
++            viewModel.seekForward()
++        }
++        ui.prevButton.setOnClickListener {
++            viewModel.emitUserAction("prev_click")
++            viewModel.prevTrack()
++        }
++        ui.nextButton.setOnClickListener {
++            viewModel.emitUserAction("next_click")
++            viewModel.nextTrack()
++        }
+@@
+-        ui.buttonSpeed.setOnClickListener {
+-            ui.hideControls()
+-            showPlaybackSpeedMenu()
+-        }
++        ui.buttonSpeed.setOnClickListener {
++            viewModel.emitUserAction("open_speed_menu")
++            ui.hideControls()
++            showPlaybackSpeedMenu()
++        }
+@@
+-        ui.buttonResize.setOnClickListener {
+-            ui.hideControls()
+-            showResizeMenu()
+-        }
++        ui.buttonResize.setOnClickListener {
++            viewModel.emitUserAction("open_resize_menu")
++            ui.hideControls()
++            showResizeMenu()
++        }
+@@
+-        ui.buttonAudio.setOnClickListener {
+-            ui.hideControls()
+-            showAudioTrackMenu()
+-        }
++        ui.buttonAudio.setOnClickListener {
++            viewModel.emitUserAction("open_audio_menu")
++            ui.hideControls()
++            showAudioTrackMenu()
++        }
+@@
+-        ui.buttonSubs.setOnClickListener {
+-            ui.hideControls()
+-            showSubtitlesMenu()
+-        }
++        ui.buttonSubs.setOnClickListener {
++            viewModel.emitUserAction("open_subtitles_menu")
++            ui.hideControls()
++            showSubtitlesMenu()
++        }
+@@
+-        ui.buttonSettings.setOnClickListener {
+-            ui.hideControls()
+-            showMainMenu()
+-        }
++        ui.buttonSettings.setOnClickListener {
++            viewModel.emitUserAction("open_main_menu")
++            ui.hideControls()
++            showMainMenu()
++        }
+@@
+-        ui.buttonPlaylist.setOnClickListener { showPlaylist() }
+-        ui.buttonQuality.setOnClickListener { showQualityPopup() }
++        ui.buttonPlaylist.setOnClickListener {
++            viewModel.emitUserAction("open_playlist_dialog")
++            showPlaylist()
++        }
++        ui.buttonQuality.setOnClickListener {
++            viewModel.emitUserAction("open_quality_menu")
++            showQualityPopup()
++        }
+*** End Patch
+*** Begin Patch
+*** Update File: app/src/main/java/top/rootu/dddplayer/ui/PlayerFragment.kt
+@@ private val performDoubleTapSeekRunnable = Runnable {
+-            val current = viewModel.currentPosition.value ?: 0L
+-            val target = current + (doubleTapSeekSeconds * 1000L)
+-            viewModel.seekTo(target.coerceAtLeast(0))
+-            doubleTapSeekSeconds = 0
++            val current = viewModel.currentPosition.value ?: 0L
++            val target = current + (doubleTapSeekSeconds * 1000L)
++            viewModel.emitUserAction(
++                if (doubleTapSeekSeconds > 0) "double_tap_seek_forward" else "double_tap_seek_backward",
++                mapOf("target_position" to target.coerceAtLeast(0).toString())
++            )
++            viewModel.seekTo(target.coerceAtLeast(0))
++            doubleTapSeekSeconds = 0
+*** End Patch
+*** Begin Patch
+*** Update File: app/src/main/java/top/rootu/dddplayer/ui/PlayerFragment.kt
+@@ private fun finishHorizontalSwipe() {
+-                        if (currentSwipeIsExit) {
+-                            // Логика выхода
+-                            requireActivity().finish()
+-                        } else {
+-                            // Переключение трека
+-                            if (isNext) viewModel.nextTrack() else viewModel.prevTrack()
+-                        }
++                        if (currentSwipeIsExit) {
++                            viewModel.emitUserAction("swipe_exit")
++                            // Логика выхода
++                            requireActivity().finish()
++                        } else {
++                            viewModel.emitUserAction(
++                                if (isNext) "swipe_playlist_next" else "swipe_playlist_prev"
++                            )
++                            // Переключение трека
++                            if (isNext) viewModel.nextTrack() else viewModel.prevTrack()
++                        }
+*** End Patch
+*** Begin Patch
+*** Update File: app/src/main/java/top/rootu/dddplayer/ui/PlayerFragment.kt
+@@ ui.seekBar.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+-            override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {
+-                seekBar?.progress?.let { viewModel.seekTo(it.toLong()) }
+-                viewModel.isUserInteracting = false
+-                timerController.resetControlsTimer()
+-            }
++            override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {
++                seekBar?.progress?.let {
++                    viewModel.emitUserAction(
++                        "seekbar_release",
++                        mapOf("target_position" to it.toLong().toString())
++                    )
++                    viewModel.seekTo(it.toLong())
++                }
++                viewModel.isUserInteracting = false
++                timerController.resetControlsTimer()
++            }
+*** End Patch

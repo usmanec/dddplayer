@@ -43,6 +43,22 @@ cd "$SAVED" >/dev/null
 APP_NAME="Gradle"
 APP_BASE_NAME=`basename "$0"`
 
+# Prefer JDK 17 when running on unsupported bleeding-edge JDKs (e.g. 25.x)
+if [ -x "${JAVA_HOME:-}/bin/java" ] ; then
+    CURRENT_JAVA_VERSION=`"$JAVA_HOME/bin/java" -version 2>&1 | sed -n '1s/.*version "\([0-9][0-9]*\)\..*/\1/p'`
+else
+    CURRENT_JAVA_VERSION=`java -version 2>&1 | sed -n '1s/.*version "\([0-9][0-9]*\)\..*/\1/p'`
+fi
+if [ -n "$CURRENT_JAVA_VERSION" ] && [ "$CURRENT_JAVA_VERSION" -ge 25 ] 2>/dev/null ; then
+    if [ -d "$HOME/.local/share/mise/installs/java" ] ; then
+        JDK17_CANDIDATE=`find "$HOME/.local/share/mise/installs/java" -maxdepth 1 -type d -name '17*' | sort -V | tail -n 1`
+        if [ -n "$JDK17_CANDIDATE" ] && [ -x "$JDK17_CANDIDATE/bin/java" ] ; then
+            JAVA_HOME="$JDK17_CANDIDATE"
+            export JAVA_HOME
+        fi
+    fi
+fi
+
 # Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
 DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'
 

@@ -9,10 +9,33 @@ import android.os.Bundle
 import android.os.Parcelable
 import android.provider.OpenableColumns
 import androidx.core.net.toUri
+import top.rootu.dddplayer.bridge.BridgeConfig
+import top.rootu.dddplayer.bridge.BridgeMode
+import top.rootu.dddplayer.bridge.BroadcastTransport
 import top.rootu.dddplayer.model.MediaItem
 import top.rootu.dddplayer.model.SubtitleItem
 
 object IntentUtils {
+
+    private fun parseFragmentParams(uri: Uri?): Map<String, String> {
+        val fragment = uri?.encodedFragment ?: return emptyMap()
+        if (fragment.isBlank()) return emptyMap()
+
+        return fragment.split("&")
+            .mapNotNull { pair ->
+                val idx = pair.indexOf("=")
+                if (idx <= 0) return@mapNotNull null
+                val key = Uri.decode(pair.substring(0, idx))
+                val value = Uri.decode(pair.substring(idx + 1))
+                if (key.isBlank()) null else key to value
+            }
+            .toMap()
+    }
+
+    private fun stripFragment(uri: Uri): Uri {
+        return uri.buildUpon().fragment(null).build()
+    }
+
 
     /**
      * Парсит Intent и возвращает список медиа-элементов и стартовую позицию.
@@ -39,8 +62,46 @@ object IntentUtils {
         return Pair(emptyList(), 0)
     }
 
-    private fun parseSingleFile(context: Context, intent: Intent): Pair<List<MediaItem>, Int> {
-        val uri = intent.data ?: return Pair(emptyList(), 0)
+    fun parseBridgeConfig(intent: Intent): BridgeConfig {
+        val fragment = parseFragmentParams(intent.data)
+
+        val enabledFromFragment =
+            fragment.containsKey("ddd_mode") ||
+                fragment.containsKey("ddd_sid") ||
+                fragment.containsKey("ddd_port") ||
+                fragment.containsKey("ddd_token")
+
+        val modeString =
+            intent.getStringExtra("bridge_mode")
+                ?: fragment["ddd_mode"]
+                ?: "broadcast"
+
+        val mode = when (modeString.lowercase()) {
+            "local" -> BridgeMode.LOCAL
+            "both" -> BridgeMode.BOTH
+            "broadcast" -> BridgeMode.BROADCAST
+            else -> BridgeMode.BROADCAST
+        }
+
+        return BridgeConfig(
+            enabled = intent.getBooleanExtra("bridge_enabled", false) || enabledFromFragment,
+            sessionId = intent.getStringExtra("bridge_session_id") ?: fragment["ddd_sid"],
+            mode = mode,
+            emitPosition = intent.getBooleanExtra("bridge_emit_position", true),
+            emitUserActions = intent.getBooleanExtra("bridge_emit_user_actions", true),
+            positionIntervalMs = intent.getLongExtra("bridge_position_interval_ms", 1000L).coerceAtLeast(250L),
+            client = intent.getStringExtra("bridge_client") ?: fragment["ddd_client"] ?: "lampa",
+            eventAction = intent.getStringExtra("bridge_event_action") ?: BroadcastTransport.DEFAULT_ACTION_EVENT,
+            receiverPackage = intent.getStringExtra("bridge_receiver_package"),
+            schemaVersion = intent.getIntExtra("bridge_schema_version", 1),
+            localPort = fragment["ddd_port"]?.toIntOrNull() ?: 39677,
+            localToken = intent.getStringExtra("bridge_local_token") ?: fragment["ddd_token"]
+        )
+    }
+
+        private fun parseSingleFile(context: Context, intent: Intent): Pair<List<MediaItem>, Int> {
+        val rawUri = intent.data ?: return Pair(emptyList(), 0)
+        val uri = stripFragment(rawUri)
         val extras = intent.extras ?: Bundle.EMPTY
 
         // Пытаемся найти заголовок в Extras (некоторые приложения передают его)
@@ -53,7 +114,7 @@ object IntentUtils {
             title = filename ?: uri.lastPathSegment ?: "Video"
         }
 
-        val startPosition = extras.getInt("position", 0).toLong()
+        val startPosition = getLongExtraCompat(extras, "position", 0L)
         // Single poster
         val singlePoster = extras.getString("thumbnail")
         // Single Video Subtitles
@@ -64,7 +125,7 @@ object IntentUtils {
             title = title,
             filename = filename,
             posterUri = singlePoster?.toUri(),
-            headers = emptyMap(),
+            headers = parseHeaders(extras),
             subtitles = singleSubs,
             startPositionMs = startPosition
         )
@@ -82,17 +143,10 @@ object IntentUtils {
         val posters = getSmartStringArray(extras, "video_list.thumbnail")
         val playlistSubsBundles = getParcelableArrayListCompat<Bundle>(extras, "video_list.subtitles")
 
-        // Headers
-        val headersMap = mutableMapOf<String, String>()
-        val headersArray = getSmartStringArray(extras, "headers")
-        if (headersArray != null) {
-            for (i in 0 until headersArray.size - 1 step 2) {
-                headersMap[headersArray[i]] = headersArray[i + 1]
-            }
-        }
+        val headersMap = parseHeaders(extras)
 
         val playlist = mutableListOf<MediaItem>()
-        var startIndex = 0
+        var startIndex = extras.getInt("start_index", 0)
 
         for (i in videoListUris.indices) {
             val uri = (videoListUris[i] as? Uri) ?: (videoListUris[i] as? String)?.toUri() ?: continue
@@ -108,12 +162,12 @@ object IntentUtils {
             }
 
             // Если dataUri совпадает с текущим элементом списка, берем позицию из extras
-            val pos = if (dataUri != null && uri == dataUri) extras.getInt("position", 0).toLong() else 0L
+            val pos = if (dataUri != null && uri == dataUri) getLongExtraCompat(extras, "position", 0L) else 0L
             if (dataUri != null && uri == dataUri) startIndex = i
 
             playlist.add(
                 MediaItem(
-                    uri = uri,
+                    uri = stripFragment(uri),
                     title = title,
                     filename = filenames?.getOrNull(i),
                     posterUri = posters?.getOrNull(i)?.takeIf { it.isNotEmpty() }?.toUri(),
@@ -123,7 +177,29 @@ object IntentUtils {
                 )
             )
         }
+        startIndex = startIndex.coerceIn(0, (playlist.size - 1).coerceAtLeast(0))
         return Pair(playlist, startIndex)
+    }
+
+
+    private fun parseHeaders(extras: Bundle): Map<String, String> {
+        val headersArray = getSmartStringArray(extras, "headers") ?: return emptyMap()
+        val result = mutableMapOf<String, String>()
+        for (i in 0 until headersArray.size - 1 step 2) {
+            val key = headersArray[i]
+            val value = headersArray[i + 1]
+            if (key.isNotBlank()) result[key] = value
+        }
+        return result
+    }
+
+    private fun getLongExtraCompat(bundle: Bundle, key: String, defaultValue: Long = 0L): Long {
+        return when (val value = bundle.get(key)) {
+            is Long -> value
+            is Int -> value.toLong()
+            is String -> value.toLongOrNull() ?: defaultValue
+            else -> defaultValue
+        }
     }
 
     /**
