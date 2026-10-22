@@ -3,7 +3,6 @@ package top.rootu.dddplayer.ui
 import android.app.Activity
 import android.app.Application
 import android.os.Bundle
-import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 
@@ -21,7 +20,6 @@ class PipReturnCallbacks : Application.ActivityLifecycleCallbacks {
 
     override fun onActivityStarted(activity: Activity) {
         if (activity is PlayerActivity) return
-        Log.i("PlayerPip", "started ${activity.javaClass.simpleName} task=${activity.taskId} screens=$startedScreens")
         if (startedScreens == 0) PlayerActivity.restorePictureInPicture()
         startedScreens++
     }

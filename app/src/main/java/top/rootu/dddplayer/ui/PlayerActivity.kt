@@ -45,7 +45,7 @@ private const val ACTION_PIP_PLAY_PAUSE = "top.rootu.dddplayer.action.PIP_PLAY_P
 class PlayerActivity : AppCompatActivity() {
 
     companion object {
-        // Лог жизненного цикла PiP (adb logcat -s PlayerPip): задачи, служебные запуски, кто закрывает плеер
+        // Лог PiP (adb logcat -s PlayerPip): разворачивание и закрытие окна
         private const val PIP_TAG = "PlayerPip"
 
         // Пометка интента, которым разворачиваем окно PiP (не новое видео)
@@ -65,7 +65,7 @@ class PlayerActivity : AppCompatActivity() {
          */
         fun restorePictureInPicture(): Boolean {
             val pip = activePipPlayer()
-            Log.i(PIP_TAG, "restore: pip=${pip?.hashCode()} task=${pip?.taskId}")
+            Log.d(PIP_TAG, "restore: pip=${pip?.hashCode()} task=${pip?.taskId}")
             pip ?: return false
             pip.startActivity(
                 Intent(pip, PlayerActivity::class.java)
@@ -211,15 +211,9 @@ class PlayerActivity : AppCompatActivity() {
         updatePictureInPictureParams()
     }
 
-    override fun onConfigurationChanged(newConfig: Configuration) {
-        super.onConfigurationChanged(newConfig)
-        // Размер окна при выходе из PiP (видео могло остаться маленьким)
-        Log.i(PIP_TAG, "configChanged ${describe()} screen=${newConfig.screenWidthDp}x${newConfig.screenHeightDp}dp")
-    }
-
     override fun onPictureInPictureModeChanged(inPip: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(inPip, newConfig)
-        Log.i(PIP_TAG, "pipModeChanged=$inPip ${describe()} screen=${newConfig.screenWidthDp}x${newConfig.screenHeightDp}dp")
+        Log.d(PIP_TAG, "pipModeChanged=$inPip ${describe()}")
         if (isTrampoline) return
         if (inPip) pipActivity = WeakReference(this)
         else if (pipActivity?.get() === this) pipActivity = null
@@ -246,7 +240,6 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Log.i(PIP_TAG, "onCreate ${describe()} restored=${savedInstanceState != null} intent=$intent")
 
         // Разворачивание PiP создало новый экземпляр вместо подъема прежнего: прежний плеер не трогаем
         if (intent.getBooleanExtra(EXTRA_RESTORE_PIP, false)) {
@@ -337,7 +330,6 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        Log.i(PIP_TAG, "onDestroy ${describe()} finishing=$isFinishing")
         if (pipActivity?.get() === this) pipActivity = null
         if (pipReceiverRegistered) {
             unregisterReceiver(pipControlReceiver)
@@ -362,7 +354,6 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        Log.i(PIP_TAG, "onNewIntent ${describe()} intent=$intent")
         // Разворачивание окна PiP: видео то же, интент не меняем
         if (intent.getBooleanExtra(EXTRA_RESTORE_PIP, false)) return
         setIntent(intent)
@@ -453,8 +444,6 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     override fun finish() {
-        // Стек показывает, кто закрыл плеер
-        Log.i(PIP_TAG, "finish ${describe()}", Throwable("finish caller"))
         // У служебного запуска нет плеера: не создаем ViewModel ради сохранения
         if (!isTrampoline) prepareFinish()
         super.finish()
@@ -466,7 +455,7 @@ class PlayerActivity : AppCompatActivity() {
      */
     private fun closeFromPictureInPicture(newPlayerTaskId: Int) {
         if (isFinishing) return
-        Log.i(PIP_TAG, "closeFromPictureInPicture ${describe()} newTask=$newPlayerTaskId", Throwable("close caller"))
+        Log.d(PIP_TAG, "closeFromPictureInPicture ${describe()} newTask=$newPlayerTaskId")
         if (newPlayerTaskId == taskId) {
             finish()
         } else {
