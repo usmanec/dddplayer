@@ -163,6 +163,8 @@ class PlayerManager(
         .followRedirects(true)
         .followSslRedirects(true)
         .retryOnConnectionFailure(true)
+        // TCP keepalive: соединение на паузе не выкидывается роутером, мертвое замечается сразу
+        .socketFactory(KeepAliveSocketFactory())
         // Разрешаем самоподписанные сертификаты (для пользовательских серверов с видео)
         .sslSocketFactory(socketFactory(), trustAllCerts[0] as X509TrustManager)
         .hostnameVerifier { _, _ -> true }
@@ -195,8 +197,9 @@ class PlayerManager(
     private val baseHttpFactory = OkHttpDataSource.Factory(okHttpClient)
 
     // Универсальная фабрика, которая умеет работать с content://, file:// и http://
-    // Мы передаем baseHttpFactory как источник для сетевых запросов.
-    private val defaultDataSourceFactory = DefaultDataSource.Factory(appContext, baseHttpFactory)
+    // Сетевые запросы идут через baseHttpFactory; после долгого простоя (пауза) соединение переоткрывается
+    private val defaultDataSourceFactory =
+        DefaultDataSource.Factory(appContext, IdleReconnectDataSource.Factory(baseHttpFactory))
 
     // Ответы, уже скачанные при проверке ссылки на M3U: плеер получает их без повторного запроса
     private val prefetchStore = PrefetchStore()

@@ -58,7 +58,10 @@
 
 ### Сеть
 
-- Один `OkHttpClient`: редиректы, повтор соединения, таймауты 60 с.
+- Один `OkHttpClient`: редиректы, повтор соединения, таймауты 60 с (чтение 120 с).
+- **TCP keepalive** (`KeepAliveSocketFactory`): пробы через 30 с простоя, каждые 15 с, 4 без ответа — соединение
+  мертвое. Держит запись NAT роутера на паузе, а молча пропавший сервер дает ошибку (и повтор), а не ожидание 120 с.
+  Интервалы задаются для сокета через `Os.setsockoptInt` (по умолчанию у ядра первая проба через 2 часа).
 - **TLS trust-all и `hostnameVerifier { true }` оставлены намеренно.** На старых Android устарели корневые
   сертификаты, а открыть видео важнее, чем проверить сертификат. Не меняйте это.
 - Application-interceptor записывает MIME-тип HLS, DASH или SmoothStreaming по Content-Type и финальному URL
@@ -74,8 +77,13 @@
 ### Цепочка DataSource
 
 ```
-ParsingDataSource → PrefetchingDataSource → DefaultDataSource (file/content/asset) → OkHttpDataSource
+ParsingDataSource → PrefetchingDataSource → DefaultDataSource (file/content/asset) → IdleReconnectDataSource → OkHttpDataSource
 ```
+
+- **`IdleReconnectDataSource`.** Пока буфер полный, загрузчик не читает, но держит соединение. Если между чтениями
+  прошло больше 60 с (пауза), перед следующим чтением соединение открывается заново с того же байта (`subrange`).
+  Буфер плеера не теряется. Последняя линия - сторож в `PlayerViewModel.checkLoadingStall`: 20 с буферизации
+  без роста буфера (впереди меньше 5 с) - перезагрузка видео с текущей позиции.
 
 - **`PrefetchingDataSource` / `PrefetchStore`.** Если ответ уже скачан при M3U-пробе и оказался не M3U
   (например, HLS), он отдается плееру без повторного запроса. Ответ одноразовый и живет 30 с. `getUri()`
