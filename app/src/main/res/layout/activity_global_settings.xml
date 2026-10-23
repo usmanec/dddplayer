@@ -765,6 +765,31 @@
                         app:tint="@color/selector_settings_secondary" />
                 </LinearLayout>
 
+                <!-- Многоканальный звук: PCM или перекодирование в AC3/E-AC3 для проброса, микшер -->
+                <LinearLayout android:id="@+id/item_audio_output_codec" style="@style/SettingsItemContainer">
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:duplicateParentState="true">
+                        <TextView style="@style/SettingsItemTitle" android:text="@string/pref_audio_output_codec" />
+                        <TextView style="@style/SettingsItemDesc" android:text="@string/pref_audio_output_codec_desc" />
+                    </LinearLayout>
+                    <TextView android:id="@+id/text_audio_output_codec_value" style="@style/SettingsItemValue" />
+                </LinearLayout>
+
+                <LinearLayout android:id="@+id/item_audio_output_layout" style="@style/SettingsItemContainer">
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:duplicateParentState="true">
+                        <TextView style="@style/SettingsItemTitle" android:text="@string/pref_audio_output_layout" />
+                        <TextView style="@style/SettingsItemDesc" android:text="@string/pref_audio_output_layout_desc" />
+                    </LinearLayout>
+                    <TextView android:id="@+id/text_audio_output_layout_value" style="@style/SettingsItemValue" />
+                </LinearLayout>
+
+                <LinearLayout android:id="@+id/item_center_gain" style="@style/SettingsItemContainer">
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:duplicateParentState="true">
+                        <TextView style="@style/SettingsItemTitle" android:text="@string/pref_center_gain" />
+                        <TextView style="@style/SettingsItemDesc" android:text="@string/pref_center_gain_desc" />
+                    </LinearLayout>
+                    <TextView android:id="@+id/text_center_gain_value" style="@style/SettingsItemValue" />
+                </LinearLayout>
+
                 <!-- HD-звук через IEC 61937 -->
                 <LinearLayout
                     android:id="@+id/item_hd_audio_iec"

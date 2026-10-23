@@ -34,6 +34,7 @@ import top.rootu.dddplayer.BuildConfig
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
 import top.rootu.dddplayer.logic.AudioMixerLogic
+import top.rootu.dddplayer.logic.ChannelLayoutLogic
 import top.rootu.dddplayer.logic.OpenSourceLicenses
 import top.rootu.dddplayer.logic.UpdateInfo
 import top.rootu.dddplayer.model.MenuItem
@@ -86,6 +87,12 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var switchHdr10Plus: SwitchCompat
     private lateinit var itemTunneling: LinearLayout
     private lateinit var switchTunneling: SwitchCompat
+    private lateinit var itemAudioOutputCodec: LinearLayout
+    private lateinit var textAudioOutputCodecValue: TextView
+    private lateinit var itemAudioOutputLayout: LinearLayout
+    private lateinit var textAudioOutputLayoutValue: TextView
+    private lateinit var itemCenterGain: LinearLayout
+    private lateinit var textCenterGainValue: TextView
     private lateinit var itemHdAudioIec: LinearLayout
     private lateinit var switchHdAudioIec: SwitchCompat
     private lateinit var itemDv: LinearLayout
@@ -349,6 +356,12 @@ class GlobalSettingsActivity : AppCompatActivity() {
         switchHdr10Plus = findViewById(R.id.switch_hdr10plus)
         itemTunneling = findViewById(R.id.item_tunneling)
         switchTunneling = findViewById(R.id.switch_tunneling)
+        itemAudioOutputCodec = findViewById(R.id.item_audio_output_codec)
+        textAudioOutputCodecValue = findViewById(R.id.text_audio_output_codec_value)
+        itemAudioOutputLayout = findViewById(R.id.item_audio_output_layout)
+        textAudioOutputLayoutValue = findViewById(R.id.text_audio_output_layout_value)
+        itemCenterGain = findViewById(R.id.item_center_gain)
+        textCenterGainValue = findViewById(R.id.text_center_gain_value)
         itemHdAudioIec = findViewById(R.id.item_hd_audio_iec)
         switchHdAudioIec = findViewById(R.id.switch_hd_audio_iec)
         itemDv = findViewById(R.id.item_dv)
@@ -474,6 +487,19 @@ class GlobalSettingsActivity : AppCompatActivity() {
         }
 
         // HD-звук через IEC 61937
+        itemAudioOutputCodec.setOnClickListener {
+            val current = settingsViewModel.audioOutputCodec.value ?: SettingsRepository.AUDIO_OUTPUT_PCM
+            showSingleChoiceDialog(getString(R.string.pref_audio_output_codec), audioOutputCodecLabels(), current) {
+                settingsViewModel.setAudioOutputCodec(it)
+            }
+        }
+        itemAudioOutputLayout.setOnClickListener {
+            val current = settingsViewModel.audioOutputLayout.value ?: ChannelLayoutLogic.LAYOUT_AUTO
+            showSingleChoiceDialog(getString(R.string.pref_audio_output_layout), audioOutputLayoutLabels(), current) {
+                settingsViewModel.setAudioOutputLayout(it)
+            }
+        }
+        itemCenterGain.setOnClickListener { settingsViewModel.cycleCenterGain() }
         itemHdAudioIec.setOnClickListener {
             settingsViewModel.toggleHdAudioIec(!switchHdAudioIec.isChecked)
         }
@@ -710,6 +736,19 @@ class GlobalSettingsActivity : AppCompatActivity() {
         }
         settingsViewModel.isTunnelingEnabled.observe(this) { switchTunneling.isChecked = it }
         settingsViewModel.isHdr10PlusEnabled.observe(this) { switchHdr10Plus.isChecked = it }
+        settingsViewModel.audioOutputCodec.observe(this) { codec ->
+            textAudioOutputCodecValue.text = audioOutputCodecLabels().getOrElse(codec) { "" }
+            // Раскладка и усиление центра работают только при перекодировании
+            val transcoding = codec != SettingsRepository.AUDIO_OUTPUT_PCM
+            itemAudioOutputLayout.alpha = if (transcoding) 1f else 0.5f
+            itemCenterGain.alpha = if (transcoding) 1f else 0.5f
+        }
+        settingsViewModel.audioOutputLayout.observe(this) { layout ->
+            textAudioOutputLayoutValue.text = audioOutputLayoutLabels().getOrElse(layout) { "" }
+        }
+        settingsViewModel.centerGainDb.observe(this) { db ->
+            textCenterGainValue.text = if (db == 0) getString(R.string.track_off) else getString(R.string.center_gain_format, db)
+        }
         settingsViewModel.isHdAudioIecEnabled.observe(this) { switchHdAudioIec.isChecked = it }
         settingsViewModel.dvMode.observe(this) { mode ->
             textDvValue.text = when (mode) {
@@ -992,6 +1031,15 @@ class GlobalSettingsActivity : AppCompatActivity() {
         SettingsRepository.BUTTON_SUBTITLES -> getString(R.string.button_label_subtitles)
         else -> key
     }
+
+    // Индексы совпадают с SettingsRepository.AUDIO_OUTPUT_* и ChannelLayoutLogic.LAYOUT_*
+    private fun audioOutputCodecLabels() = listOf(
+        getString(R.string.audio_output_pcm), getString(R.string.audio_output_ac3), getString(R.string.audio_output_eac3)
+    )
+
+    private fun audioOutputLayoutLabels() = listOf(
+        getString(R.string.audio_layout_auto), "5.1", "4.0", "2.0"
+    )
 
     private fun showSingleChoiceDialog(title: String, items: List<String>, currentIndex: Int, onSelected: (Int) -> Unit) {
         ChoiceDialog.show(this, title, items, currentIndex, onSelected)

@@ -522,4 +522,15 @@
     <string name="diag_yes">yes</string>
     <string name="diag_no">no</string>
     <string name="diag_builtin">built-in</string>
+    <string name="pref_audio_output_codec">Multichannel audio output</string>
+    <string name="pref_audio_output_codec_desc">AC3 or E-AC3: decoded multichannel audio is re-encoded and sent as a bitstream, for TVs and soundbars that take multichannel only as Dolby Digital (ARC, optical). Up to 5.1, playback speed does not apply</string>
+    <string name="audio_output_pcm">PCM (as is)</string>
+    <string name="audio_output_ac3">AC3 (Dolby Digital)</string>
+    <string name="audio_output_eac3">E-AC3 (Dolby Digital Plus)</string>
+    <string name="pref_audio_output_layout">Output channels</string>
+    <string name="pref_audio_output_layout_desc">Mixer for AC3/E-AC3 output: up- or downmix to the chosen layout</string>
+    <string name="audio_layout_auto">As source (up to 5.1)</string>
+    <string name="pref_center_gain">Voice boost (center)</string>
+    <string name="pref_center_gain_desc">Louder center channel with dialogue or translation, for AC3/E-AC3 output</string>
+    <string name="center_gain_format">+%1$d dB</string>
 </resources>

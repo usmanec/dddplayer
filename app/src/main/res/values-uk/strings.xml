@@ -491,4 +491,15 @@
     <string name="diag_yes">так</string>
     <string name="diag_no">ні</string>
     <string name="diag_builtin">вбудований</string>
+    <string name="pref_audio_output_codec">Багатоканальний звук на виході</string>
+    <string name="pref_audio_output_codec_desc">AC3 або E-AC3: декодований багатоканальний звук перекодовується і йде бітстрімом, для ТВ і саундбарів, які приймають багатоканальний звук лише як Dolby Digital (ARC, оптика). До 5.1, швидкість відтворення не застосовується</string>
+    <string name="audio_output_pcm">PCM (як є)</string>
+    <string name="audio_output_ac3">AC3 (Dolby Digital)</string>
+    <string name="audio_output_eac3">E-AC3 (Dolby Digital Plus)</string>
+    <string name="pref_audio_output_layout">Канали на виході</string>
+    <string name="pref_audio_output_layout_desc">Мікшер для виводу AC3/E-AC3: підвищення або зведення у вибрану розкладку</string>
+    <string name="audio_layout_auto">Як у джерелі (до 5.1)</string>
+    <string name="pref_center_gain">Посилення голосу (центр)</string>
+    <string name="pref_center_gain_desc">Гучніший центральний канал з діалогами або перекладом, для виводу AC3/E-AC3</string>
+    <string name="center_gain_format">+%1$d дБ</string>
 </resources>

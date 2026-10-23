@@ -110,6 +110,7 @@ class PlayerManager(
     private var networkBufferBytes: Int = C.LENGTH_UNSET
     private var loudnessEnhancer: LoudnessEnhancer? = null
     private var iecSink: IecCarrierSink? = null
+    private var transcodingSink: TranscodingAudioSink? = null
 
     // Состояние для восстановления
     private var currentWindowIndex = 0
@@ -495,7 +496,21 @@ class PlayerManager(
                 // декодированного PCM, а битстрим и так идет мимо процессоров
                 val iec = if (settingsRepo.isHdAudioIecEnabled()) IecCarrierOutput.wrap(appContext, baseSink) else null
                 iecSink = iec
-                val finalSink = iec ?: baseSink
+                // Многоканальный PCM -> AC3/E-AC3 для проброса (с микшером и усилением центра). Снаружи всего:
+                // сводит декодированный звук до процессоров даунмикса, битстрим источника идет мимо него
+                val outputCodec = settingsRepo.getAudioOutputCodec()
+                val transcoder = if (outputCodec != SettingsRepository.AUDIO_OUTPUT_PCM) {
+                    TranscodingAudioSink(
+                        iec ?: baseSink,
+                        TranscodingAudioSink.Config(
+                            eac3 = outputCodec == SettingsRepository.AUDIO_OUTPUT_EAC3,
+                            layoutSetting = settingsRepo.getAudioOutputLayout(),
+                            centerGainDb = settingsRepo.getCenterGainDb()
+                        )
+                    )
+                } else null
+                transcodingSink = transcoder
+                val finalSink = transcoder ?: iec ?: baseSink
 
                 // Приоритет встроенного FFmpeg - своя настройка аудио
                 super.buildAudioRenderers(
@@ -616,7 +631,9 @@ class PlayerManager(
                 } else {
                     val encodingName = MediaFormatHelper.getAudioCodecName(config.encoding)
                     val channelStr = MediaFormatHelper.getChannelConfigString(config.channelConfig)
-                    onAudioOutputFormatChanged?.invoke("$encodingName $channelStr")
+                    // Перекодирование: декодированный звук уходит битстримом AC3/E-AC3
+                    val prefix = if (transcodingSink?.isTranscoding == true) "PCM → " else ""
+                    onAudioOutputFormatChanged?.invoke("$prefix$encodingName $channelStr")
                 }
                 // Туннелирование касается видео (кадры идут прямо в аппаратный вывод), показывается у видео
                 onTunnelingChanged?.invoke(config.tunneling)

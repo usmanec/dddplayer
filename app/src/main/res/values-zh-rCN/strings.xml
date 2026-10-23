@@ -505,4 +505,15 @@
     <string name="diag_yes">是</string>
     <string name="diag_no">否</string>
     <string name="diag_builtin">内置</string>
+    <string name="pref_audio_output_codec">多声道音频输出</string>
+    <string name="pref_audio_output_codec_desc">AC3 或 E-AC3：解码后的多声道音频重新编码并以比特流输出，适用于仅以 Dolby Digital 接收多声道的电视和回音壁（ARC、光纤）。最多 5.1，播放速度不生效</string>
+    <string name="audio_output_pcm">PCM（原样）</string>
+    <string name="audio_output_ac3">AC3 (Dolby Digital)</string>
+    <string name="audio_output_eac3">E-AC3 (Dolby Digital Plus)</string>
+    <string name="pref_audio_output_layout">输出声道</string>
+    <string name="pref_audio_output_layout_desc">AC3/E-AC3 输出的混音器：上混或下混到所选布局</string>
+    <string name="audio_layout_auto">与音源相同（最多 5.1）</string>
+    <string name="pref_center_gain">人声增强（中置）</string>
+    <string name="pref_center_gain_desc">提高含对白或配音的中置声道音量，用于 AC3/E-AC3 输出</string>
+    <string name="center_gain_format">+%1$d dB</string>
 </resources>

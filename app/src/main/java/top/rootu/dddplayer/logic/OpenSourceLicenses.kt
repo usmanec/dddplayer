@@ -30,7 +30,8 @@ object OpenSourceLicenses {
         // Нативные декодеры из app/libs
         Component(
             "FFmpeg", "LGPL-2.1-or-later", "https://ffmpeg.org",
-            "libavcodec audio decoders: AAC, AC3, E-AC3, DTS, TrueHD/MLP, FLAC, ALAC, Opus, Vorbis, MP3, AMR, PCM A-law/µ-law"
+            "libavcodec audio decoders: AAC, AC3, E-AC3, DTS, TrueHD/MLP, FLAC, ALAC, Opus, Vorbis, MP3, AMR, PCM A-law/µ-law; " +
+                "AC3 and E-AC3 encoders (multichannel audio output)"
         ),
         Component("dav1d", "BSD-2-Clause", "https://code.videolan.org/videolan/dav1d", "AV1 decoder (8/10-bit)"),
         Component("cpu_features", "Apache-2.0", "https://github.com/google/cpu_features", "CPU detection in the AV1 decoder"),

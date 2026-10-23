@@ -491,4 +491,15 @@
     <string name="diag_yes">так</string>
     <string name="diag_no">не</string>
     <string name="diag_builtin">убудаваны</string>
+    <string name="pref_audio_output_codec">Шматканальны гук на выхадзе</string>
+    <string name="pref_audio_output_codec_desc">AC3 або E-AC3: дэкадаваны шматканальны гук перакадуецца і ідзе бітстрымам, для ТБ і саўндбараў, якія прымаюць шматканальны гук толькі як Dolby Digital (ARC, оптыка). Да 5.1, хуткасць прайгравання не ўжываецца</string>
+    <string name="audio_output_pcm">PCM (як ёсць)</string>
+    <string name="audio_output_ac3">AC3 (Dolby Digital)</string>
+    <string name="audio_output_eac3">E-AC3 (Dolby Digital Plus)</string>
+    <string name="pref_audio_output_layout">Каналы на выхадзе</string>
+    <string name="pref_audio_output_layout_desc">Мікшар для вываду AC3/E-AC3: павышэнне або зводжанне ў абраную раскладку</string>
+    <string name="audio_layout_auto">Як у крыніцы (да 5.1)</string>
+    <string name="pref_center_gain">Узмацненне голасу (цэнтр)</string>
+    <string name="pref_center_gain_desc">Гучнейшы цэнтральны канал з дыялогамі або перакладам, для вываду AC3/E-AC3</string>
+    <string name="center_gain_format">+%1$d дБ</string>
 </resources>

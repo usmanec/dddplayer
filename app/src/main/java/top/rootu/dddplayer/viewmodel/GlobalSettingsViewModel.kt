@@ -33,6 +33,13 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
 
     private val _isHdr10PlusEnabled = MutableLiveData(repository.isHdr10PlusEnabled())
     val isHdr10PlusEnabled: LiveData<Boolean> = _isHdr10PlusEnabled
+    private val _audioOutputCodec = MutableLiveData(repository.getAudioOutputCodec())
+    val audioOutputCodec: LiveData<Int> = _audioOutputCodec
+    private val _audioOutputLayout = MutableLiveData(repository.getAudioOutputLayout())
+    val audioOutputLayout: LiveData<Int> = _audioOutputLayout
+    private val _centerGainDb = MutableLiveData(repository.getCenterGainDb())
+    val centerGainDb: LiveData<Int> = _centerGainDb
+
     private val _isHdAudioIecEnabled = MutableLiveData(repository.isHdAudioIecEnabled())
     val isHdAudioIecEnabled: LiveData<Boolean> = _isHdAudioIecEnabled
 
@@ -268,6 +275,24 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     fun toggleTunneling(enabled: Boolean) {
         repository.setTunnelingEnabled(enabled)
         _isTunnelingEnabled.value = enabled
+    }
+
+    fun setAudioOutputCodec(codec: Int) {
+        repository.setAudioOutputCodec(codec)
+        _audioOutputCodec.value = codec
+    }
+
+    fun setAudioOutputLayout(layout: Int) {
+        repository.setAudioOutputLayout(layout)
+        _audioOutputLayout.value = layout
+    }
+
+    /** Усиление центра по кругу: 0, +3, ... +12 дБ. */
+    fun cycleCenterGain() {
+        val current = _centerGainDb.value ?: 0
+        val next = if (current >= SettingsRepository.CENTER_GAIN_MAX_DB) 0 else current + SettingsRepository.CENTER_GAIN_STEP_DB
+        repository.setCenterGainDb(next)
+        _centerGainDb.value = next
     }
 
     fun toggleHdAudioIec(enabled: Boolean) {

@@ -45,6 +45,14 @@ class SettingsRepository private constructor(context: Context) {
         const val UP_ACTION_MENU = 2
         const val UP_ACTION_INFO = 3
 
+        // Многоканальный звук на выходе
+        const val AUDIO_OUTPUT_PCM = 0
+        const val AUDIO_OUTPUT_AC3 = 1
+        const val AUDIO_OUTPUT_EAC3 = 2
+        // Шаг и предел усиления центра, дБ
+        const val CENTER_GAIN_STEP_DB = 3
+        const val CENTER_GAIN_MAX_DB = 12
+
         // Действие кнопки "OK" при скрытой панели
         const val OK_ACTION_PAUSE = 0
         const val OK_ACTION_PAUSE_PANEL = 1
@@ -346,6 +354,18 @@ class SettingsRepository private constructor(context: Context) {
     // DTS-HD MA и TrueHD через несущую IEC 61937 (как Kodi). По умолчанию выкл, чтобы не менять поведение
     fun isHdAudioIecEnabled(): Boolean = prefs.getBoolean("hd_audio_iec", false)
     fun setHdAudioIecEnabled(enabled: Boolean) = prefs.edit { putBoolean("hd_audio_iec", enabled) }
+
+    // Многоканальный звук на выходе: PCM (как раньше), перекодирование в AC3 или E-AC3 для проброса
+    fun getAudioOutputCodec(): Int = prefs.getInt("audio_output_codec", AUDIO_OUTPUT_PCM)
+    fun setAudioOutputCodec(codec: Int) = prefs.edit { putInt("audio_output_codec", codec) }
+
+    // Каналы на выходе перекодирования (ChannelLayoutLogic.LAYOUT_*)
+    fun getAudioOutputLayout(): Int = prefs.getInt("audio_output_layout", 0)
+    fun setAudioOutputLayout(layout: Int) = prefs.edit { putInt("audio_output_layout", layout) }
+
+    // Усиление центра (голоса, перевода) при перекодировании, дБ
+    fun getCenterGainDb(): Int = prefs.getInt("center_gain_db", 0)
+    fun setCenterGainDb(db: Int) = prefs.edit { putInt("center_gain_db", db) }
 
     // Принудительный Downmix в стерео
     fun isStereoDownmixEnabled(): Boolean = prefs.getBoolean("stereo_downmix", true)
@@ -678,7 +698,8 @@ class SettingsRepository private constructor(context: Context) {
     fun getHardSettingsSignature(): String {
         val videoParams = "${getVideoDecoderPriority()}_${getAudioDecoderPriority()}_${isTunnelingEnabled()}_${getDvMode()}_${isHdAudioIecEnabled()}_${isHdr10PlusEnabled()}"
         val audioDownmix = "${isStereoDownmixEnabled()}_${getMixPreset()}_${getMixFront()}_${getMixCenter()}_${getMixRear()}_${getMixMiddle()}_${getMixLfe()}"
-        return "${videoParams}_${audioDownmix}_${getTargetBufferCorrectMB()}"
+        val audioOutput = "${getAudioOutputCodec()}_${getAudioOutputLayout()}_${getCenterGainDb()}"
+        return "${videoParams}_${audioDownmix}_${audioOutput}_${getTargetBufferCorrectMB()}"
     }
 
     // --- Global Preferences Helpers ---
