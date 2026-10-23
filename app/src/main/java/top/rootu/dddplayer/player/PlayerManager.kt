@@ -933,6 +933,8 @@ class PlayerManager(
      * Перезагружает плейлист в текущий плеер (восстановление после ошибки).
      * Источники собираются через [buildMediaSources], чтобы сохранить
      * кастомные экстракторы и ParsingDataSource.
+     * Пауза сохраняется (playWhenReady не меняется): соединение может оборваться, пока видео на паузе,
+     * и восстановление не должно само запускать воспроизведение.
      */
     fun reloadMediaItems(items: List<Media3MediaItem>, index: Int, positionMs: Long) {
         val player = exoPlayer ?: return
@@ -941,7 +943,6 @@ class PlayerManager(
         currentPosition = positionMs
         player.setMediaSources(buildMediaSources(items), index, positionMs)
         player.prepare()
-        player.play()
     }
 
     fun releasePlayer(isFinalRelease: Boolean = false, saveState: Boolean = true) {
