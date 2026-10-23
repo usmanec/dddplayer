@@ -1109,6 +1109,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun getCustomPlaybackSpeed(): Float = repository.getCustomPlaybackSpeed()
 
+    /** Быстрое переключение с пульта: на 1.00x - своя скорость, на любой другой - 1.00x. */
+    fun toggleCustomSpeed() {
+        setPlaybackSpeed(if ((_playbackSpeed.value ?: 1.0f) == 1.0f) repository.getCustomPlaybackSpeed() else 1.0f)
+    }
+
     /** Скорость по умолчанию (долгое нажатие в меню скорости). */
     fun setDefaultPlaybackSpeed(speed: Float) = repository.setDefaultPlaybackSpeed(speed)
 

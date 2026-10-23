@@ -178,7 +178,8 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
             onShowControls = { ui.showControls(); timerController.resetControlsTimer() },
             onHideControls = { ui.hideControls() },
             onResetHideTimer = { timerController.resetControlsTimer() },
-            onShowPlaylist = { showPlaylist() }
+            onShowPlaylist = { showPlaylist() },
+            onToggleCustomSpeed = { viewModel.toggleCustomSpeed() }
         )
 
         swipeAction = settingsRepo.getHorizontalSwipeAction()
@@ -621,6 +622,17 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
             ui.hideControls()
             showPlaybackSpeedMenu()
         }
+        // Долгое нажатие: сразу своя скорость и ползунок, после него - снова панель управления
+        ui.buttonSpeed.setOnLongClickListener {
+            timerController.stopControlsTimer()
+            viewModel.setPlaybackSpeed(viewModel.getCustomPlaybackSpeed())
+            showCustomSpeedDialog(onDismiss = {
+                ui.showControls()
+                ui.buttonSpeed.requestFocus()
+                timerController.resetControlsTimer()
+            })
+            true
+        }
 
         ui.buttonResize.setOnClickListener {
             ui.hideControls()
@@ -799,7 +811,11 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         updateSideMenuItems(viewModel.getPlaybackSpeedMenuItems(requireContext()))
     }
 
-    private fun showCustomSpeedDialog() {
+    /**
+     * Ползунок своей скорости.
+     * @param onDismiss куда вернуться: по умолчанию в меню скорости (боковое меню еще открыто)
+     */
+    private fun showCustomSpeedDialog(onDismiss: () -> Unit = { showPlaybackSpeedMenu(SPEED_MENU_CUSTOM) }) {
         val steps = ((PlaybackSpeed.CUSTOM_MAX - PlaybackSpeed.CUSTOM_MIN) / PlaybackSpeed.CUSTOM_STEP).roundToInt()
         fun speedAt(progress: Int) = PlaybackSpeed.normalize(PlaybackSpeed.CUSTOM_MIN + progress * PlaybackSpeed.CUSTOM_STEP)
         val current = PlaybackSpeed.normalize(viewModel.playbackSpeed.value ?: 1.0f)
@@ -808,8 +824,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
             progress = ((current - PlaybackSpeed.CUSTOM_MIN) / PlaybackSpeed.CUSTOM_STEP).roundToInt(),
             title = { getString(R.string.playback_speed_custom_value, PlaybackSpeed.label(speedAt(it))) },
             onChange = { viewModel.setCustomPlaybackSpeed(speedAt(it)) },
-            // После закрытия возвращаемся в меню скорости (sideMenuDialog все еще открыт)
-            onDismiss = { showPlaybackSpeedMenu(SPEED_MENU_CUSTOM) }
+            onDismiss = onDismiss
         )
     }
 
@@ -913,8 +928,9 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
                         return@setOnKeyListener true
                     }
                     KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                        // Нажатие OK/Center на SeekBar закрывает диалог
-                        zoomDialog?.dismiss()
+                        // Нажатие OK/Center на SeekBar закрывает диалог.
+                        // Автоповтор пропускаем: диалог мог открыться долгим нажатием OK, которое еще держат
+                        if (event.repeatCount == 0) zoomDialog?.dismiss()
                         return@setOnKeyListener true
                     }
                 }
