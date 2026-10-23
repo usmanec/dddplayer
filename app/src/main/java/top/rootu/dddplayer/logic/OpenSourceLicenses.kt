@@ -26,6 +26,7 @@ object OpenSourceLicenses {
         Component("SMBJ", "Apache-2.0", "https://github.com/hierynomus/smbj", "SMB client, ASN-ONE"),
         Component("Bouncy Castle", "MIT", "https://www.bouncycastle.org", "bcprov (SMBJ dependency)"),
         Component("SLF4J", "MIT", "https://www.slf4j.org", "slf4j-api (SMBJ dependency)"),
+        Component("QR Code generator (Nayuki)", "MIT", "https://www.nayuki.io/page/qr-code-generator-library", "Java library, QR for log links"),
         // Нативные декодеры из app/libs
         Component(
             "FFmpeg", "LGPL-2.1-or-later", "https://ffmpeg.org",
