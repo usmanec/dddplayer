@@ -1,9 +1,11 @@
 package top.rootu.dddplayer.player
 
+import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.system.Os
 import android.system.OsConstants
 import android.util.Log
+import java.io.FileDescriptor
 import java.net.InetAddress
 import java.net.Socket
 import javax.net.SocketFactory
@@ -32,16 +34,31 @@ class KeepAliveSocketFactory(private val delegate: SocketFactory = getDefault())
 
     private fun Socket.configured(): Socket {
         runCatching { keepAlive = true }.onFailure { return this }
-        runCatching {
-            // Копия дескриптора: параметры применяются к тому же сокету, копию сразу закрываем
-            ParcelFileDescriptor.fromSocket(this).use { pfd ->
-                val fd = pfd.fileDescriptor
-                Os.setsockoptInt(fd, OsConstants.IPPROTO_TCP, TCP_KEEPIDLE, KEEPALIVE_IDLE_S)
-                Os.setsockoptInt(fd, OsConstants.IPPROTO_TCP, TCP_KEEPINTVL, KEEPALIVE_INTERVAL_S)
-                Os.setsockoptInt(fd, OsConstants.IPPROTO_TCP, TCP_KEEPCNT, KEEPALIVE_COUNT)
-            }
-        }.onFailure { Log.w(TAG, "TCP keepalive intervals not set: ${it.message}") }
+        runCatching { setKeepAliveIntervals(this) }
+            .onFailure { Log.w(TAG, "TCP keepalive intervals not set: ${it.message}") }
         return this
+    }
+
+    /**
+     * Интервалы keepalive через дескриптор сокета. До Android 10 `ParcelFileDescriptor.fromSocket` не копирует
+     * дескриптор, а оборачивает сам дескриптор сокета: закрыть обертку (или дождаться ее финализатора) - закрыть
+     * сокет (было "Socket Closed" на каждом соединении). Поэтому там берем дескриптор сокета напрямую и не закрываем,
+     * а с Android 10 (API 29) fromSocket делает копию, ее закрываем.
+     */
+    private fun setKeepAliveIntervals(socket: Socket) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ParcelFileDescriptor.fromSocket(socket)?.use { setIntervals(it.fileDescriptor) }
+        } else {
+            // Тот же метод, которым пользуется fromSocket; ограничений скрытого API до Android 9 нет
+            val fd = Socket::class.java.getMethod("getFileDescriptor\$").invoke(socket) as? FileDescriptor ?: return
+            setIntervals(fd)
+        }
+    }
+
+    private fun setIntervals(fd: FileDescriptor) {
+        Os.setsockoptInt(fd, OsConstants.IPPROTO_TCP, TCP_KEEPIDLE, KEEPALIVE_IDLE_S)
+        Os.setsockoptInt(fd, OsConstants.IPPROTO_TCP, TCP_KEEPINTVL, KEEPALIVE_INTERVAL_S)
+        Os.setsockoptInt(fd, OsConstants.IPPROTO_TCP, TCP_KEEPCNT, KEEPALIVE_COUNT)
     }
 
     private companion object {
