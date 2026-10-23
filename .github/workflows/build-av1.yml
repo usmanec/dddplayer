@@ -4,6 +4,11 @@ name: Build AV1 decoder
 # app/libs/lib-decoder-av1-release.aar в ветку, с которой запущен.
 on:
   workflow_dispatch:
+  # Ручной запуск доступен только для workflow из main, поэтому сборка идет и на push правок av1/
+  push:
+    paths:
+      - "av1/**"
+      - ".github/workflows/build-av1.yml"
 
 permissions:
   contents: write
