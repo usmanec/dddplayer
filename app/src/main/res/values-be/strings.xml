@@ -468,12 +468,13 @@
     </string-array>
     <!-- Диагностика устройства -->
     <string name="pref_diagnostics">Дыягностыка прылады</string>
-    <string name="pref_diagnostics_desc">Экран, HDR, аўдыявыхад і дэкодэры. Справаздачу можна скапіяваць для паведамлення пра памылку</string>
+    <string name="pref_diagnostics_desc">Экран, HDR, аўдыявыхад, дэкодэры і свежы лог праграмы. Адкрыйце адразу пасля праблемы і выгрузіце: спасылку ці QR можна далучыць да паведамлення пра памылку</string>
     <string name="diag_sec_device">Прылада</string>
     <string name="diag_sec_display">Экран</string>
     <string name="diag_sec_audio_out">Аўдыявыхад</string>
     <string name="diag_sec_video_dec">Відэадэкодэры</string>
     <string name="diag_sec_audio_dec">Аўдыядэкодэры</string>
+    <string name="diag_sec_app_log">Лог праграмы (апошнія радкі)</string>
     <string name="diag_model">Мадэль</string>
     <string name="diag_app_version">Версія плэера</string>
     <string name="diag_abi">Архітэктура</string>

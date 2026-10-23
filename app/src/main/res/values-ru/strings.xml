@@ -496,12 +496,13 @@
     </string-array>
     <!-- Диагностика устройства -->
     <string name="pref_diagnostics">Диагностика устройства</string>
-    <string name="pref_diagnostics_desc">Экран, HDR, аудиовыход и декодеры. Отчёт можно скопировать для сообщения об ошибке</string>
+    <string name="pref_diagnostics_desc">Экран, HDR, аудиовыход, декодеры и свежий лог приложения. Откройте сразу после проблемы и выгрузите: ссылку или QR можно приложить к сообщению об ошибке</string>
     <string name="diag_sec_device">Устройство</string>
     <string name="diag_sec_display">Экран</string>
     <string name="diag_sec_audio_out">Аудиовыход</string>
     <string name="diag_sec_video_dec">Видеодекодеры</string>
     <string name="diag_sec_audio_dec">Аудиодекодеры</string>
+    <string name="diag_sec_app_log">Лог приложения (последние строки)</string>
     <string name="diag_model">Модель</string>
     <string name="diag_app_version">Версия плеера</string>
     <string name="diag_abi">Архитектура</string>

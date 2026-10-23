@@ -7,10 +7,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import top.rootu.dddplayer.R
+import top.rootu.dddplayer.utils.AppLogCollector
 import top.rootu.dddplayer.utils.DeviceInfoCollector
 
 /**
- * Диагностика устройства: экран и HDR, аудиовыходы и проброс, видео- и аудиодекодеры.
+ * Диагностика устройства: экран и HDR, аудиовыходы и проброс, видео- и аудиодекодеры, лог приложения.
  * Тот же экран, что у лога фатальной ошибки: выгрузка на termbin с QR-кодом и копирование.
  */
 class DeviceInfoActivity : AppCompatActivity() {
@@ -21,7 +22,10 @@ class DeviceInfoActivity : AppCompatActivity() {
 
         // Список декодеров и звуковые возможности читаются медленно - не в главном потоке
         val report = lifecycleScope.async(Dispatchers.Default) {
-            DeviceInfoCollector.toText(DeviceInfoCollector.collect(this@DeviceInfoActivity))
+            val sections = DeviceInfoCollector.collect(this@DeviceInfoActivity) +
+                // Лог работы приложения: что происходило перед проблемой, даже если ничего не упало
+                DeviceInfoCollector.Section(getString(R.string.diag_sec_app_log), AppLogCollector.read())
+            DeviceInfoCollector.toText(sections)
         }
         val view = LogReportView(
             activity = this,

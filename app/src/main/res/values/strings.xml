@@ -499,12 +499,13 @@
     </string-array>
     <!-- Диагностика устройства -->
     <string name="pref_diagnostics">Device diagnostics</string>
-    <string name="pref_diagnostics_desc">Display, HDR, audio output and decoders. The report can be copied for a bug report</string>
+    <string name="pref_diagnostics_desc">Display, HDR, audio output, decoders and the recent app log. Open it right after a problem and upload: the link and QR can be sent with the bug report</string>
     <string name="diag_sec_device">Device</string>
     <string name="diag_sec_display">Display</string>
     <string name="diag_sec_audio_out">Audio output</string>
     <string name="diag_sec_video_dec">Video decoders</string>
     <string name="diag_sec_audio_dec">Audio decoders</string>
+    <string name="diag_sec_app_log">App log (last lines)</string>
     <string name="diag_model">Model</string>
     <string name="diag_app_version">Player version</string>
     <string name="diag_abi">Architecture</string>

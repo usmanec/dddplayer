@@ -482,12 +482,13 @@
     </string-array>
     <!-- Диагностика устройства -->
     <string name="pref_diagnostics">设备诊断</string>
-    <string name="pref_diagnostics_desc">显示屏、HDR、音频输出和解码器。可复制报告用于反馈问题</string>
+    <string name="pref_diagnostics_desc">显示屏、HDR、音频输出、解码器和最近的应用日志。出现问题后立即打开并上传：可将链接或二维码附在问题反馈中</string>
     <string name="diag_sec_device">设备</string>
     <string name="diag_sec_display">显示屏</string>
     <string name="diag_sec_audio_out">音频输出</string>
     <string name="diag_sec_video_dec">视频解码器</string>
     <string name="diag_sec_audio_dec">音频解码器</string>
+    <string name="diag_sec_app_log">应用日志（最近的行）</string>
     <string name="diag_model">型号</string>
     <string name="diag_app_version">播放器版本</string>
     <string name="diag_abi">架构</string>
