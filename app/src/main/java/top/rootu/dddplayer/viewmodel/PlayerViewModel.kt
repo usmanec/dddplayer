@@ -345,6 +345,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private var stallSinceMs = 0L
     private var stallReconnects = 0
 
+    // Диагностика буферизации для лога: когда началась и сколько данных было впереди
+    private var bufferingSinceMs = 0L
+    private var bufferingStartBufferedPos = 0L
+
     /**
      * После долгой паузы сервер (TorrServer) или роутер молча закрывает соединение, и плеер ждет данных
      * из мертвого сокета до тайм-аута чтения (120 с), а то и дольше. Помогала только перемотка за буфер.
@@ -377,6 +381,24 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         // То же видео перезагружается: настройки и счетчики не сбрасываем
         isRecoveringFromError = true
         playerManager.reloadMediaItems(items, p.currentMediaItemIndex, p.currentPosition)
+    }
+
+    /**
+     * Строка в лог приложения о каждой буферизации: сколько длилась, сколько данных было впереди и сколько
+     * догрузилось. По ней видно, ждал ли плеер сеть (буфер не рос - мертвое соединение, рос медленно -
+     * медленный источник, например TorrServer после паузы) или декодер (данные были).
+     */
+    private fun logBuffering(playbackState: Int) {
+        val p = player ?: return
+        val now = SystemClock.elapsedRealtime()
+        if (playbackState == Player.STATE_BUFFERING && bufferingSinceMs == 0L) {
+            bufferingSinceMs = now
+            bufferingStartBufferedPos = p.bufferedPosition
+            Log.i("PlayerViewModel", "Buffering at ${p.currentPosition / 1000} s, ahead ${(p.bufferedPosition - p.currentPosition) / 1000} s, loading=${p.isLoading}")
+        } else if (playbackState != Player.STATE_BUFFERING && bufferingSinceMs != 0L) {
+            Log.i("PlayerViewModel", "Buffering ended after ${(now - bufferingSinceMs) / 1000} s, loaded +${(p.bufferedPosition - bufferingStartBufferedPos) / 1000} s")
+            bufferingSinceMs = 0L
+        }
     }
 
     private val progressUpdater = object : Runnable {
@@ -430,6 +452,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
         override fun onPlaybackStateChanged(playbackState: Int) {
             _isBuffering.value = (playbackState == Player.STATE_BUFFERING)
+            logBuffering(playbackState)
             if (playbackState == Player.STATE_READY) {
                 ioRetryCount = 0 // Сброс счетчика, если видео успешно заиграло
                 _duration.value = player?.duration
