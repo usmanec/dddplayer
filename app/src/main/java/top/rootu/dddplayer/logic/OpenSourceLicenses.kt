@@ -32,7 +32,8 @@ object OpenSourceLicenses {
             "FFmpeg", "LGPL-2.1-or-later", "https://ffmpeg.org",
             "libavcodec audio decoders: AAC, AC3, E-AC3, DTS, TrueHD/MLP, FLAC, ALAC, Opus, Vorbis, MP3, AMR, PCM A-law/µ-law"
         ),
-        Component("dav1d", "BSD-2-Clause", "https://code.videolan.org/videolan/dav1d", "AV1 decoder"),
+        Component("dav1d", "BSD-2-Clause", "https://code.videolan.org/videolan/dav1d", "AV1 decoder (8/10-bit)"),
+        Component("cpu_features", "Apache-2.0", "https://github.com/google/cpu_features", "CPU detection in the AV1 decoder"),
         Component("libdovi (dovi_tool)", "MIT", "https://github.com/quietvoid/dovi_tool", "Dolby Vision RPU conversion (Profile 7 → 8.1)"),
         // Перенесенный код
         Component(
