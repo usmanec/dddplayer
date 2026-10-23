@@ -1,7 +1,6 @@
 package top.rootu.dddplayer.utils
 
 import android.util.Log
-import java.util.concurrent.TimeUnit
 
 /**
  * Последние строки logcat приложения для диагностики: без root и разрешений приложение видит только свои записи.
@@ -17,7 +16,7 @@ object AppLogCollector {
             .redirectErrorStream(true)
             .start()
         val lines = process.inputStream.bufferedReader().use { it.readLines() }
-        process.waitFor(2, TimeUnit.SECONDS)
+        // logcat -d завершается сам, поток прочитан до конца. waitFor с таймаутом есть только с API 26
         process.destroy()
         lines.takeLast(maxLines)
     } catch (e: Exception) {
