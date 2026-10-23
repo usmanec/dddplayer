@@ -24,6 +24,7 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.decoder.av1.Libdav1dVideoRenderer
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.Renderer
@@ -79,6 +80,9 @@ import javax.net.ssl.X509TrustManager
 import androidx.media3.common.MediaItem as Media3MediaItem
 
 private const val MAX_PROBE_BYTES = 32 * 1024 * 1024 // Ограничение размера проверяемого плейлиста
+private const val DAV1D_MAX_FRAME_DELAY = 4 // Кадров в работе у dav1d (по умолчанию 2)
+private const val DAV1D_INPUT_BUFFERS = 8
+private const val DAV1D_OUTPUT_BUFFERS = 6
 
 // Счетчик для уникальных ID MediaSession (общий для всех экземпляров PlayerManager в процессе)
 private val sessionCounter = AtomicInteger()
@@ -396,6 +400,20 @@ class PlayerManager(
                     context, settingsRepo.getVideoDecoderPriority(), mediaCodecSelector, enableDecoderFallback,
                     eventHandler, eventListener, allowedVideoJoiningTimeMs, out
                 )
+                // dav1d: стандартный рендерер держит в работе только 2 кадра, а у 1-плиточного AV1
+                // (обычные релизы) потоки параллелятся именно между кадрами. 4 кадра заметно быстрее
+                // на слабых ТВ-боксах (подход Just+ Player). Буферы растут вместе с конвейером
+                for (i in start until out.size) {
+                    if (out[i] is Libdav1dVideoRenderer) {
+                        out[i] = Libdav1dVideoRenderer(
+                            allowedVideoJoiningTimeMs, eventHandler, eventListener,
+                            DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
+                            Libdav1dVideoRenderer.THREAD_COUNT_DECODER_DEFAULT,
+                            DAV1D_MAX_FRAME_DELAY, DAV1D_INPUT_BUFFERS, DAV1D_OUTPUT_BUFFERS,
+                            /* useCustomAllocator = */ false
+                        )
+                    }
+                }
                 if (!mapDvToHevc) return
                 // При подмене DV на HEVC стандартный рендерер заменяем на тот, что не подменяет декодер
                 // для профилей без совместимого слоя HEVC (профиль 5 и др.). Параметры - как в DefaultRenderersFactory

@@ -40,7 +40,7 @@
 | `render_api_mode` | `RENDER_API_AUTO` (0) | 0 авто (ES 3.0 если есть), 1 принудительно GLES 2.0 |
 | `pause_dim_level` | 60 | Затемнение на паузе, % |
 | `global_resize_mode`, `video_zoom_scale`, `remember_zoom` | 0 (FIT), 115, false | Масштаб |
-| `video_decoder_priority` | как `decoder_priority`, если его меняли, иначе `EXTENSION_RENDERER_MODE_ON` (HW+) | Приоритет встроенного AV1 (dav1d) перед декодерами устройства, раздел «Видео» |
+| `video_decoder_priority` | как `decoder_priority`, если его меняли, иначе `EXTENSION_RENDERER_MODE_ON` (HW+) | Приоритет встроенного AV1 (dav1d) перед декодерами устройства, раздел «Видео». dav1d держит в работе 4 кадра (по умолчанию в Media3 - 2), это заметно быстрее на слабых боксах |
 | `audio_decoder_priority` | как `decoder_priority`, если его меняли, иначе `EXTENSION_RENDERER_MODE_PREFER` (SW) | Приоритет встроенного FFmpeg перед декодерами устройства, раздел «Аудио» |
 | `decoder_priority` | — | Прежняя общая настройка; только значение по умолчанию для двух новых |
 | `tunneling_enabled` | false | Туннелирование |
