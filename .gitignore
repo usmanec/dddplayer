@@ -16,3 +16,4 @@ local.properties
 /dovi/src/main/cpp/libdovi/
 /dovi/build/
 /av1/build/
+/audioenc/build/
