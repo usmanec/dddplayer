@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.AndroidViewModel
@@ -109,6 +110,10 @@ data class PlaylistUiState(
 const val SUBTITLE_MENU_LOAD_FILE = "load_file"
 // Пункт "Своя скорость" в меню скорости
 const val SPEED_MENU_CUSTOM = "custom_speed"
+
+// Сторож зависшей загрузки: сколько ждать роста буфера и сколько раз переподключаться подряд
+private const val STALL_TIMEOUT_MS = 20_000L
+private const val MAX_STALL_RECONNECTS = 3
 
 class PlayerViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -333,9 +338,42 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     // Храним хэш настроек при старте
     private var lastSettingsHash = repository.getHardSettingsSignature()
 
+    // Сторож зависшей загрузки: буфер не растет при буферизации - переоткрываем соединение
+    private var stallBufferedPos = -1L
+    private var stallSinceMs = 0L
+    private var stallReconnects = 0
+
+    /**
+     * После долгой паузы сервер (TorrServer) или роутер молча закрывает соединение, и плеер ждет данных
+     * из мертвого сокета до тайм-аута чтения (120 с), а то и дольше. Помогала только перемотка за буфер.
+     * Если при буферизации буфер не растет [STALL_TIMEOUT_MS], повторяем то же самое: seekTo на текущую
+     * позицию (данных под ней нет - загрузчик открывает новое соединение).
+     */
+    private fun checkLoadingStall(p: Player) {
+        val stalled = p.playbackState == Player.STATE_BUFFERING && p.playWhenReady && !p.isCurrentMediaItemLive &&
+            p.currentMediaItem?.localConfiguration?.uri?.scheme?.startsWith("http") == true
+        val now = SystemClock.elapsedRealtime()
+        if (!stalled) {
+            stallBufferedPos = -1L
+            if (p.playbackState == Player.STATE_READY) stallReconnects = 0
+            return
+        }
+        if (p.bufferedPosition != stallBufferedPos) {
+            stallBufferedPos = p.bufferedPosition
+            stallSinceMs = now
+            return
+        }
+        if (now - stallSinceMs < STALL_TIMEOUT_MS || stallReconnects >= MAX_STALL_RECONNECTS) return
+        stallReconnects++
+        stallSinceMs = now
+        Log.w("PlayerViewModel", "Loading stalled for ${STALL_TIMEOUT_MS / 1000}s, reconnecting ($stallReconnects/$MAX_STALL_RECONNECTS)")
+        p.seekTo(p.currentPosition)
+    }
+
     private val progressUpdater = object : Runnable {
         override fun run() {
             val p = playerManager.exoPlayer ?: return
+            checkLoadingStall(p)
             if (p.isPlaying || p.isLoading) {
                 if (!isUserInteracting) {
                     _currentPosition.value = p.currentPosition
