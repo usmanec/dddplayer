@@ -114,6 +114,8 @@ const val SPEED_MENU_CUSTOM = "custom_speed"
 // Сторож зависшей загрузки: сколько ждать роста буфера и сколько раз переподключаться подряд
 private const val STALL_TIMEOUT_MS = 20_000L
 private const val MAX_STALL_RECONNECTS = 3
+// Данных впереди больше - буферизация не из-за сети (медленный декодер), переподключение не поможет
+private const val STALL_MAX_BUFFERED_AHEAD_MS = 5_000L
 
 class PlayerViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -348,10 +350,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
      * из мертвого сокета до тайм-аута чтения (120 с), а то и дольше. Помогала только перемотка за буфер.
      * Если при буферизации буфер не растет [STALL_TIMEOUT_MS], повторяем то же самое: seekTo на текущую
      * позицию (данных под ней нет - загрузчик открывает новое соединение).
+     * Только при пустом буфере впереди: если данные есть, а плеер ждет декодер (программный AV1
+     * после перемотки декодирует от ключевого кадра), перемотка сбросила бы буфер и начала все заново.
      */
     private fun checkLoadingStall(p: Player) {
         val stalled = p.playbackState == Player.STATE_BUFFERING && p.playWhenReady && !p.isCurrentMediaItemLive &&
-            p.currentMediaItem?.localConfiguration?.uri?.scheme?.startsWith("http") == true
+            p.currentMediaItem?.localConfiguration?.uri?.scheme?.startsWith("http") == true &&
+            p.bufferedPosition - p.currentPosition < STALL_MAX_BUFFERED_AHEAD_MS
         val now = SystemClock.elapsedRealtime()
         if (!stalled) {
             stallBufferedPos = -1L
