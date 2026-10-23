@@ -19,7 +19,8 @@
 // с выводом 10-bit AV1 на Surface, перенесенным из ветки main androidx/media:
 // - 10-bit кадры выводятся в P010 с dataspace BT.2020 PQ/HLG (HDR);
 // - если P010 не поддерживается окном (старые Android, часть боксов), кадр сводится в 8-bit YV12;
-// - Surface хранится глобальной ссылкой (IsSameObject), окно не пересоздается на каждом кадре.
+// - окно сравнивается по ANativeWindow, а не по объекту Surface: геометрия не задается на каждом кадре,
+//   а пересозданная поверхность SurfaceView (тот же объект Surface) подхватывается.
 // Сигнатуры JNI не менялись: Java-классы lib-decoder-av1 1.9.0 остаются как есть.
 
 #include <android/data_space.h>
@@ -238,38 +239,34 @@ struct JniContext {
     }
   }
 
+  // Compares native windows, not Java Surface objects: a SurfaceView keeps
+  // the same Surface object when its surface is destroyed and recreated
+  // (screensaver, app in background), and the old window can no longer be
+  // locked. ANativeWindow_fromSurface is cheap, so it runs on every frame.
   bool MaybeAcquireNativeWindow(JNIEnv* env, jobject new_surface) {
-    if (surface != nullptr && env->IsSameObject(surface, new_surface)) {
-      return true;
-    }
-    ReleaseNativeWindow(env);
     if (new_surface == nullptr) {
       jni_status_code = kJniStatusANativeWindowError;
       return false;
     }
-    native_window = ANativeWindow_fromSurface(env, new_surface);
-    if (native_window == nullptr) {
+    ANativeWindow* window = ANativeWindow_fromSurface(env, new_surface);
+    if (window == nullptr) {
       jni_status_code = kJniStatusANativeWindowError;
       return false;
     }
-    surface = env->NewGlobalRef(new_surface);
-    if (surface == nullptr) {
-      ANativeWindow_release(native_window);
-      native_window = nullptr;
-      jni_status_code = kJniStatusOutOfMemory;
-      return false;
+    if (window == native_window) {
+      // Drop the extra reference taken by ANativeWindow_fromSurface.
+      ANativeWindow_release(window);
+      return true;
     }
+    ReleaseNativeWindow();
+    native_window = window;
     return true;
   }
 
-  void ReleaseNativeWindow(JNIEnv* env) {
+  void ReleaseNativeWindow() {
     if (native_window) {
       ANativeWindow_release(native_window);
       native_window = nullptr;
-    }
-    if (surface) {
-      env->DeleteGlobalRef(surface);
-      surface = nullptr;
     }
     native_window_width = 0;
     native_window_height = 0;
@@ -314,7 +311,6 @@ struct JniContext {
   bool use_custom_allocator;
   std::unique_ptr<PictureAllocatorCookie> picture_allocator_cookie;
   ANativeWindow* native_window = nullptr;
-  jobject surface = nullptr;
   int native_window_width = 0;
   int native_window_height = 0;
   int native_window_format = 0;
@@ -709,7 +705,7 @@ DECODER_FUNC(void, dav1dClose, jlong jContext) {
   }
 
   // Clean up JNI global references
-  context->ReleaseNativeWindow(env);
+  context->ReleaseNativeWindow();
   if (context->input_buffer_class)
     env->DeleteGlobalRef(context->input_buffer_class);
   if (context->output_buffer_class)
