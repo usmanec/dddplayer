@@ -217,6 +217,8 @@
     <string name="swipe_action_seek">Перемотка</string>
     <string name="swipe_action_playlist">Выход или Пред/След</string>
     <string name="swipe_action_exit_next">Выход или След</string>
+    <string name="pref_swipe_edge">Не начинать свайп у края экрана</string>
+    <string name="pref_swipe_edge_desc">Горизонтальный свайп не начинается в зоне системного жеста «Назад». Выключите, если свайп от края не срабатывает</string>
     <string name="pref_back_button">Кнопка «Назад» на экране</string>
     <string name="pref_back_button_desc">Стрелка в инфопанели для выхода из плеера (для сенсорных экранов)</string>
     <string name="pref_control_buttons">Кнопки панели управления</string>

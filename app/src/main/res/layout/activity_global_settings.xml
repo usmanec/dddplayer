@@ -1033,6 +1033,15 @@
                         tools:text="@string/swipe_action_none" />
                 </LinearLayout>
 
+                <!-- Свайп не начинается у края экрана (зона системного жеста "Назад") -->
+                <LinearLayout android:id="@+id/item_swipe_edge" style="@style/SettingsItemContainer">
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:duplicateParentState="true">
+                        <TextView style="@style/SettingsItemTitle" android:text="@string/pref_swipe_edge" />
+                        <TextView style="@style/SettingsItemDesc" android:text="@string/pref_swipe_edge_desc" />
+                    </LinearLayout>
+                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/switch_swipe_edge" android:layout_width="wrap_content" android:layout_height="wrap_content" android:clickable="false" android:focusable="false" />
+                </LinearLayout>
+
                 <!-- Жесты громкости и яркости -->
                 <LinearLayout android:id="@+id/item_gesture_volume" style="@style/SettingsItemContainer">
                     <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:duplicateParentState="true">

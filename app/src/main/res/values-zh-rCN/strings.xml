@@ -210,6 +210,8 @@
     <string name="swipe_action_seek">快进/快退</string>
     <string name="swipe_action_playlist">退出或上一个/下一个</string>
     <string name="swipe_action_exit_next">退出或下一个</string>
+    <string name="pref_swipe_edge">忽略从屏幕边缘开始的滑动</string>
+    <string name="pref_swipe_edge_desc">水平滑动不会从系统返回手势区域开始。如果从边缘滑动无效，请关闭此项</string>
     <string name="pref_back_button">屏幕返回按钮</string>
     <string name="pref_back_button_desc">在信息面板中显示退出播放器的箭头（适用于触摸屏）</string>
     <string name="pref_control_buttons">控制栏按钮</string>

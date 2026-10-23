@@ -202,6 +202,8 @@
     <string name="swipe_action_seek">Перамотка</string>
     <string name="swipe_action_playlist">Выхад ці Папяр./Наст.</string>
     <string name="swipe_action_exit_next">Выхад ці Наст.</string>
+    <string name="pref_swipe_edge">Не пачынаць свайп каля краю экрана</string>
+    <string name="pref_swipe_edge_desc">Гарызантальны свайп не пачынаецца ў зоне сістэмнага жэсту «Назад». Выключыце, калі свайп ад краю не спрацоўвае</string>
     <string name="pref_back_button">Кнопка «Назад» на экране</string>
     <string name="pref_back_button_desc">Стрэлка ў інфапанэлі для выхаду з плэера (для сэнсарных экранаў)</string>
     <string name="pref_control_buttons">Кнопкі панэлі кіравання</string>

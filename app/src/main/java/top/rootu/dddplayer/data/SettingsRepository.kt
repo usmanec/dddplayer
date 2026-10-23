@@ -648,6 +648,10 @@ class SettingsRepository private constructor(context: Context) {
 
     // Кнопка выхода (стрелка) в инфопанели для сенсорных экранов
     fun isBackButtonEnabled(): Boolean = prefs.getBoolean("show_back_button", false)
+
+    // Горизонтальный свайп не начинается в зоне системного жеста "Назад" (по умолчанию включено)
+    fun isSwipeEdgeExclusionEnabled(): Boolean = prefs.getBoolean("swipe_edge_exclusion", true)
+    fun setSwipeEdgeExclusionEnabled(enabled: Boolean) = prefs.edit { putBoolean("swipe_edge_exclusion", enabled) }
     fun setBackButtonEnabled(enabled: Boolean) = prefs.edit { putBoolean("show_back_button", enabled) }
 
     // Скрытые пользователем кнопки нижней панели. Храним скрытые, чтобы новые кнопки по умолчанию были видны

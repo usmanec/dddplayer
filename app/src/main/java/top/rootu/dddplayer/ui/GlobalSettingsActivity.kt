@@ -148,6 +148,8 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var switchShowIndex: SwitchCompat
     private lateinit var itemConfirmExit: LinearLayout
     private lateinit var switchConfirmExit: SwitchCompat
+    private lateinit var itemSwipeEdge: LinearLayout
+    private lateinit var switchSwipeEdge: SwitchCompat
     private lateinit var itemBackButton: LinearLayout
     private lateinit var switchBackButton: SwitchCompat
     private lateinit var itemControlButtons: LinearLayout
@@ -409,6 +411,8 @@ class GlobalSettingsActivity : AppCompatActivity() {
         switchShowIndex = findViewById(R.id.switch_show_index)
         itemConfirmExit = findViewById(R.id.item_confirm_exit)
         switchConfirmExit = findViewById(R.id.switch_confirm_exit)
+        itemSwipeEdge = findViewById(R.id.item_swipe_edge)
+        switchSwipeEdge = findViewById(R.id.switch_swipe_edge)
         itemBackButton = findViewById(R.id.item_back_button)
         switchBackButton = findViewById(R.id.switch_back_button)
         itemControlButtons = findViewById(R.id.item_control_buttons)
@@ -604,6 +608,9 @@ class GlobalSettingsActivity : AppCompatActivity() {
             showSingleChoiceDialog(getString(R.string.pref_swipe_horizontal), options, settingsViewModel.horizontalSwipeAction.value ?: SettingsRepository.SWIPE_PLAYLIST) {
                 settingsViewModel.setHorizontalSwipeAction(it)
             }
+        }
+        itemSwipeEdge.setOnClickListener {
+            settingsViewModel.toggleSwipeEdgeExclusion(!switchSwipeEdge.isChecked)
         }
         itemBackButton.setOnClickListener {
             settingsViewModel.toggleBackButton(!switchBackButton.isChecked)
@@ -807,6 +814,7 @@ class GlobalSettingsActivity : AppCompatActivity() {
                 else -> getString(R.string.swipe_action_none)
             }
         }
+        settingsViewModel.isSwipeEdgeExclusionEnabled.observe(this) { switchSwipeEdge.isChecked = it }
         settingsViewModel.isBackButtonEnabled.observe(this) { switchBackButton.isChecked = it }
         settingsViewModel.hiddenControlButtons.observe(this) { hidden ->
             val total = SettingsRepository.HIDEABLE_BUTTONS.size

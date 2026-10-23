@@ -227,6 +227,8 @@
     <string name="swipe_action_seek">Seek</string>
     <string name="swipe_action_playlist">Exit or Prev/Next</string>
     <string name="swipe_action_exit_next">Exit or Next</string>
+    <string name="pref_swipe_edge">Ignore swipes from the screen edge</string>
+    <string name="pref_swipe_edge_desc">A horizontal swipe does not start in the system Back gesture zone. Turn off if swipes from the edge do not work</string>
     <string name="pref_back_button">Back button on screen</string>
     <string name="pref_back_button_desc">Arrow in the info panel to close the player (for touch screens)</string>
     <string name="pref_control_buttons">Control bar buttons</string>

@@ -121,6 +121,9 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     private val _horizontalSwipeAction = MutableLiveData(repository.getHorizontalSwipeAction())
     val horizontalSwipeAction: LiveData<Int> = _horizontalSwipeAction
 
+    private val _isSwipeEdgeExclusionEnabled = MutableLiveData(repository.isSwipeEdgeExclusionEnabled())
+    val isSwipeEdgeExclusionEnabled: LiveData<Boolean> = _isSwipeEdgeExclusionEnabled
+
     private val _isBackButtonEnabled = MutableLiveData(repository.isBackButtonEnabled())
     val isBackButtonEnabled: LiveData<Boolean> = _isBackButtonEnabled
 
@@ -388,6 +391,11 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     fun setHorizontalSwipeAction(action: Int) {
         repository.setHorizontalSwipeAction(action)
         _horizontalSwipeAction.value = action
+    }
+
+    fun toggleSwipeEdgeExclusion(enabled: Boolean) {
+        repository.setSwipeEdgeExclusionEnabled(enabled)
+        _isSwipeEdgeExclusionEnabled.value = enabled
     }
 
     fun toggleBackButton(enabled: Boolean) {

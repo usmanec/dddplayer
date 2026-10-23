@@ -124,6 +124,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
 
     // Переменные для горизонтального свайпа
     private var swipeAction = SettingsRepository.SWIPE_NONE
+    private var swipeEdgeExclusion = true
     private var verticalGesturesEnabled = true // Жесты громкости и яркости
     private var hiddenControlButtons: Set<String> = emptySet() // Кнопки, скрытые в настройках
 
@@ -185,6 +186,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         )
 
         swipeAction = settingsRepo.getHorizontalSwipeAction()
+        swipeEdgeExclusion = settingsRepo.isSwipeEdgeExclusionEnabled()
         verticalGesturesEnabled = settingsRepo.isVolumeBrightnessGesturesEnabled()
         hiddenControlButtons = settingsRepo.getHiddenControlButtons()
         ui.buttonBack.isVisible = settingsRepo.isBackButtonEnabled()
@@ -197,8 +199,10 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
             viewWidth = ::touchAreaWidth,
             // Реальные зоны жеста "Назад" (навигация жестами, Android 10+); при кнопках навигации их нет
             backGestureEdges = {
-                val insets = ViewCompat.getRootWindowInsets(touchArea)
-                    ?.getInsets(WindowInsetsCompat.Type.systemGestures())
+                // Отключается в настройках, если свайп от края не срабатывает
+                val insets = if (swipeEdgeExclusion) {
+                    ViewCompat.getRootWindowInsets(touchArea)?.getInsets(WindowInsetsCompat.Type.systemGestures())
+                } else null
                 (insets?.left ?: 0) to (insets?.right ?: 0)
             },
             onSingleTap = {
@@ -1754,6 +1758,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         // Обновляем настройку свайпа при возврате на экран
         val settingsRepo = SettingsRepository.getInstance(requireContext().applicationContext)
         swipeAction = settingsRepo.getHorizontalSwipeAction()
+        swipeEdgeExclusion = settingsRepo.isSwipeEdgeExclusionEnabled()
         verticalGesturesEnabled = settingsRepo.isVolumeBrightnessGesturesEnabled()
         hiddenControlButtons = settingsRepo.getHiddenControlButtons()
         ui.buttonBack.isVisible = settingsRepo.isBackButtonEnabled()
