@@ -122,7 +122,8 @@ class FileBrowserActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Иконка приложения при видео в окне PiP: возвращаем видео на весь экран, стартовый экран не показываем
+        // Иконка приложения при видео в окне PiP: возвращаем видео на весь экран, стартовый экран не показываем.
+        // Свернутый плеер поднимает PipReturnCallbacks при старте экрана: задачу можно переставить, только когда приложение видно
         if (savedInstanceState == null && intent?.action == Intent.ACTION_MAIN && PlayerActivity.restorePictureInPicture()) {
             finish()
             return

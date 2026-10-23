@@ -2,6 +2,7 @@ package top.rootu.dddplayer.ui
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.ActivityManager
 import android.app.PendingIntent
 import android.app.PictureInPictureParams
 import android.app.RemoteAction
@@ -57,6 +58,26 @@ class PlayerActivity : AppCompatActivity() {
 
         private fun activePipPlayer(): PlayerActivity? = pipActivity?.get()?.takeIf {
             !it.isFinishing && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && it.isInPictureInPictureMode
+        }
+
+        // Плеер с видео (не служебный запуск) и запущен ли он сейчас (виден на экране)
+        private var playerActivity: WeakReference<PlayerActivity>? = null
+        private var playerStarted = false
+
+        /**
+         * Возврат в плеер при открытии приложения (иконка, стартовый экран): окно PiP разворачивается,
+         * плеер, свернутый кнопкой "Домой", поднимается со своей задачей (как в 1.2.x, когда иконкой
+         * был сам плеер). Плеер живет в своей задаче или в задаче вызвавшего приложения (TorrServe, Lampa),
+         * поэтому лаунчер его не находит. @return false - возвращаться некуда
+         */
+        fun restorePlayer(context: Context): Boolean {
+            if (restorePictureInPicture()) return true
+            val player = playerActivity?.get()?.takeIf { !it.isFinishing && !it.isDestroyed && !playerStarted }
+                ?: return false
+            Log.d(PIP_TAG, "restore background player: task=${player.taskId}")
+            return runCatching {
+                context.getSystemService(ActivityManager::class.java).moveTaskToFront(player.taskId, 0)
+            }.isSuccess
         }
 
         /**
@@ -252,10 +273,13 @@ class PlayerActivity : AppCompatActivity() {
         if (isLaunchedFromLauncher(intent)) {
             isTrampoline = true
             // Видео в окне PiP: возвращаем его на весь экран вместо стартового экрана
+            // (свернутый плеер поднимет PipReturnCallbacks при старте стартового экрана)
             if (!restorePictureInPicture()) startActivity(Intent(this, FileBrowserActivity::class.java))
             finish()
             return
         }
+
+        playerActivity = WeakReference(this)
 
         // Держим экран включенным
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -329,8 +353,22 @@ class PlayerActivity : AppCompatActivity() {
         updatePictureInPictureParams()
     }
 
+    override fun onStart() {
+        super.onStart()
+        if (playerActivity?.get() === this) playerStarted = true
+    }
+
+    override fun onStop() {
+        if (playerActivity?.get() === this) playerStarted = false
+        super.onStop()
+    }
+
     override fun onDestroy() {
         if (pipActivity?.get() === this) pipActivity = null
+        if (playerActivity?.get() === this) {
+            playerActivity = null
+            playerStarted = false
+        }
         if (pipReceiverRegistered) {
             unregisterReceiver(pipControlReceiver)
             pipReceiverRegistered = false
