@@ -675,8 +675,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
             // Скрываем контролы плеера, чтобы при возврате был чистый экран
             ui.hideControls()
             // Запускаем глобальные настройки
-            val intent = Intent(requireContext(), GlobalSettingsActivity::class.java)
-            startActivity(intent)
+            openGlobalSettings()
             true
         }
 
@@ -730,10 +729,21 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
                 }
                 "global_settings" -> {
                     sideMenuDialog?.dismiss()
-                    startActivity(Intent(requireContext(), GlobalSettingsActivity::class.java))
+                    openGlobalSettings()
                 }
             }
         }
+    }
+
+    /**
+     * Глобальные настройки поверх плеера. Без FLAG_ACTIVITY_NO_USER_ACTION система считает переход уходом
+     * пользователя (onUserLeaveHint), и при автовходе в PiP плеер уходил в окно PiP вместо паузы.
+     */
+    private fun openGlobalSettings(focusItemId: Int? = null) {
+        val intent = Intent(requireContext(), GlobalSettingsActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NO_USER_ACTION)
+        focusItemId?.let { intent.putExtra("FOCUS_ITEM_ID", it) }
+        startActivity(intent)
     }
 
     private fun showAudioTrackMenu() {
@@ -1127,10 +1137,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
                 ui.buttonUpdate.text = getString(R.string.update_btn_update_fmt, info.version)
                 ui.buttonUpdate.alpha = 1.0f
                 ui.buttonUpdate.setOnClickListener {
-                    val intent = Intent(requireContext(), GlobalSettingsActivity::class.java).apply {
-                        putExtra("FOCUS_ITEM_ID", R.id.item_update)
-                    }
-                    startActivity(intent)
+                    openGlobalSettings(focusItemId = R.id.item_update)
                 }
             } else {
                 ui.buttonUpdate.text = getString(R.string.version, BuildConfig.VERSION_NAME)
