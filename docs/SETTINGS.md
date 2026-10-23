@@ -20,7 +20,7 @@
 | `external_position_mode` | `EXTERNAL_POSITION_APPLY` (0) | Позиция из Intent: 0 применять сразу, 1 спрашивать |
 | `up_button_action` | `UP_ACTION_INFO` (3) | 0 ничего, 1 OSD-настройки, 2 боковое меню, 3 инфопанель, повторное нажатие — боковое меню (до 1.6 по умолчанию было 2) |
 | `ok_button_action` | `OK_ACTION_PAUSE_PANEL` (1) | 0 пауза, 1 пауза + панель, 2 панель |
-| `horizontal_swipe_action` | 2 | Горизонтальный свайп (телефон): 0 — нет, 1 — перемотка, 2 — выход или Пред/След, 3 — вправо выход, влево След. Свайп от края экрана (32dp) не начинается: там системный «Назад» |
+| `horizontal_swipe_action` | 2 | Горизонтальный свайп (телефон): 0 — нет, 1 — перемотка, 2 — выход или Пред/След, 3 — вправо выход, влево След. Свайп не начинается в зоне системного жеста «Назад» (реальные отступы systemGestures; при кнопках навигации их нет) |
 | `show_back_button` | false | Стрелка выхода в инфопанели (сенсорные экраны, без фокуса с пульта) |
 | `hidden_control_buttons` | пусто | Скрытые кнопки нижней панели (`speed`, `resize`, `pip`, `quality`, `audio`, `subtitles`). Хранятся скрытые, чтобы новые кнопки были видны |
 | `sub_font`, `sub_size`, `sub_text_color`, `sub_bg_color`, `sub_edge_type`, `sub_edge_color`, `sub_bottom`, `sub_embedded` | как у стандартного `SubtitleView` | Стиль субтитров (`SubtitleStyle`, экран `SubtitleStyleActivity`, применение `SubtitleStyleOptions.apply`) |

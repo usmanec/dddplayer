@@ -29,6 +29,8 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -188,11 +190,17 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         ui.buttonBack.isVisible = settingsRepo.isBackButtonEnabled()
 
         // === ИНИЦИАЛИЗАЦИЯ ЖЕСТОВ ===
-        val displayMetrics = resources.displayMetrics
+        val touchArea = view.findViewById<View>(R.id.root_container)
 
         touchHandler = PlayerTouchHandler(
             context = requireContext(),
-            screenWidth = displayMetrics.widthPixels,
+            viewWidth = ::touchAreaWidth,
+            // Реальные зоны жеста "Назад" (навигация жестами, Android 10+); при кнопках навигации их нет
+            backGestureEdges = {
+                val insets = ViewCompat.getRootWindowInsets(touchArea)
+                    ?.getInsets(WindowInsetsCompat.Type.systemGestures())
+                (insets?.left ?: 0) to (insets?.right ?: 0)
+            },
             onSingleTap = {
                 // Логика одиночного тапа (показать/скрыть контролы)
                 if (settingsViewModel.isSettingsPanelVisible.value == true) {
@@ -215,7 +223,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
                 changeBrightness(deltaPercent)
             },
             onHorizontalScroll = { deltaX ->
-                handleHorizontalSwipe(deltaX, displayMetrics.widthPixels)
+                handleHorizontalSwipe(deltaX, touchAreaWidth())
             },
             onGestureEnd = {
                 ui.hideGestureIndicatorDelayed()
@@ -416,6 +424,10 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         ui.showBrightnessIndicator((currentBrightness * 100).toInt())
     }
 
+    /** Ширина области касаний: экран плеера, а не дисплея (вырез и панель навигации в нее не входят). */
+    private fun touchAreaWidth(): Int =
+        view?.findViewById<View>(R.id.root_container)?.width?.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
+
     private fun handleHorizontalSwipe(deltaX: Float, screenWidth: Int) {
         if (swipeAction == SettingsRepository.SWIPE_NONE) return
 
@@ -492,7 +504,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
     }
 
     private fun finishHorizontalSwipe() {
-        val screenWidth = resources.displayMetrics.widthPixels
+        val screenWidth = touchAreaWidth()
 
         // 1. Завершение перемотки
         if (swipeAction == SettingsRepository.SWIPE_SEEK && isSwipeSeeking) {
