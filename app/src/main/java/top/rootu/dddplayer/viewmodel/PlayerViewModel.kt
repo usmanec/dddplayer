@@ -348,8 +348,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     /**
      * После долгой паузы сервер (TorrServer) или роутер молча закрывает соединение, и плеер ждет данных
      * из мертвого сокета до тайм-аута чтения (120 с), а то и дольше. Помогала только перемотка за буфер.
-     * Если при буферизации буфер не растет [STALL_TIMEOUT_MS], повторяем то же самое: seekTo на текущую
-     * позицию (данных под ней нет - загрузчик открывает новое соединение).
+     * Если при буферизации буфер не растет [STALL_TIMEOUT_MS], перезагружаем видео с текущей позиции,
+     * как при сетевой ошибке. Перемотка на текущую позицию не помогает: она остается внутри буфера,
+     * и загрузчик продолжает ждать на старом соединении.
      * Только при пустом буфере впереди: если данные есть, а плеер ждет декодер (программный AV1
      * после перемотки декодирует от ключевого кадра), перемотка сбросила бы буфер и начала все заново.
      */
@@ -372,7 +373,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         stallReconnects++
         stallSinceMs = now
         Log.w("PlayerViewModel", "Loading stalled for ${STALL_TIMEOUT_MS / 1000}s, reconnecting ($stallReconnects/$MAX_STALL_RECONNECTS)")
-        p.seekTo(p.currentPosition)
+        val items = (0 until p.mediaItemCount).map { p.getMediaItemAt(it) }
+        // То же видео перезагружается: настройки и счетчики не сбрасываем
+        isRecoveringFromError = true
+        playerManager.reloadMediaItems(items, p.currentMediaItemIndex, p.currentPosition)
     }
 
     private val progressUpdater = object : Runnable {
