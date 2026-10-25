@@ -502,4 +502,6 @@
     <string name="pref_center_gain">Посилення голосу (центр)</string>
     <string name="pref_center_gain_desc">Гучніший центральний канал з діалогами або перекладом, для виводу AC3/E-AC3</string>
     <string name="center_gain_format">+%1$d дБ</string>
+    <string name="pref_leaks">Витоки пам\'яті (LeakCanary)</string>
+    <string name="pref_leaks_desc">Лише у налагоджувальній збірці: витоки, знайдені LeakCanary</string>
 </resources>

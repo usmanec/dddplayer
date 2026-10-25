@@ -502,4 +502,6 @@
     <string name="pref_center_gain">Узмацненне голасу (цэнтр)</string>
     <string name="pref_center_gain_desc">Гучнейшы цэнтральны канал з дыялогамі або перакладам, для вываду AC3/E-AC3</string>
     <string name="center_gain_format">+%1$d дБ</string>
+    <string name="pref_leaks">Уцечкі памяці (LeakCanary)</string>
+    <string name="pref_leaks_desc">Толькі ў адладачнай зборцы: уцечкі, знойдзеныя LeakCanary</string>
 </resources>

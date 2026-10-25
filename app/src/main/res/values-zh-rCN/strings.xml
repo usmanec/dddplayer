@@ -516,4 +516,6 @@
     <string name="pref_center_gain">人声增强（中置）</string>
     <string name="pref_center_gain_desc">提高含对白或配音的中置声道音量，用于 AC3/E-AC3 输出</string>
     <string name="center_gain_format">+%1$d dB</string>
+    <string name="pref_leaks">内存泄漏 (LeakCanary)</string>
+    <string name="pref_leaks_desc">仅限调试版本：LeakCanary 发现的泄漏</string>
 </resources>

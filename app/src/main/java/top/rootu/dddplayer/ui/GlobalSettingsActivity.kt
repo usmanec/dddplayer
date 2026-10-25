@@ -454,6 +454,11 @@ class GlobalSettingsActivity : AppCompatActivity() {
 
         findViewById<View>(R.id.item_reset_settings).setOnClickListener { showResetSettingsDialog() }
         findViewById<View>(R.id.item_licenses).setOnClickListener { showLicensesDialog() }
+        // LeakCanary подключен только в debug (debugImplementation): в релизе пункта нет
+        findViewById<View>(R.id.item_leaks).apply {
+            visibility = if (BuildConfig.DEBUG) View.VISIBLE else View.GONE
+            setOnClickListener { openLeakCanary() }
+        }
         findViewById<View>(R.id.item_diagnostics).setOnClickListener {
             startActivity(Intent(this, DeviceInfoActivity::class.java))
         }
@@ -1040,6 +1045,17 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private fun audioOutputLayoutLabels() = listOf(
         getString(R.string.audio_layout_auto), "5.1", "4.0", "2.0"
     )
+
+    /** Экран LeakCanary. Класс задается строкой: в релизной сборке библиотеки нет. */
+    private fun openLeakCanary() {
+        val intent = Intent().setClassName(packageName, "leakcanary.internal.activity.LeakActivity")
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            Toast.makeText(this, e.message, Toast.LENGTH_SHORT).show()
+        }
+    }
 
     private fun showSingleChoiceDialog(title: String, items: List<String>, currentIndex: Int, onSelected: (Int) -> Unit) {
         ChoiceDialog.show(this, title, items, currentIndex, onSelected)
