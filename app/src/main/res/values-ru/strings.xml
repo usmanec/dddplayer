@@ -104,6 +104,7 @@
     <string name="error_playback_title">Ошибка воспроизведения</string>
     <string name="error_copied">Подробности ошибки скопированы</string>
     <string name="error_hint_content_source">Приложение, через которое открыт файл (файловый менеджер, SMB-клиент), не смогло отдать данные. Такие приложения часто отдают файл без перемотки, а MP4 с индексом в конце так не открыть. Попробуйте другой файловый менеджер или перепакуйте файл с faststart.</string>
+    <string name="error_hint_open_external">Плеер не может прочитать это видео (например, Blu-ray .m2ts). Нажмите OK или сюда, чтобы открыть его в другом плеере.</string>
     <string name="playback_error">Ошибка воспроизведения</string>
     <string name="error_video_decoder">Ошибка видео декодера.\nВоспроизводится только звук.</string>
     <string name="error_audio_disabled">Ошибка аудио. Звук отключен.\n%s</string>

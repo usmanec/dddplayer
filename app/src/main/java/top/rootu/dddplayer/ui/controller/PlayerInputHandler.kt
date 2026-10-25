@@ -19,7 +19,8 @@ class PlayerInputHandler(
     private val onShowControls: () -> Unit,
     private val onHideControls: () -> Unit,
     private val onResetHideTimer: () -> Unit,
-    private val onShowPlaylist: () -> Unit
+    private val onShowPlaylist: () -> Unit,
+    private val onOpenExternal: () -> Unit
 ) {
 
     private var seekAccelerationCount = 0
@@ -71,6 +72,14 @@ class PlayerInputHandler(
                     viewModel.restoreSettings()
                 }
             }
+            return true
+        }
+
+        // Формат не разобран (например, Blu-ray .m2ts): OK открывает видео в другом плеере
+        if ((event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER) &&
+            ui.errorScreen.isVisible && ui.canHandOff
+        ) {
+            onOpenExternal()
             return true
         }
 

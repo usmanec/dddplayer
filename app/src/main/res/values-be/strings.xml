@@ -98,6 +98,7 @@
     <string name="error_playback_title">Памылка прайгравання</string>
     <string name="error_copied">Падрабязнасці памылкі скапіяваны</string>
     <string name="error_hint_content_source">Праграма, праз якую адкрыты файл (файлавы менеджар, SMB-кліент), не змагла аддаць даныя. Такія праграмы часта аддаюць файл без перамоткі, а MP4 з індэксам у канцы так не адкрыць. Паспрабуйце іншы файлавы менеджар або перапакуйце файл з faststart.</string>
+    <string name="error_hint_open_external">Плэер не можа прачытаць гэта відэа (напрыклад, Blu-ray .m2ts). Націсніце OK або сюды, каб адкрыць яго ў іншым плэеры.</string>
     <string name="error_video_decoder">Памылка відэадэкодэра.\nПрайграваецца толькі аўдыя.</string>
     <string name="error_audio_disabled">Памылка аўдыя. Гук адключаны.\n%s</string>
     <string name="error_audio_disabled_hint">Памылка аўдыя. Гук адключаны.\nПаспрабуйце іншую дарожку.\n%s</string>

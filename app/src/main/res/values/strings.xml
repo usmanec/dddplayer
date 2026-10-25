@@ -111,6 +111,7 @@
     <string name="error_playback_title">Playback Error</string>
     <string name="error_copied">Error details copied</string>
     <string name="error_hint_content_source">The file could not be read from the app that opened it (file manager, SMB client). Such apps often serve a file without seeking, and an MP4 with its index at the end can\'t be opened that way. Try another file manager or remux the file with faststart.</string>
+    <string name="error_hint_open_external">This player can\'t read this video (for example, Blu-ray .m2ts). Press OK or tap here to open it in another player.</string>
     <string name="playback_error">Playback Error</string>
     <string name="error_video_decoder">Video decoder error.\nPlaying audio only.</string>
     <string name="error_audio_disabled">Audio error. Sound is disabled.\n%s</string>

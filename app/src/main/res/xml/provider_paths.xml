@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <external-files-path name="external_files" path="." />
+    <!-- Локальный файл (и USB-диск) в другой плеер: PlayerFragment.openInExternalPlayer, только с разрешением на этот URI -->
+    <root-path name="root" path="." />
 </paths>

@@ -99,6 +99,7 @@
     <string name="error_playback_title">播放错误</string>
     <string name="error_copied">已复制错误详情</string>
     <string name="error_hint_content_source">打开此文件的应用（文件管理器、SMB 客户端）无法提供文件数据。此类应用经常以不可跳转的方式提供文件，而索引位于末尾的 MP4 无法这样打开。请尝试其他文件管理器，或使用 faststart 重新封装文件。</string>
+    <string name="error_hint_open_external">播放器无法读取此视频（例如蓝光 .m2ts）。按 OK 键或点按此处，在其他播放器中打开。</string>
     <string name="playback_error">播放错误</string>
     <string name="error_video_decoder">视频解码器错误。\n仅播放音频。</string>
     <string name="error_audio_disabled">音频错误。声音已禁用。\n%s</string>

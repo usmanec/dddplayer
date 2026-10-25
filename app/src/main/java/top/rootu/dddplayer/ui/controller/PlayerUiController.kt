@@ -122,6 +122,13 @@ class PlayerUiController(private val rootView: View) {
     val errorDetails: TextView = rootView.findViewById(R.id.error_details)
     val errorHint: TextView = rootView.findViewById(R.id.error_hint)
 
+    // На экране ошибки подсказка «открыть в другом плеере»: OK или нажатие на нее открывают (onHandOff).
+    // Решает показанная ошибка: fatalError у ViewModel не сбрасывается, а экран показывает и ошибку видео
+    var canHandOff = false
+        private set
+    var handOffAllowed: () -> Boolean = { true } // не в эфире: там OK на ошибке - список каналов
+    var onHandOff: () -> Unit = {}
+
     val buttonUpdate: TextView = controlsView.findViewById(R.id.button_update)
 
     val seekOverlay: View = rootView.findViewById(R.id.seek_overlay)
@@ -190,6 +197,7 @@ class PlayerUiController(private val rootView: View) {
     }
 
     init {
+        errorHint.setOnClickListener { if (canHandOff) onHandOff() }
         // Настройка ленты
         optionsRecycler.adapter = optionsAdapter
         // Отключаем перехват фокуса, чтобы лента не воровала управление у кнопок
@@ -454,11 +462,17 @@ class PlayerUiController(private val rootView: View) {
     }
 
     // Подсказка для известных причин: файл не отдало приложение-источник (content://)
+    // или формат не разобран (OK открывает видео в другом плеере)
     private fun showErrorHint(error: PlaybackException) {
         val isIoError = error.errorCode in 2000..2999
-        val showHint = isIoError && PlaybackErrorLogic.isContentSourceError(error)
-        errorHint.isVisible = showHint
-        if (showHint) errorHint.setText(R.string.error_hint_content_source)
+        val hint = when {
+            isIoError && PlaybackErrorLogic.isContentSourceError(error) -> R.string.error_hint_content_source
+            PlaybackErrorLogic.canOpenInOtherPlayer(error) && handOffAllowed() -> R.string.error_hint_open_external
+            else -> 0
+        }
+        canHandOff = hint == R.string.error_hint_open_external
+        errorHint.isVisible = hint != 0
+        if (hint != 0) errorHint.setText(hint)
     }
 
     private fun formatErrorDetails(error: PlaybackException): String {
