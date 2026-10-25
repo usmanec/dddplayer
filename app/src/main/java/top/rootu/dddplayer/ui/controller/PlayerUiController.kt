@@ -43,6 +43,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.math.ceil
 
 class PlayerUiController(private val rootView: View) {
 
@@ -579,6 +580,13 @@ class PlayerUiController(private val rootView: View) {
             }
 
             timeDurationTextView.text = textDuration.toString()
+            // Ширина под самый длинный вариант: "Эфир -ч:мм:сс" (не меньше минут), чтобы полоса не дергалась
+            fitTimeWidth(timeCurrentTextView, timeCurrentTextView.text)
+            fitTimeWidth(
+                timeDurationTextView,
+                rootView.context.getString(R.string.state_live) + " " +
+                    rootView.context.getString(R.string.seek_delta_format, "-", formatTime(absOffset.coerceAtLeast(60_000)))
+            )
 
             textEndsAt.text = rootView.context.getString(R.string.state_live)
             textEndsAt.isVisible = true
@@ -586,6 +594,10 @@ class PlayerUiController(private val rootView: View) {
         }
 
         timeCurrentTextView.text = formatTime(currentMs)
+        // Текущее и оставшееся время - в формате длительности (с часами, если видео длиннее часа)
+        val longest = formatTime(maxOf(durationMs, currentMs))
+        fitTimeWidth(timeCurrentTextView, longest)
+        fitTimeWidth(timeDurationTextView, rootView.context.getString(R.string.seek_delta_format, "-", longest))
         timeDurationTextView.setTextColor(colorWhite)
         textEndsAt.setTextColor(colorWhite)
         if (durationMs > 0) {
@@ -869,6 +881,20 @@ class PlayerUiController(private val rootView: View) {
         badgeStereo.isVisible = label != null
     }
 
+    // Шаблоны, под которые сейчас подогнана ширина подписей времени
+    private val timeWidthTemplates = HashMap<TextView, String>()
+
+    /**
+     * Ширина подписи времени по шаблону: цифры моноширинные (tnum), поэтому шаблон - образец с нулями.
+     * Подписи по краям полосы перемотки не меняют ширину каждую секунду, и полоса стоит на месте.
+     */
+    private fun fitTimeWidth(view: TextView, sample: CharSequence) {
+        val template = sample.toString().replace(DIGIT_REGEX, "0")
+        if (timeWidthTemplates[view] == template) return
+        timeWidthTemplates[view] = template
+        view.minWidth = ceil(view.paint.measureText(template)).toInt() + view.paddingLeft + view.paddingRight
+    }
+
     fun formatTime(millis: Long): String {
         val seconds = (millis / 1000) % 60
         val minutes = (millis / (1000 * 60)) % 60
@@ -894,5 +920,9 @@ class PlayerUiController(private val rootView: View) {
                 .withEndAction { dimOverlay.isVisible = false }
                 .start()
         }
+    }
+
+    private companion object {
+        val DIGIT_REGEX = Regex("\\d")
     }
 }
