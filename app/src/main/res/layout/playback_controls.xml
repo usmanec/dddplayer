@@ -15,7 +15,9 @@
     android:animateLayoutChanges="true">
 
     <!-- 1. Строка времени: текущее | полоса перемотки | осталось (или эфир) -->
-    <!-- Цифры моноширинные (tnum), ширину подписей по шаблону задает PlayerUiController: полоса не дергается -->
+    <!-- Цифры моноширинные (tnum), ширину подписей по шаблону задает PlayerUiController: полоса не дергается.
+         Слева отступ как у буфера под ним (16dp), справа текст прижат вправо и кончается вровень со значком
+         настроек (у кнопки padding 8dp) -->
     <TextView
         android:id="@+id/time_current"
         android:layout_width="wrap_content"
@@ -54,9 +56,9 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:fontFeatureSettings="tnum"
-        android:gravity="start"
+        android:gravity="end"
         android:maxLines="1"
-        android:layout_marginEnd="16dp"
+        android:layout_marginEnd="8dp"
         android:textColor="@color/tv_white"
         android:textSize="14sp"
         app:layout_constraintBottom_toBottomOf="@id/seek_bar"
