@@ -16,8 +16,8 @@
 
     <!-- 1. Строка времени: текущее | полоса перемотки | осталось (или эфир) -->
     <!-- Цифры моноширинные (tnum), ширину подписей по шаблону задает PlayerUiController: полоса не дергается.
-         Слева отступ как у буфера под ним (16dp), справа текст прижат вправо и кончается вровень со значком
-         настроек (у кнопки padding 8dp) -->
+         Отступы 8dp с обеих сторон: справа время кончается вровень со значком настроек (у кнопки padding 8dp),
+         слева с ним на одной линии буфер и текст кнопки версии -->
     <TextView
         android:id="@+id/time_current"
         android:layout_width="wrap_content"
@@ -25,7 +25,7 @@
         android:fontFeatureSettings="tnum"
         android:gravity="end"
         android:maxLines="1"
-        android:layout_marginStart="16dp"
+        android:layout_marginStart="8dp"
         android:textColor="@color/tv_white"
         android:textSize="14sp"
         app:layout_constraintBottom_toBottomOf="@id/seek_bar"
@@ -72,7 +72,7 @@
         android:layout_height="wrap_content"
         android:textColor="@color/tv_white"
         android:textSize="14sp"
-        android:layout_marginStart="16dp"
+        android:layout_marginStart="8dp"
         android:layout_marginTop="-2dp"
         app:layout_constraintTop_toBottomOf="@id/seek_bar"
         app:layout_constraintStart_toStartOf="parent"
@@ -95,7 +95,7 @@
             android:id="@+id/panel_buffer_value"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
+            android:layout_marginStart="8dp"
             android:textColor="@color/tv_white"
             android:textSize="14sp"
             android:visibility="gone"
@@ -106,7 +106,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:drawablePadding="8dp"
-            android:paddingHorizontal="16dp"
+            android:paddingHorizontal="8dp"
             android:paddingVertical="6dp"
             android:text="@string/update_btn"
             android:textColor="@color/selector_menu_item_text"
