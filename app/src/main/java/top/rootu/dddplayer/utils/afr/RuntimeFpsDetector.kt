@@ -12,6 +12,9 @@ class RuntimeFpsDetector {
 
     private var isDetectionRunning = AtomicBoolean(false)
     private var currentMetadataListener: VideoFrameMetadataListener? = null
+    // Плеер, на который подписан слушатель: отписываемся именно от него. Текущий плеер после пересоздания
+    // (смена настроек) уже другой, и слушатель на старом держал PlayerViewModel (утечка, LeakCanary)
+    private var attachedPlayer: ExoPlayer? = null
 
     // Храним успешно найденный FPS для текущего видео
     var detectedFrameRate: Float? = null
@@ -72,7 +75,7 @@ class RuntimeFpsDetector {
                     val fps = computeFpsByRobustRegression(ptsList)
 
                     handler.post {
-                        stop(player)
+                        stop()
                         if (fps > 0.0) {
                             val finalFps = snapToExactRate(fps)
                             detectedFrameRate = finalFps.toFloat()
@@ -86,18 +89,18 @@ class RuntimeFpsDetector {
         }
 
         currentMetadataListener = listener
+        attachedPlayer = player
         player.setVideoFrameMetadataListener(listener)
     }
 
     /**
-     * Останавливает детекцию и отписывает слушатель.
+     * Останавливает детекцию и отписывает слушатель от плеера, на который он был подписан.
      */
-    fun stop(player: ExoPlayer?) {
+    fun stop() {
         isDetectionRunning.set(false)
-        currentMetadataListener?.let {
-            player?.clearVideoFrameMetadataListener(it)
-        }
+        currentMetadataListener?.let { attachedPlayer?.clearVideoFrameMetadataListener(it) }
         currentMetadataListener = null
+        attachedPlayer = null
     }
 
     /**
@@ -105,7 +108,7 @@ class RuntimeFpsDetector {
      */
     fun reset() {
         detectedFrameRate = null
-        // stop() должен вызываться отдельно с передачей player
+        // stop() вызывается отдельно
     }
 
     /**

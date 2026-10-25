@@ -512,7 +512,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         ) {
             if (reason == Player.DISCONTINUITY_REASON_SEEK) {
                 // При перемотке просто останавливаем текущий процесс детекции, если он был запущен.
-                fpsDetector.stop(player)
+                fpsDetector.stop()
             }
         }
     }
@@ -712,7 +712,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun handleMediaItemTransition(mediaItem: Media3MediaItem?) {
         afrAppliedForCurrentItem = false
-        fpsDetector.stop(player)
+        fpsDetector.stop()
         fpsDetector.reset() // Сброс для нового видео
 
         // Сбрасываем отложенные ID дорожек при переходе на новое видео
@@ -2055,6 +2055,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun restartPlayer() {
+        // Слушатель кадров детектора FPS не должен оставаться на старом плеере
+        fpsDetector.stop()
         // Сохраняем текущее состояние перед пересозданием
         playerManager.releasePlayer(isFinalRelease = false, saveState = true)
         playerManager.initializePlayer()
@@ -2067,6 +2069,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     override fun onCleared() {
         super.onCleared()
         handler.removeCallbacks(progressUpdater)
+        fpsDetector.stop()
         playerManager.releasePlayer(isFinalRelease = true, saveState = false)
     }
 }
