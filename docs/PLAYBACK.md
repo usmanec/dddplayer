@@ -149,7 +149,9 @@ ParsingDataSource → PrefetchingDataSource → DefaultDataSource (file/content/
   больше недоступно, `getTargetBufferCorrectMB()` возвращает «Авто».
 - Аудиобуфер при даунмиксе ограничен 256 КБ, и это ограничение остается.
 - Процент заполнения для UI возвращает `getNetworkBufferFillPercent()`. Где он отображается, задает
-  `buffer_display_mode`: выкл, в панели или рядом с часами (одиночные часы и инфопанель).
+  `buffer_display_mode`: выкл, в панели или рядом с часами (одиночные часы и инфопанель). Кнопка слева в панели
+  (`PlayerFragment.renderVersionButton`): доступное обновление — иконка `system_update_alt` и номер версии, иначе
+  буфер при выводе «в панели» (тогда под полосой перемотки его нет) или текущая версия.
 
 ## Восстановление после ошибок (`PlayerViewModel.tryRecoverFromError`)
 

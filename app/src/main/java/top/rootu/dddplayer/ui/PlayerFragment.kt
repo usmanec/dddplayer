@@ -33,6 +33,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
+import androidx.core.widget.TextViewCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
@@ -134,6 +135,9 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
     private lateinit var scaleDetector: ScaleGestureDetector
     private var pinchZoom = 100f
     private var bufferDisplayMode = SettingsRepository.BUFFER_DISPLAY_OFF
+    // Кнопка слева в панели: новая версия (если есть), иначе буфер (вывод "в панели") или текущая версия
+    private var availableUpdateVersion: String? = null
+    private var checkingUpdates = false
     private var isSwipeSeeking = false
     private var swipeSeekStartPosition = 0L
     private var swipeSeekCurrentPosition = 0L
@@ -1074,10 +1078,49 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
     }
 
     private fun updateBufferDisplay(percent: Int) {
-        ui.updateBufferDisplay(percent, bufferDisplayMode)
+        // Буфер "в панели" показывается на месте версии, а под полосой перемотки - только когда это место
+        // заняла кнопка обновления
+        val underSeekBar = bufferDisplayMode == SettingsRepository.BUFFER_DISPLAY_PANEL && availableUpdateVersion != null
+        ui.updateBufferDisplay(percent, if (underSeekBar) bufferDisplayMode else SettingsRepository.BUFFER_DISPLAY_OFF)
+        renderVersionButton()
         // Рядом с часами: и в одиночных часах, и в часах инфопанели
         timerController.bufferText =
             if (bufferDisplayMode == SettingsRepository.BUFFER_DISPLAY_CLOCK) "$percent%" else ""
+    }
+
+    /**
+     * Кнопка слева в панели. Есть обновление - иконка и номер новой версии (открывает настройки на обновлении),
+     * иначе буфер при выводе "в панели" или текущая версия (нажатие проверяет обновления).
+     */
+    private fun renderVersionButton() {
+        val button = ui.buttonUpdate
+        val update = availableUpdateVersion
+        val icon = if (update != null && !checkingUpdates) R.drawable.ic_system_update_alt else 0
+        button.setCompoundDrawablesRelativeWithIntrinsicBounds(icon, 0, 0, 0)
+        TextViewCompat.setCompoundDrawableTintList(button, button.textColors)
+        button.isEnabled = !checkingUpdates
+        when {
+            checkingUpdates -> {
+                button.text = getString(R.string.update_btn_checking)
+                button.alpha = 0.5f
+            }
+            update != null -> {
+                button.text = update
+                button.contentDescription = getString(R.string.update_btn_update_fmt, update)
+                button.alpha = 1.0f
+                button.setOnClickListener { openGlobalSettings(focusItemId = R.id.item_update) }
+            }
+            else -> {
+                button.text = if (bufferDisplayMode == SettingsRepository.BUFFER_DISPLAY_PANEL) {
+                    getString(R.string.buffer_percentage, viewModel.bufferedPercentage.value ?: 0)
+                } else {
+                    getString(R.string.version, BuildConfig.VERSION_NAME)
+                }
+                button.contentDescription = null
+                button.alpha = 0.5f
+                button.setOnClickListener { updateViewModel.forceCheckUpdates() }
+            }
+        }
     }
 
     private fun resetDimTimer() {
@@ -1135,28 +1178,13 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
 
         // UpdateViewModel Observers
         updateViewModel.updateInfo.observe(viewLifecycleOwner) { info ->
-            if (info != null) {
-                ui.buttonUpdate.text = getString(R.string.update_btn_update_fmt, info.version)
-                ui.buttonUpdate.alpha = 1.0f
-                ui.buttonUpdate.setOnClickListener {
-                    openGlobalSettings(focusItemId = R.id.item_update)
-                }
-            } else {
-                ui.buttonUpdate.text = getString(R.string.version, BuildConfig.VERSION_NAME)
-                ui.buttonUpdate.alpha = 0.5f
-                ui.buttonUpdate.setOnClickListener {
-                    updateViewModel.forceCheckUpdates()
-                }
-            }
+            availableUpdateVersion = info?.version
+            updateBufferDisplay(viewModel.bufferedPercentage.value ?: 0)
         }
 
         updateViewModel.isCheckingUpdates.observe(viewLifecycleOwner) { checking ->
-            if (checking) {
-                ui.buttonUpdate.text = getString(R.string.update_btn_checking)
-                ui.buttonUpdate.isEnabled = false
-            } else {
-                ui.buttonUpdate.isEnabled = true
-            }
+            checkingUpdates = checking
+            renderVersionButton()
         }
 
         updateViewModel.toastMessage.observe(viewLifecycleOwner) { msg ->
