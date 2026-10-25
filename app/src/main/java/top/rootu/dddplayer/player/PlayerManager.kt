@@ -418,11 +418,11 @@ class PlayerManager(
                         )
                     }
                 }
-                if (!mapDvToHevc) return
-                // При подмене DV на HEVC стандартный рендерер заменяем на тот, что не подменяет декодер
-                // для профилей без совместимого слоя HEVC (профиль 5 и др.). Параметры - как в DefaultRenderersFactory
+                // Стандартный рендерер заменяем своим с теми же параметрами (как в DefaultRenderersFactory):
+                // подмена DV на HEVC только для профилей с совместимым слоем HEVC и пересоздание декодера
+                // HiSilicon при смене поверхности (иначе зеленый экран после настроек), см. PlayerVideoRenderer
                 val index = (start until out.size).firstOrNull { out[it] is MediaCodecVideoRenderer } ?: return
-                out[index] = DolbyVisionVideoRenderer(
+                out[index] = PlayerVideoRenderer(
                     MediaCodecVideoRenderer.Builder(context)
                         .setCodecAdapterFactory(getCodecAdapterFactory())
                         .setMediaCodecSelector(mediaCodecSelector)
@@ -430,7 +430,8 @@ class PlayerManager(
                         .setEnableDecoderFallback(enableDecoderFallback)
                         .setEventHandler(eventHandler)
                         .setEventListener(eventListener)
-                        .setMaxDroppedFramesToNotify(DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY)
+                        .setMaxDroppedFramesToNotify(DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY),
+                    mapDvToHevc
                 )
             }
 

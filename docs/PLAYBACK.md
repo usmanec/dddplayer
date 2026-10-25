@@ -7,8 +7,11 @@
 - `initializePlayer()` собирает плеер из текущих настроек:
   - `MediaCodecSelector`: запрос декодера Dolby Vision подменяется на HEVC по `dv_mode` — всегда, никогда или
     «авто» (если нет DV декодера или экран не сообщает о поддержке DV, `isDolbyVisionSupported`);
-    селектор видит только MIME-тип, поэтому при подмене видеорендерер заменяется на `DolbyVisionVideoRenderer`:
-    для профилей без совместимого слоя HEVC (5, 9, 10, см. `DolbyVisionLogic`) он берет обычный выбор декодера;
+    селектор видит только MIME-тип, поэтому видеорендерер заменяется на `PlayerVideoRenderer`:
+    при подмене для профилей без совместимого слоя HEVC (5, 9, 10, см. `DolbyVisionLogic`) он берет обычный выбор
+    декодера. Кроме того, для декодеров HiSilicon (`OMX.hisi.*`) он включает `codecNeedsSetOutputSurfaceWorkaround`:
+    они не умеют менять поверхность на ходу (`setOutputSurface` падает "cannot change usage" после возврата из
+    настроек, оверлей зеленый), поэтому при смене поверхности декодер пересоздается;
   - `dv_mode` = 3: `ExtractorsFactory` оборачивает MKV/MP4 в `DoviExtractorWrapper`. Для `dvhe.07` RPU
     конвертируется в 8.1 (libdovi, режим 2, как `convertdovi` у Kodi), слой EL отбрасывается, формат
     становится `dvhe.08`. Профили 5/8 проходят без изменений (в логе `DoviConvertTrack: DV ...: native`).
