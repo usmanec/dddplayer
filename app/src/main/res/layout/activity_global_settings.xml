@@ -455,6 +455,20 @@
                         android:focusable="false" />
                 </LinearLayout>
 
+                <!-- Ручное увеличение при туннелировании: спрашивать или выключать туннелирование сразу -->
+                <LinearLayout android:id="@+id/item_zoom_tunneling_auto" style="@style/SettingsItemContainer">
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:duplicateParentState="true">
+                        <TextView style="@style/SettingsItemTitle" android:text="@string/pref_zoom_tunneling_auto" />
+                        <TextView style="@style/SettingsItemDesc" android:text="@string/pref_zoom_tunneling_auto_desc" />
+                    </LinearLayout>
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switch_zoom_tunneling_auto"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:clickable="false"
+                        android:focusable="false" />
+                </LinearLayout>
+
                 <!-- Подгруппа: AFR -->
                 <TextView
                     style="@style/SettingsSectionHeader"
@@ -763,6 +777,20 @@
 
                     <androidx.appcompat.widget.SwitchCompat
                         android:id="@+id/switch_hd_audio_iec"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:clickable="false"
+                        android:focusable="false" />
+                </LinearLayout>
+
+                <!-- Смена скорости при битстриме: спрашивать или выключать проброс сразу -->
+                <LinearLayout android:id="@+id/item_speed_passthrough_auto" style="@style/SettingsItemContainer">
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:duplicateParentState="true">
+                        <TextView style="@style/SettingsItemTitle" android:text="@string/pref_speed_passthrough_auto" />
+                        <TextView style="@style/SettingsItemDesc" android:text="@string/pref_speed_passthrough_auto_desc" />
+                    </LinearLayout>
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switch_speed_passthrough_auto"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:clickable="false"

@@ -103,6 +103,9 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var switchAudioUpmix: SwitchCompat
     private lateinit var itemAudioGenerateLfe: LinearLayout
     private lateinit var switchAudioGenerateLfe: SwitchCompat
+    private lateinit var switchSpeedPassthroughAuto: SwitchCompat
+    private lateinit var itemZoomTunnelingAuto: LinearLayout
+    private lateinit var switchZoomTunnelingAuto: SwitchCompat
     // Что выход принимает битстримом; обновляется при открытии экрана и переключении несущей IEC
     private var devicePassthroughFormats: Set<String> = emptySet()
     private lateinit var itemHdAudioIec: LinearLayout
@@ -381,6 +384,9 @@ class GlobalSettingsActivity : AppCompatActivity() {
         switchAudioUpmix = findViewById(R.id.switch_audio_upmix)
         itemAudioGenerateLfe = findViewById(R.id.item_audio_generate_lfe)
         switchAudioGenerateLfe = findViewById(R.id.switch_audio_generate_lfe)
+        switchSpeedPassthroughAuto = findViewById(R.id.switch_speed_passthrough_auto)
+        itemZoomTunnelingAuto = findViewById(R.id.item_zoom_tunneling_auto)
+        switchZoomTunnelingAuto = findViewById(R.id.switch_zoom_tunneling_auto)
         itemHdAudioIec = findViewById(R.id.item_hd_audio_iec)
         switchHdAudioIec = findViewById(R.id.switch_hd_audio_iec)
         itemDv = findViewById(R.id.item_dv)
@@ -524,6 +530,12 @@ class GlobalSettingsActivity : AppCompatActivity() {
             }
         }
         itemAudioUpmix.setOnClickListener { settingsViewModel.toggleAudioUpmix(!switchAudioUpmix.isChecked) }
+        findViewById<View>(R.id.item_speed_passthrough_auto).setOnClickListener {
+            settingsViewModel.toggleSpeedPassthroughAuto(!switchSpeedPassthroughAuto.isChecked)
+        }
+        itemZoomTunnelingAuto.setOnClickListener {
+            settingsViewModel.toggleZoomTunnelingAuto(!switchZoomTunnelingAuto.isChecked)
+        }
         itemAudioGenerateLfe.setOnClickListener {
             settingsViewModel.toggleAudioGenerateLfe(!switchAudioGenerateLfe.isChecked)
         }
@@ -762,7 +774,13 @@ class GlobalSettingsActivity : AppCompatActivity() {
             findViewById<TextView>(R.id.text_audio_decoder_value).text = settingsViewModel.getDecoderValueString(mode)
             findViewById<TextView>(R.id.text_audio_decoder_desc).setText(settingsViewModel.getDecoderDescResId(mode, video = false))
         }
-        settingsViewModel.isTunnelingEnabled.observe(this) { switchTunneling.isChecked = it }
+        settingsViewModel.isTunnelingEnabled.observe(this) {
+            switchTunneling.isChecked = it
+            // Вопрос о масштабе бывает только при туннелировании
+            itemZoomTunnelingAuto.visibility = if (it) View.VISIBLE else View.GONE
+        }
+        settingsViewModel.isZoomTunnelingAuto.observe(this) { switchZoomTunnelingAuto.isChecked = it }
+        settingsViewModel.isSpeedPassthroughAuto.observe(this) { switchSpeedPassthroughAuto.isChecked = it }
         settingsViewModel.isHdr10PlusEnabled.observe(this) { switchHdr10Plus.isChecked = it }
         settingsViewModel.isAudioPassthroughEnabled.observe(this) { enabled ->
             switchAudioPassthrough.isChecked = enabled

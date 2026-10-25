@@ -46,6 +46,11 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     val isAudioUpmixEnabled: LiveData<Boolean> = _isAudioUpmixEnabled
     private val _isAudioGenerateLfeEnabled = MutableLiveData(repository.isAudioGenerateLfeEnabled())
     val isAudioGenerateLfeEnabled: LiveData<Boolean> = _isAudioGenerateLfeEnabled
+    // "Больше не показывать" в вопросах о сеансе плеера
+    private val _isSpeedPassthroughAuto = MutableLiveData(repository.isSpeedPassthroughAutoEnabled())
+    val isSpeedPassthroughAuto: LiveData<Boolean> = _isSpeedPassthroughAuto
+    private val _isZoomTunnelingAuto = MutableLiveData(repository.isZoomTunnelingAutoEnabled())
+    val isZoomTunnelingAuto: LiveData<Boolean> = _isZoomTunnelingAuto
 
     private val _isHdAudioIecEnabled = MutableLiveData(repository.isHdAudioIecEnabled())
     val isHdAudioIecEnabled: LiveData<Boolean> = _isHdAudioIecEnabled
@@ -303,6 +308,16 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     fun toggleAudioUpmix(enabled: Boolean) {
         repository.setAudioUpmixEnabled(enabled)
         _isAudioUpmixEnabled.value = enabled
+    }
+
+    fun toggleSpeedPassthroughAuto(enabled: Boolean) {
+        repository.setSpeedPassthroughAutoEnabled(enabled)
+        _isSpeedPassthroughAuto.value = enabled
+    }
+
+    fun toggleZoomTunnelingAuto(enabled: Boolean) {
+        repository.setZoomTunnelingAutoEnabled(enabled)
+        _isZoomTunnelingAuto.value = enabled
     }
 
     fun toggleAudioGenerateLfe(enabled: Boolean) {
