@@ -29,7 +29,6 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.Renderer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
-import androidx.media3.exoplayer.audio.AudioCapabilities
 import androidx.media3.exoplayer.audio.AudioRendererEventListener
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.AudioTrackAudioOutputProvider
@@ -465,11 +464,11 @@ class PlayerManager(
                 val channelsSetting = settingsRepo.getAudioOutputChannels()
                 val mixParams = AudioMixerLogic.currentParams(settingsRepo)
                 val upmix = settingsRepo.isAudioUpmixEnabled()
-                // Проброс выключен на сеанс, а каналы "как в источнике": многоканальный PCM может не пройти
-                // по оптике или ARC (там только стерео PCM), поэтому не больше того, что объявляет выход
-                val maxPcmChannels = if (bitstreamDisabledForSession && channelsSetting == AudioMixerLogic.CHANNELS_SOURCE) {
-                    AudioCapabilities.getCapabilities(context, AudioAttributes.DEFAULT, null).maxChannelCount.coerceIn(2, 8)
-                } else 8
+                // LFE из других каналов - часть апмикса
+                val generateLfe = upmix && settingsRepo.isAudioGenerateLfeEnabled()
+                // Проброс выключен на сеанс (смена скорости): звук сводится в стерео. Многоканальный PCM
+                // по оптике и ARC не проходит, а ради ускоренного просмотра стерео достаточно
+                val maxPcmChannels = if (bitstreamDisabledForSession) 2 else 8
                 // "Как в источнике" не расширяется, апмикс работает только с выбранной раскладкой
                 val pcmMixing = channelsSetting != AudioMixerLogic.CHANNELS_SOURCE ||
                     mixParams != AudioMixerLogic.STANDARD_PARAMS || maxPcmChannels < 8
@@ -506,12 +505,18 @@ class PlayerManager(
                         .setAudioOutputProvider(audioOutputProvider) // Ограничиваем аудиобуффер, чтобы не упасть по памяти
 
                     val mixingProcessor = ChannelMixingAudioProcessor()
-                    AudioMixerLogic.createMatrices(mixParams, channelsSetting, maxPcmChannels, upmix).forEach { matrix ->
-                        mixingProcessor.putChannelMixingMatrix(matrix)
-                    }
+                    AudioMixerLogic.createMatrices(mixParams, channelsSetting, maxPcmChannels, upmix, generateLfe)
+                        .forEach { matrix -> mixingProcessor.putChannelMixingMatrix(matrix) }
 
+                    // Созданный LFE - через ФНЧ 120 Гц после микшера
+                    val processors = if (generateLfe) {
+                        val probe = LfeLowPassAudioProcessor.Probe()
+                        arrayOf(probe, mixingProcessor, LfeLowPassAudioProcessor(probe, channelsSetting, maxPcmChannels))
+                    } else {
+                        arrayOf(mixingProcessor)
+                    }
                     sinkBuilder.setAudioProcessorChain(
-                        DefaultAudioSink.DefaultAudioProcessorChain(mixingProcessor)
+                        DefaultAudioSink.DefaultAudioProcessorChain(*processors)
                     )
 
                     sinkBuilder.build()
@@ -530,7 +535,8 @@ class PlayerManager(
                             eac3 = transcode == SettingsRepository.AUDIO_TRANSCODE_EAC3,
                             channelsSetting = channelsSetting,
                             mixParams = mixParams,
-                            upmix = upmix
+                            upmix = upmix,
+                            generateLfe = generateLfe
                         )
                     )
                 } else null

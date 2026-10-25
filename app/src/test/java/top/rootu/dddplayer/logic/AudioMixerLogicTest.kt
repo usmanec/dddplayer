@@ -159,6 +159,23 @@ class AudioMixerLogicTest {
     }
 
     @Test
+    fun `generated lfe takes all channels at minus 10 dB and follows the preset`() {
+        val m = AudioMixerLogic.mixCoefficients(Layouts.STEREO, Layouts.FIVE_ONE, standard, upmix = true, generateLfe = true)
+        assertEquals(0.31622776f / 2, m[0 * 6 + 3], 1e-6f)
+        assertEquals(0.31622776f / 2, m[1 * 6 + 3], 1e-6f)
+        assertEquals(3, AudioMixerLogic.generatedLfeIndex(Layouts.STEREO, Layouts.FIVE_ONE, upmix = true, generateLfe = true))
+        // Ночной режим (LFE 0) - сабвуфер молчит
+        val night = standard.copy(lfe = 0f)
+        val n = AudioMixerLogic.mixCoefficients(Layouts.STEREO, Layouts.FIVE_ONE, night, upmix = true, generateLfe = true)
+        assertEquals(0f, n[3], 1e-6f)
+        // Настоящий LFE источника не трогаем
+        assertEquals(-1, AudioMixerLogic.generatedLfeIndex(Layouts.FIVE_ONE, Layouts.SEVEN_ONE, upmix = true, generateLfe = true))
+        val real = AudioMixerLogic.mixCoefficients(Layouts.FIVE_ONE, Layouts.SEVEN_ONE, standard, upmix = true, generateLfe = true)
+        assertEquals(0f, real[0 * 8 + 3], 1e-6f)
+        assertEquals(1f, real[3 * 8 + 3], 1e-6f)
+    }
+
+    @Test
     fun `ffmpeg masks follow the layout`() {
         assertEquals(0x3L, AudioMixerLogic.ffmpegMask(Layouts.STEREO))
         assertEquals(0x33L, AudioMixerLogic.ffmpegMask(Layouts.QUAD))

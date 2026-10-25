@@ -44,6 +44,8 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     val audioOutputChannels: LiveData<Int> = _audioOutputChannels
     private val _isAudioUpmixEnabled = MutableLiveData(repository.isAudioUpmixEnabled())
     val isAudioUpmixEnabled: LiveData<Boolean> = _isAudioUpmixEnabled
+    private val _isAudioGenerateLfeEnabled = MutableLiveData(repository.isAudioGenerateLfeEnabled())
+    val isAudioGenerateLfeEnabled: LiveData<Boolean> = _isAudioGenerateLfeEnabled
 
     private val _isHdAudioIecEnabled = MutableLiveData(repository.isHdAudioIecEnabled())
     val isHdAudioIecEnabled: LiveData<Boolean> = _isHdAudioIecEnabled
@@ -301,6 +303,11 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     fun toggleAudioUpmix(enabled: Boolean) {
         repository.setAudioUpmixEnabled(enabled)
         _isAudioUpmixEnabled.value = enabled
+    }
+
+    fun toggleAudioGenerateLfe(enabled: Boolean) {
+        repository.setAudioGenerateLfeEnabled(enabled)
+        _isAudioGenerateLfeEnabled.value = enabled
     }
 
     fun setAudioOutputChannels(channels: Int) {

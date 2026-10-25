@@ -15,6 +15,7 @@ import androidx.media3.exoplayer.analytics.PlayerId
 import androidx.media3.exoplayer.audio.AudioSink
 import top.rootu.dddplayer.logic.AudioMixerLogic
 import top.rootu.dddplayer.logic.AudioMixerLogic.ChannelLayout
+import top.rootu.dddplayer.logic.LowPassFilter
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.abs
@@ -40,12 +41,14 @@ internal class TranscodingAudioSink(
      * @param channelsSetting каналы на выходе ([AudioMixerLogic.CHANNELS_SOURCE] и др.)
      * @param mixParams усиления пресета микшера
      * @param upmix расширять звук с меньшим числом каналов до выбранной раскладки
+     * @param generateLfe при апмиксе собирать LFE из других каналов (через ФНЧ 120 Гц)
      */
     data class Config(
         val eac3: Boolean,
         val channelsSetting: Int,
         val mixParams: AudioMixerLogic.MixParams,
-        val upmix: Boolean = false
+        val upmix: Boolean = false,
+        val generateLfe: Boolean = false
     ) {
         val bitRate: Int get() = if (eac3) EAC3_BITRATE else AC3_BITRATE
     }
@@ -58,6 +61,9 @@ internal class TranscodingAudioSink(
     private var outChannels = 0
     private var inputFloat = false
     private var matrix = FloatArray(0)
+    // Созданный микшером LFE и его ФНЧ, -1 - LFE не создается
+    private var lfeIndex = -1
+    private var lfeFilter: LowPassFilter? = null
     private var volume = 1f
     private var encoderSpec: Triple<Boolean, Int, Long>? = null
 
@@ -149,9 +155,10 @@ internal class TranscodingAudioSink(
         inChannels = format.channelCount
         outChannels = layout.channelCount
         inputFloat = format.pcmEncoding == C.ENCODING_PCM_FLOAT
-        matrix = AudioMixerLogic.mixCoefficients(
-            AudioMixerLogic.inputLayoutFor(inChannels)!!, layout, config.mixParams, config.upmix
-        )
+        val inputLayout = AudioMixerLogic.inputLayoutFor(inChannels)!!
+        matrix = AudioMixerLogic.mixCoefficients(inputLayout, layout, config.mixParams, config.upmix, config.generateLfe)
+        lfeIndex = AudioMixerLogic.generatedLfeIndex(inputLayout, layout, config.upmix, config.generateLfe)
+        lfeFilter = if (lfeIndex >= 0) LowPassFilter(format.sampleRate) else null
         frame = FloatArray(outChannels * frameSize)
         return true
     }
@@ -195,6 +202,7 @@ internal class TranscodingAudioSink(
             for (o in 0 until outChannels) {
                 var sum = 0f
                 for (c in 0 until inChannels) sum += input[c] * matrix[c * outChannels + o]
+                if (o == lfeIndex) sum = lfeFilter?.process(sum) ?: sum
                 frame[o * frameSize + frameFill] = (sum * volume).coerceIn(-1f, 1f)
             }
             frameFill++

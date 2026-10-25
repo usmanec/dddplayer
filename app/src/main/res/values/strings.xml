@@ -547,11 +547,13 @@
     <string name="pref_audio_output_channels_transcode">Now: multichannel audio as %1$s up to %2$s, stereo as PCM</string>
     <string name="pref_audio_upmix">Expand to the chosen layout</string>
     <string name="pref_audio_upmix_desc">Audio with fewer channels is spread to all speakers: center from the fronts, surrounds from the fronts or neighbours. A simple matrix, not Dolby Pro Logic</string>
+    <string name="pref_audio_generate_lfe">Create subwoofer channel (LFE)</string>
+    <string name="pref_audio_generate_lfe_desc">When expanding to 5.1/7.1, the bass of all channels below 120 Hz goes to the subwoofer as well. Level is the LFE slider of the mixer preset</string>
     <string name="pref_audio_decoder_passthrough_note">Does not affect passthrough: it decides who decodes what is not passed through</string>
     <!-- Выключение проброса и туннелирования на сеанс плеера -->
     <string name="dont_show_again">Don\'t show again (always disable)</string>
     <string name="session_speed_title">Speed and passthrough</string>
-    <string name="session_speed_message">Audio goes to the receiver as a bitstream (passthrough or AC3/E-AC3), and a bitstream cannot be played faster or slower. To change the speed, passthrough is turned off until you leave the player: the player decodes the audio itself (PCM). Cancel keeps 1.00x.</string>
+    <string name="session_speed_message">Audio goes to the receiver as a bitstream (passthrough or AC3/E-AC3), and a bitstream cannot be played faster or slower. To change the speed, passthrough is turned off until you leave the player and the audio is converted to stereo (PCM 2.0). Cancel keeps 1.00x.</string>
     <string name="session_zoom_title">Zoom and tunneling</string>
     <string name="session_zoom_message">Video goes through tunneling: the system draws the frame by itself and custom zoom does not apply. To zoom, tunneling is turned off until you leave the player (the player restarts from the same position). Cancel keeps the previous mode.</string>
 </resources>

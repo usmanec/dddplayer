@@ -101,6 +101,8 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var textAudioOutputChannelsValue: TextView
     private lateinit var itemAudioUpmix: LinearLayout
     private lateinit var switchAudioUpmix: SwitchCompat
+    private lateinit var itemAudioGenerateLfe: LinearLayout
+    private lateinit var switchAudioGenerateLfe: SwitchCompat
     // Что выход принимает битстримом; обновляется при открытии экрана и переключении несущей IEC
     private var devicePassthroughFormats: Set<String> = emptySet()
     private lateinit var itemHdAudioIec: LinearLayout
@@ -377,6 +379,8 @@ class GlobalSettingsActivity : AppCompatActivity() {
         textAudioOutputChannelsValue = findViewById(R.id.text_audio_output_channels_value)
         itemAudioUpmix = findViewById(R.id.item_audio_upmix)
         switchAudioUpmix = findViewById(R.id.switch_audio_upmix)
+        itemAudioGenerateLfe = findViewById(R.id.item_audio_generate_lfe)
+        switchAudioGenerateLfe = findViewById(R.id.switch_audio_generate_lfe)
         itemHdAudioIec = findViewById(R.id.item_hd_audio_iec)
         switchHdAudioIec = findViewById(R.id.switch_hd_audio_iec)
         itemDv = findViewById(R.id.item_dv)
@@ -520,6 +524,9 @@ class GlobalSettingsActivity : AppCompatActivity() {
             }
         }
         itemAudioUpmix.setOnClickListener { settingsViewModel.toggleAudioUpmix(!switchAudioUpmix.isChecked) }
+        itemAudioGenerateLfe.setOnClickListener {
+            settingsViewModel.toggleAudioGenerateLfe(!switchAudioGenerateLfe.isChecked)
+        }
         // HD-звук через IEC 61937
         itemHdAudioIec.setOnClickListener {
             settingsViewModel.toggleHdAudioIec(!switchHdAudioIec.isChecked)
@@ -774,9 +781,14 @@ class GlobalSettingsActivity : AppCompatActivity() {
             textAudioOutputChannelsValue.text = outputChannelsLabels().getOrElse(channels) { "" }
             // "Как в источнике" расширять некуда
             itemAudioUpmix.visibility = if (channels == AudioMixerLogic.CHANNELS_SOURCE) View.GONE else View.VISIBLE
+            updateGenerateLfeVisibility()
             updateAudioOutputDescriptions()
         }
-        settingsViewModel.isAudioUpmixEnabled.observe(this) { switchAudioUpmix.isChecked = it }
+        settingsViewModel.isAudioUpmixEnabled.observe(this) {
+            switchAudioUpmix.isChecked = it
+            updateGenerateLfeVisibility()
+        }
+        settingsViewModel.isAudioGenerateLfeEnabled.observe(this) { switchAudioGenerateLfe.isChecked = it }
         settingsViewModel.isHdAudioIecEnabled.observe(this) {
             switchHdAudioIec.isChecked = it
             refreshDeviceAudioFormats()
@@ -1105,6 +1117,14 @@ class GlobalSettingsActivity : AppCompatActivity() {
             val chosen = keys.filterIndexed { i, key -> result[i] || key !in devicePassthroughFormats }.toSet()
             settingsViewModel.setPassthroughFormats(chosen)
         }
+    }
+
+    /** LFE собирается только при апмиксе и раскладке с сабвуфером (5.1, 7.1). */
+    private fun updateGenerateLfeVisibility() {
+        val channels = settingsViewModel.audioOutputChannels.value ?: AudioMixerLogic.CHANNELS_20
+        val visible = settingsViewModel.isAudioUpmixEnabled.value == true &&
+            (channels == AudioMixerLogic.CHANNELS_51 || channels == AudioMixerLogic.CHANNELS_71)
+        itemAudioGenerateLfe.visibility = if (visible) View.VISIBLE else View.GONE
     }
 
     /** Описания проброса и микшера по текущим настройкам: что пробрасывается и к чему применяется микшер. */

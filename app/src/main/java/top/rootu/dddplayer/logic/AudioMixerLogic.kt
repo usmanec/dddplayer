@@ -89,6 +89,15 @@ object AudioMixerLogic {
     private val SQRT3_HALF = (sqrt(3.0) / 2.0).toFloat()
     private val SQRT2 = sqrt(2.0).toFloat()
 
+    /** Суммарный уровень созданного LFE: -10 дБ (компенсация усиления LFE в ресивере). */
+    private const val GENERATED_LFE_LEVEL = 0.31622776f
+
+    /** Индекс канала LFE в выходной раскладке, куда LFE собирается из других каналов; -1 - не собирается. */
+    fun generatedLfeIndex(input: ChannelLayout, output: ChannelLayout, upmix: Boolean, generateLfe: Boolean): Int =
+        if (upmix && generateLfe && Speaker.LFE !in input.speakers && Speaker.MONO !in input.speakers) {
+            output.speakers.indexOf(Speaker.LFE)
+        } else -1
+
     /** BC в RFC 7845 Figure 8: (sqrt(3) / 2) * (1 / sqrt(2)) - именно умножение. */
     private val BACK_CENTER_BASE = SQRT3_HALF * INV_SQRT2
 
@@ -190,11 +199,12 @@ object AudioMixerLogic {
         params: MixParams,
         channelsSetting: Int,
         maxChannels: Int,
-        upmix: Boolean = false
+        upmix: Boolean = false,
+        generateLfe: Boolean = false
     ): List<ChannelMixingMatrix> =
         (1..8).mapNotNull { count ->
             inputLayoutFor(count)?.let {
-                createMatrix(it, outputLayoutFor(it, channelsSetting, maxChannels, upmix), params, upmix)
+                createMatrix(it, outputLayoutFor(it, channelsSetting, maxChannels, upmix), params, upmix, generateLfe)
             }
         }
 
@@ -207,22 +217,27 @@ object AudioMixerLogic {
         inputLayout: ChannelLayout,
         outputLayout: ChannelLayout,
         params: MixParams,
-        upmix: Boolean = false
+        upmix: Boolean = false,
+        generateLfe: Boolean = false
     ): ChannelMixingMatrix {
         val inCount = inputLayout.channelCount
         val outCount = outputLayout.channelCount
-        return ChannelMixingMatrix(inCount, outCount, mixCoefficients(inputLayout, outputLayout, params, upmix))
+        return ChannelMixingMatrix(
+            inCount, outCount, mixCoefficients(inputLayout, outputLayout, params, upmix, generateLfe)
+        )
     }
 
     /**
      * Коэффициенты в порядке Media3 (row-major): индекс in * outCount + out,
-     * строка - входной канал, столбец - выходной. [upmix] - заполнять выходы, которых нет во входе.
+     * строка - входной канал, столбец - выходной. [upmix] - заполнять выходы, которых нет во входе,
+     * [generateLfe] - при апмиксе собирать и LFE (его надо пропустить через [LowPassFilter]).
      */
     fun mixCoefficients(
         inputLayout: ChannelLayout,
         outputLayout: ChannelLayout,
         params: MixParams,
-        upmix: Boolean = false
+        upmix: Boolean = false,
+        generateLfe: Boolean = false
     ): FloatArray {
         val p = params.sanitized()
         val outCount = outputLayout.channelCount
@@ -230,7 +245,7 @@ object AudioMixerLogic {
         when (outputLayout.speakers) {
             Layouts.STEREO.speakers -> fillStereoMatrix(inputLayout, p, m)
             Layouts.MONO.speakers -> fillMonoOutput(inputLayout, p, m)
-            else -> fillMultichannelMatrix(inputLayout, outputLayout, p, m, upmix)
+            else -> fillMultichannelMatrix(inputLayout, outputLayout, p, m, upmix, generateLfe)
         }
         val flat = FloatArray(inputLayout.channelCount * outCount)
         for (i in m.indices) for (o in 0 until outCount) flat[i * outCount + o] = m[i][o]
@@ -287,7 +302,8 @@ object AudioMixerLogic {
         outputLayout: ChannelLayout,
         params: MixParams,
         matrix: Array<FloatArray>,
-        upmix: Boolean
+        upmix: Boolean,
+        generateLfe: Boolean
     ) {
         val input = inputLayout.speakers
         val output = outputLayout.speakers
@@ -393,6 +409,20 @@ object AudioMixerLogic {
             val gain = gainFor(input[i], params) * scale
             for (o in output.indices) matrix[i][o] *= gain
         }
+
+        if (upmix && generateLfe) fillGeneratedLfe(input, output, params, matrix)
+    }
+
+    /**
+     * LFE из всех полноценных каналов поровну, суммарно -10 дБ: ресивер воспроизводит LFE на +10 дБ громче
+     * основных каналов, а бас в основных каналах остается. Срез выше 120 Гц делает [LowPassFilter]
+     * (ресиверы и AC3 тоже ограничивают LFE, но не все ТВ и саундбары). Уровень - ползунок LFE пресета.
+     */
+    private fun fillGeneratedLfe(input: List<Speaker>, output: List<Speaker>, params: MixParams, matrix: Array<FloatArray>) {
+        val lfe = output.indexOf(Speaker.LFE)
+        if (lfe < 0 || Speaker.LFE in input) return
+        val k = GENERATED_LFE_LEVEL / input.size * params.lfe
+        for (i in input.indices) matrix[i][lfe] = k
     }
 
     /**

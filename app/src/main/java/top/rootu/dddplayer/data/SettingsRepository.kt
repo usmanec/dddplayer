@@ -384,6 +384,10 @@ class SettingsRepository private constructor(context: Context) {
     fun isAudioUpmixEnabled(): Boolean = prefs.getBoolean("audio_upmix", false)
     fun setAudioUpmixEnabled(enabled: Boolean) = prefs.edit { putBoolean("audio_upmix", enabled) }
 
+    // При апмиксе собирать LFE (сабвуфер) из других каналов через ФНЧ. По умолчанию выкл
+    fun isAudioGenerateLfeEnabled(): Boolean = prefs.getBoolean("audio_generate_lfe", false)
+    fun setAudioGenerateLfeEnabled(enabled: Boolean) = prefs.edit { putBoolean("audio_generate_lfe", enabled) }
+
     /**
      * Перенос прежних настроек звука, чтобы поведение не поменялось:
      * - проброс был, когда декодеры устройства стояли раньше FFmpeg (приоритет аудио не "Сначала встроенный");
@@ -751,7 +755,7 @@ class SettingsRepository private constructor(context: Context) {
     // Сигнатура настроек, требующих полного перезапуска плеера
     fun getHardSettingsSignature(): String {
         val videoParams = "${getVideoDecoderPriority()}_${getAudioDecoderPriority()}_${isTunnelingEnabled()}_${getDvMode()}_${isHdAudioIecEnabled()}_${isHdr10PlusEnabled()}"
-        val audioMix = "${getAudioOutputChannels()}_${isAudioUpmixEnabled()}_${getMixPreset()}_${getMixFront()}_${getMixCenter()}_${getMixRear()}_${getMixMiddle()}_${getMixLfe()}"
+        val audioMix = "${getAudioOutputChannels()}_${isAudioUpmixEnabled()}_${isAudioGenerateLfeEnabled()}_${getMixPreset()}_${getMixFront()}_${getMixCenter()}_${getMixRear()}_${getMixMiddle()}_${getMixLfe()}"
         val audioOutput = "${isAudioPassthroughEnabled()}_${getAudioPassthroughFormats().sorted()}_${getAudioTranscode()}"
         return "${videoParams}_${audioMix}_${audioOutput}_${getTargetBufferCorrectMB()}"
     }
