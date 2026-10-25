@@ -1089,12 +1089,20 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
     }
 
     /**
-     * Кнопка слева в панели. Есть обновление - иконка и номер новой версии (открывает настройки на обновлении),
-     * иначе буфер при выводе "в панели" или текущая версия (нажатие проверяет обновления).
+     * Слева в панели. Есть обновление - кнопка с иконкой и номером новой версии (открывает настройки на обновлении).
+     * Иначе при выводе буфера "в панели" - просто текст буфера (обновления и так проверяются сами и в настройках),
+     * а без него - кнопка с текущей версией (нажатие проверяет обновления).
      */
     private fun renderVersionButton() {
         val button = ui.buttonUpdate
         val update = availableUpdateVersion
+        val bufferInPanel = update == null && bufferDisplayMode == SettingsRepository.BUFFER_DISPLAY_PANEL
+        ui.panelBufferTextView.isVisible = bufferInPanel
+        button.isVisible = !bufferInPanel
+        if (bufferInPanel) {
+            ui.panelBufferTextView.text = getString(R.string.buffer_percentage, viewModel.bufferedPercentage.value ?: 0)
+            return
+        }
         val icon = if (update != null && !checkingUpdates) R.drawable.ic_system_update_alt else 0
         button.setCompoundDrawablesRelativeWithIntrinsicBounds(icon, 0, 0, 0)
         TextViewCompat.setCompoundDrawableTintList(button, button.textColors)
@@ -1111,11 +1119,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
                 button.setOnClickListener { openGlobalSettings(focusItemId = R.id.item_update) }
             }
             else -> {
-                button.text = if (bufferDisplayMode == SettingsRepository.BUFFER_DISPLAY_PANEL) {
-                    getString(R.string.buffer_percentage, viewModel.bufferedPercentage.value ?: 0)
-                } else {
-                    getString(R.string.version, BuildConfig.VERSION_NAME)
-                }
+                button.text = getString(R.string.version, BuildConfig.VERSION_NAME)
                 button.contentDescription = null
                 button.alpha = 0.5f
                 button.setOnClickListener { updateViewModel.forceCheckUpdates() }

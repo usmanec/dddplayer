@@ -124,6 +124,7 @@ class PlayerUiController(private val rootView: View) {
     val errorHint: TextView = rootView.findViewById(R.id.error_hint)
 
     val buttonUpdate: TextView = controlsView.findViewById(R.id.button_update)
+    val panelBufferTextView: TextView = controlsView.findViewById(R.id.panel_buffer_value)
 
     val seekOverlay: View = rootView.findViewById(R.id.seek_overlay)
     val seekDeltaText: TextView = rootView.findViewById(R.id.seek_delta)
