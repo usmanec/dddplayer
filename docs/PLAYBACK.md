@@ -47,9 +47,9 @@
     Бейдж аудио при несущей показывает `TrueHD (IEC 61937)` / `DTS-HD (IEC 61937)` (`carrierCodecLabel`).
     Защелка несовпадения потока сбрасывается в `loadPlaylist` и при `onMediaItemTransition`;
   - `audio_output_codec` AC3/E-AC3: снаружи всего стоит `TranscodingAudioSink`. Многоканальный PCM (16 бит или
-    float, 44.1/48 кГц, 3+ канала, или любой при явной раскладке) сводится матрицей `ChannelLayoutLogic.mixMatrix`
-    в выходную раскладку (`audio_output_layout`: как в источнике до 5.1, 5.1, 4.0, 2.0) с усилением центра
-    (`center_gain_db`), кодируется FFmpeg (`AudioEncoderJni`, `libdddaudioenc.so` из `audioenc/`, AC3 640 кбит/с,
+    float, 44.1/48 кГц, 3+ канала, или любой при явной раскладке) сводится матрицей `AudioMixerLogic.mixCoefficients`
+    в выходную раскладку (`audio_output_layout`: как в источнике до 5.1, 5.1, 4.0, 2.0) с пресетом микшера,
+    кодируется FFmpeg (`AudioEncoderJni`, `libdddaudioenc.so` из `audioenc/`, AC3 640 кбит/с,
     E-AC3 1024 кбит/с, не больше 5.1 — кодировщик FFmpeg не умеет 7.1) и уходит в выбранный sink как проброс
     AC3/E-AC3. Время кадров считается от якоря по числу кадров, громкость плеера применяется в микшере
     (битстрим ее не меняет), скорость не применяется (как у обычного проброса). Если устройство не выводит

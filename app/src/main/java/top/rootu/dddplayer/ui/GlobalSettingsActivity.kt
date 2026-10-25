@@ -34,7 +34,6 @@ import top.rootu.dddplayer.BuildConfig
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
 import top.rootu.dddplayer.logic.AudioMixerLogic
-import top.rootu.dddplayer.logic.ChannelLayoutLogic
 import top.rootu.dddplayer.logic.OpenSourceLicenses
 import top.rootu.dddplayer.logic.UpdateInfo
 import top.rootu.dddplayer.model.MenuItem
@@ -499,7 +498,7 @@ class GlobalSettingsActivity : AppCompatActivity() {
             }
         }
         itemAudioOutputLayout.setOnClickListener {
-            val current = settingsViewModel.audioOutputLayout.value ?: ChannelLayoutLogic.LAYOUT_AUTO
+            val current = settingsViewModel.audioOutputLayout.value ?: 0
             showSingleChoiceDialog(getString(R.string.pref_audio_output_layout), audioOutputLayoutLabels(), current) {
                 settingsViewModel.setAudioOutputLayout(it)
             }
@@ -1037,7 +1036,7 @@ class GlobalSettingsActivity : AppCompatActivity() {
         else -> key
     }
 
-    // Индексы совпадают с SettingsRepository.AUDIO_OUTPUT_* и ChannelLayoutLogic.LAYOUT_*
+    // Индексы совпадают с SettingsRepository.AUDIO_OUTPUT_* и значениям audio_output_layout
     private fun audioOutputCodecLabels() = listOf(
         getString(R.string.audio_output_pcm), getString(R.string.audio_output_ac3), getString(R.string.audio_output_eac3)
     )

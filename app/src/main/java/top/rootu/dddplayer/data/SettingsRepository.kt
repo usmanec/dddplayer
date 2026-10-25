@@ -359,7 +359,7 @@ class SettingsRepository private constructor(context: Context) {
     fun getAudioOutputCodec(): Int = prefs.getInt("audio_output_codec", AUDIO_OUTPUT_PCM)
     fun setAudioOutputCodec(codec: Int) = prefs.edit { putInt("audio_output_codec", codec) }
 
-    // Каналы на выходе перекодирования (ChannelLayoutLogic.LAYOUT_*)
+    // Каналы на выходе перекодирования: 0 - авто, 1 - 5.1, 2 - 4.0, 3 - 2.0
     fun getAudioOutputLayout(): Int = prefs.getInt("audio_output_layout", 0)
     fun setAudioOutputLayout(layout: Int) = prefs.edit { putInt("audio_output_layout", layout) }
 

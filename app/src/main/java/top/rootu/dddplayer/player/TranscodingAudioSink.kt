@@ -13,7 +13,8 @@ import androidx.media3.common.util.Clock
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.analytics.PlayerId
 import androidx.media3.exoplayer.audio.AudioSink
-import top.rootu.dddplayer.logic.ChannelLayoutLogic
+import top.rootu.dddplayer.logic.AudioMixerLogic
+import top.rootu.dddplayer.logic.AudioMixerLogic.ChannelLayout
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.abs
@@ -21,7 +22,7 @@ import kotlin.math.abs
 /**
  * Перекодирование многоканального PCM в AC3 / E-AC3 для вывода битстримом (ТВ и саундбары по ARC и оптике
  * часто принимают многоканальный звук только так). Декодированный звук сводится в выходную раскладку
- * (с усилением центра - голоса, перевода), кодируется FFmpeg ([AudioEncoderJni]) и уходит в [delegate]
+ * микшером [AudioMixerLogic] (с пресетом: усиление голоса, ночной режим), кодируется FFmpeg ([AudioEncoderJni]) и уходит в [delegate]
  * как обычный проброс AC3/E-AC3.
  *
  * Перекодируется только PCM 16 бит / float 32, 44.1 и 48 кГц, если устройство умеет выводить
@@ -36,13 +37,14 @@ internal class TranscodingAudioSink(
 
     /**
      * @param eac3 E-AC3 вместо AC3 (тоже не больше 5.1: кодировщик FFmpeg не умеет 7.1)
-     * @param layoutSetting выходная раскладка ([ChannelLayoutLogic.LAYOUT_AUTO] и др.)
-     * @param centerGainDb усиление центра (голоса), дБ
+     * @param channelsSetting каналы на выходе ([AudioMixerLogic.CHANNELS_SOURCE] и др.)
+     * @param mixParams усиления пресета микшера
      */
-    data class Config(val eac3: Boolean, val layoutSetting: Int, val centerGainDb: Int) {
+    data class Config(val eac3: Boolean, val channelsSetting: Int, val mixParams: AudioMixerLogic.MixParams) {
         val bitRate: Int get() = if (eac3) EAC3_BITRATE else AC3_BITRATE
         /** Нужно ли сводить сам звук: тогда и AC3/DTS источника декодируются, а не пробрасываются как есть. */
-        val mixingRequired: Boolean get() = centerGainDb != 0 || layoutSetting != ChannelLayoutLogic.LAYOUT_AUTO
+        val mixingRequired: Boolean get() =
+            mixParams != AudioMixerLogic.STANDARD_PARAMS || channelsSetting != AudioMixerLogic.CHANNELS_SOURCE
     }
 
     private var transcoding = false
@@ -97,7 +99,7 @@ internal class TranscodingAudioSink(
         if (useEncoder != transcoding || useEncoder) {
             Log.i(TAG, if (useEncoder) {
                 "PCM ${inputFormat.channelCount}ch ${inputFormat.sampleRate}Hz -> ${outputLabelFor(layout!!)}, " +
-                    "center ${config.centerGainDb} dB"
+                    "mix ${config.mixParams}"
             } else {
                 "Transcoding off for ${inputFormat.sampleMimeType} ${inputFormat.channelCount}ch"
             })
@@ -113,31 +115,35 @@ internal class TranscodingAudioSink(
     }
 
     /** Раскладка, в которую перекодируем этот вход, null - вход идет как есть. */
-    private fun transcodeLayout(format: Format): ChannelLayoutLogic.Layout? {
+    private fun transcodeLayout(format: Format): ChannelLayout? {
         if (format.sampleMimeType != MimeTypes.AUDIO_RAW || !AudioEncoderJni.isAvailable) return null
         if (format.pcmEncoding != C.ENCODING_PCM_16BIT && format.pcmEncoding != C.ENCODING_PCM_FLOAT) return null
         if (format.sampleRate != 48_000 && format.sampleRate != 44_100) return null
-        ChannelLayoutLogic.inputPositions(format.channelCount) ?: return null
+        val input = AudioMixerLogic.inputLayoutFor(format.channelCount) ?: return null
         // Стерео в стерео кодировать незачем; стерео - только если раскладку задали явно
-        if (format.channelCount <= 2 && config.layoutSetting == ChannelLayoutLogic.LAYOUT_AUTO) return null
-        return ChannelLayoutLogic.targetLayout(format.channelCount, config.layoutSetting)
+        if (format.channelCount <= 2 && config.channelsSetting == AudioMixerLogic.CHANNELS_SOURCE) return null
+        val output = AudioMixerLogic.outputLayoutFor(input, config.channelsSetting, AudioMixerLogic.MAX_ENCODED_CHANNELS)
+        // Моно кодируем как стерео
+        return if (output.channelCount < 2) AudioMixerLogic.Layouts.STEREO else output
     }
 
-    private fun encodedFormat(layout: ChannelLayoutLogic.Layout, rate: Int): Format = Format.Builder()
+    private fun encodedFormat(layout: ChannelLayout, rate: Int): Format = Format.Builder()
         .setSampleMimeType(if (config.eac3) MimeTypes.AUDIO_E_AC3 else MimeTypes.AUDIO_AC3)
         .setChannelCount(layout.channelCount)
         .setSampleRate(rate)
         .setAverageBitrate(config.bitRate)
         .build()
 
-    private fun outputLabelFor(layout: ChannelLayoutLogic.Layout) =
+    private fun outputLabelFor(layout: ChannelLayout) =
         "${if (config.eac3) "E-AC3" else "AC3"} ${layout.channelCount}ch ${config.bitRate / 1000} kbps"
 
-    private fun openEncoder(layout: ChannelLayoutLogic.Layout, format: Format): Boolean {
-        val spec = Triple(config.eac3, format.sampleRate, layout.ffmpegMask)
+    private fun openEncoder(layout: ChannelLayout, format: Format): Boolean {
+        val mask = AudioMixerLogic.ffmpegMask(layout)
+        if (mask == 0L) return false
+        val spec = Triple(config.eac3, format.sampleRate, mask)
         if (encoder == 0L || spec != encoderSpec) {
             releaseEncoder()
-            encoder = AudioEncoderJni.nCreate(config.eac3, format.sampleRate, layout.ffmpegMask, config.bitRate)
+            encoder = AudioEncoderJni.nCreate(config.eac3, format.sampleRate, mask, config.bitRate)
             if (encoder == 0L) {
                 Log.w(TAG, "Encoder not created for ${outputLabelFor(layout)}")
                 return false
@@ -149,8 +155,8 @@ internal class TranscodingAudioSink(
         inChannels = format.channelCount
         outChannels = layout.channelCount
         inputFloat = format.pcmEncoding == C.ENCODING_PCM_FLOAT
-        matrix = ChannelLayoutLogic.mixMatrix(
-            ChannelLayoutLogic.inputPositions(inChannels)!!, layout, ChannelLayoutLogic.dbToGain(config.centerGainDb)
+        matrix = AudioMixerLogic.mixCoefficients(
+            AudioMixerLogic.inputLayoutFor(inChannels)!!, layout, config.mixParams
         )
         frame = FloatArray(outChannels * frameSize)
         return true

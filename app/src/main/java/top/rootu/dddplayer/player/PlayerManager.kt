@@ -505,8 +505,13 @@ class PlayerManager(
                         iec ?: baseSink,
                         TranscodingAudioSink.Config(
                             eac3 = outputCodec == SettingsRepository.AUDIO_OUTPUT_EAC3,
-                            layoutSetting = settingsRepo.getAudioOutputLayout(),
-                            centerGainDb = settingsRepo.getCenterGainDb()
+                            channelsSetting = when (settingsRepo.getAudioOutputLayout()) {
+                                1 -> AudioMixerLogic.CHANNELS_51
+                                2 -> AudioMixerLogic.CHANNELS_40
+                                3 -> AudioMixerLogic.CHANNELS_20
+                                else -> AudioMixerLogic.CHANNELS_SOURCE
+                            },
+                            mixParams = AudioMixerLogic.currentParams(settingsRepo)
                         )
                     )
                 } else null
