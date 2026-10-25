@@ -388,6 +388,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         val items = (0 until p.mediaItemCount).map { p.getMediaItemAt(it) }
         // То же видео перезагружается: настройки и счетчики не сбрасываем
         isRecoveringFromError = true
+        keepTracksAcrossReload()
         playerManager.reloadMediaItems(items, p.currentMediaItemIndex, p.currentPosition)
     }
 
@@ -629,6 +630,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
                 // Переподготавливаем плеер и возвращаем его на то же место
                 isRecoveringFromError = true
+                keepTracksAcrossReload()
                 playerManager.reloadMediaItems(newItems, currentIndex, currentPos)
                 return true
             }
@@ -674,6 +676,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
                     // Полностью перезагружаем плейлист в плеер
                     isRecoveringFromError = true
+                    keepTracksAcrossReload()
                     playerManager.reloadMediaItems(newItems, currentIndex, currentPos)
 
                     return true // Успешно перехватили и исправили
@@ -1752,6 +1755,18 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             ResizeMode.ZOOM -> context.getString(R.string.resize_mode_zoom)
             ResizeMode.SCALE -> context.getString(R.string.playback_zoom_scale, _zoomScale.value ?: 115)
             ResizeMode.FILL -> context.getString(R.string.resize_mode_fill)
+        }
+    }
+
+    /**
+     * Перед перезагрузкой того же видео (сторож зависания, восстановление после ошибки): выбор дорожки держится
+     * на TrackGroup старого источника, у нового они другие, и без повторного выбора плеер включил бы дорожку
+     * по умолчанию (озвучка "слетала" после перемотки). Дорожки применятся заново по id в updateTracksInfo.
+     */
+    private fun keepTracksAcrossReload() {
+        _currentAudioTrack.value?.takeIf { !it.isOff }?.format?.id?.let { pendingAudioId = it }
+        _currentSubtitleTrack.value?.let { sub ->
+            (if (sub.isOff) "disabled" else sub.format?.id)?.let { pendingSubtitleId = it }
         }
     }
 
