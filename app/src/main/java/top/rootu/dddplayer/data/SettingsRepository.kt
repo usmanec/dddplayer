@@ -8,6 +8,8 @@ import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import top.rootu.dddplayer.logic.AnaglyphLogic
+import top.rootu.dddplayer.logic.AudioMixerLogic
+import top.rootu.dddplayer.logic.AudioPassthroughLogic
 import top.rootu.dddplayer.logic.HomeLogic
 import top.rootu.dddplayer.model.AnaglyphCalibration
 import top.rootu.dddplayer.model.AudioTrackStat
@@ -45,13 +47,10 @@ class SettingsRepository private constructor(context: Context) {
         const val UP_ACTION_MENU = 2
         const val UP_ACTION_INFO = 3
 
-        // Многоканальный звук на выходе
-        const val AUDIO_OUTPUT_PCM = 0
-        const val AUDIO_OUTPUT_AC3 = 1
-        const val AUDIO_OUTPUT_EAC3 = 2
-        // Шаг и предел усиления центра, дБ
-        const val CENTER_GAIN_STEP_DB = 3
-        const val CENTER_GAIN_MAX_DB = 12
+        // Перекодирование декодированного звука для проброса
+        const val AUDIO_TRANSCODE_OFF = 0
+        const val AUDIO_TRANSCODE_AC3 = 1
+        const val AUDIO_TRANSCODE_EAC3 = 2
 
         // Действие кнопки "OK" при скрытой панели
         const val OK_ACTION_PAUSE = 0
@@ -355,21 +354,72 @@ class SettingsRepository private constructor(context: Context) {
     fun isHdAudioIecEnabled(): Boolean = prefs.getBoolean("hd_audio_iec", false)
     fun setHdAudioIecEnabled(enabled: Boolean) = prefs.edit { putBoolean("hd_audio_iec", enabled) }
 
-    // Многоканальный звук на выходе: PCM (как раньше), перекодирование в AC3 или E-AC3 для проброса
-    fun getAudioOutputCodec(): Int = prefs.getInt("audio_output_codec", AUDIO_OUTPUT_PCM)
-    fun setAudioOutputCodec(codec: Int) = prefs.edit { putInt("audio_output_codec", codec) }
+    // Проброс (битстрим) сжатого звука на ресивер, не зависит от приоритета декодеров
+    fun isAudioPassthroughEnabled(): Boolean {
+        migrateAudioOutput()
+        return prefs.getBoolean("audio_passthrough", false)
+    }
+    fun setAudioPassthroughEnabled(enabled: Boolean) = prefs.edit { putBoolean("audio_passthrough", enabled) }
 
-    // Каналы на выходе перекодирования: 0 - авто, 1 - 5.1, 2 - 4.0, 3 - 2.0
-    fun getAudioOutputLayout(): Int = prefs.getInt("audio_output_layout", 0)
-    fun setAudioOutputLayout(layout: Int) = prefs.edit { putInt("audio_output_layout", layout) }
+    // Пробрасываемые форматы (AudioPassthroughLogic.*). Пока не заданы - все
+    fun getAudioPassthroughFormats(): Set<String> =
+        prefs.getStringSet("audio_passthrough_formats", null)?.toSet() ?: AudioPassthroughLogic.ALL_FORMATS.toSet()
+    fun setAudioPassthroughFormats(formats: Set<String>) = prefs.edit { putStringSet("audio_passthrough_formats", formats) }
 
-    // Усиление центра (голоса, перевода) при перекодировании, дБ
-    fun getCenterGainDb(): Int = prefs.getInt("center_gain_db", 0)
-    fun setCenterGainDb(db: Int) = prefs.edit { putInt("center_gain_db", db) }
+    // Перекодирование декодированного звука в AC3/E-AC3 для проброса (AUDIO_TRANSCODE_*)
+    fun getAudioTranscode(): Int {
+        migrateAudioOutput()
+        return prefs.getInt("audio_transcode", AUDIO_TRANSCODE_OFF)
+    }
+    fun setAudioTranscode(codec: Int) = prefs.edit { putInt("audio_transcode", codec) }
 
-    // Принудительный Downmix в стерео
-    fun isStereoDownmixEnabled(): Boolean = prefs.getBoolean("stereo_downmix", true)
-    fun setStereoDownmixEnabled(enabled: Boolean) = prefs.edit { putBoolean("stereo_downmix", enabled) }
+    // Каналы на выходе микшера (AudioMixerLogic.CHANNELS_*). По умолчанию стерео, как прежний даунмикс
+    fun getAudioOutputChannels(): Int {
+        migrateAudioOutput()
+        return prefs.getInt("audio_output_channels", AudioMixerLogic.CHANNELS_20)
+    }
+    fun setAudioOutputChannels(channels: Int) = prefs.edit { putInt("audio_output_channels", channels) }
+
+    // Расширять звук с меньшим числом каналов до выбранной раскладки (матричный апмикс). По умолчанию выкл
+    fun isAudioUpmixEnabled(): Boolean = prefs.getBoolean("audio_upmix", false)
+    fun setAudioUpmixEnabled(enabled: Boolean) = prefs.edit { putBoolean("audio_upmix", enabled) }
+
+    /**
+     * Перенос прежних настроек звука, чтобы поведение не поменялось:
+     * - проброс был, когда декодеры устройства стояли раньше FFmpeg (приоритет аудио не "Сначала встроенный");
+     * - "Даунмикс в стерео" (stereo_downmix) -> каналы 2.0, выключен -> как в источнике;
+     * - перекодирование (audio_output_codec, audio_output_layout) -> audio_transcode и каналы.
+     * Усиление центра (center_gain_db) не переносится: его заменяет пресет микшера.
+     */
+    private fun migrateAudioOutput() {
+        if (prefs.contains("audio_passthrough")) return
+        val passthrough = getAudioDecoderPriority() != DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
+        val oldCodec = prefs.getInt("audio_output_codec", AUDIO_TRANSCODE_OFF)
+            .takeIf { it in AUDIO_TRANSCODE_OFF..AUDIO_TRANSCODE_EAC3 } ?: AUDIO_TRANSCODE_OFF
+        val channels = when {
+            oldCodec != AUDIO_TRANSCODE_OFF -> when (prefs.getInt("audio_output_layout", 0)) {
+                1 -> AudioMixerLogic.CHANNELS_51
+                2 -> AudioMixerLogic.CHANNELS_40
+                3 -> AudioMixerLogic.CHANNELS_20
+                else -> AudioMixerLogic.CHANNELS_SOURCE
+            }
+            prefs.getBoolean("stereo_downmix", true) -> AudioMixerLogic.CHANNELS_20
+            else -> AudioMixerLogic.CHANNELS_SOURCE
+        }
+        prefs.edit {
+            putBoolean("audio_passthrough", passthrough)
+            putInt("audio_transcode", oldCodec)
+            putInt("audio_output_channels", channels)
+            remove("stereo_downmix")
+            remove("audio_output_codec")
+            remove("audio_output_layout")
+            remove("center_gain_db")
+        }
+    }
+
+    // Скорость при битстриме: не спрашивать, а сразу выключать проброс до конца сеанса плеера
+    fun isSpeedPassthroughAutoEnabled(): Boolean = prefs.getBoolean("speed_passthrough_auto", false)
+    fun setSpeedPassthroughAutoEnabled(enabled: Boolean) = prefs.edit { putBoolean("speed_passthrough_auto", enabled) }
 
     fun getMixPreset(): Int = prefs.getInt("mix_preset", 0)
     fun setMixPreset(id: Int) = prefs.edit { putInt("mix_preset", id) }
@@ -697,9 +747,9 @@ class SettingsRepository private constructor(context: Context) {
     // Сигнатура настроек, требующих полного перезапуска плеера
     fun getHardSettingsSignature(): String {
         val videoParams = "${getVideoDecoderPriority()}_${getAudioDecoderPriority()}_${isTunnelingEnabled()}_${getDvMode()}_${isHdAudioIecEnabled()}_${isHdr10PlusEnabled()}"
-        val audioDownmix = "${isStereoDownmixEnabled()}_${getMixPreset()}_${getMixFront()}_${getMixCenter()}_${getMixRear()}_${getMixMiddle()}_${getMixLfe()}"
-        val audioOutput = "${getAudioOutputCodec()}_${getAudioOutputLayout()}_${getCenterGainDb()}"
-        return "${videoParams}_${audioDownmix}_${audioOutput}_${getTargetBufferCorrectMB()}"
+        val audioMix = "${getAudioOutputChannels()}_${isAudioUpmixEnabled()}_${getMixPreset()}_${getMixFront()}_${getMixCenter()}_${getMixRear()}_${getMixMiddle()}_${getMixLfe()}"
+        val audioOutput = "${isAudioPassthroughEnabled()}_${getAudioPassthroughFormats().sorted()}_${getAudioTranscode()}"
+        return "${videoParams}_${audioMix}_${audioOutput}_${getTargetBufferCorrectMB()}"
     }
 
     // --- Global Preferences Helpers ---

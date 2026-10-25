@@ -39,12 +39,15 @@ internal class TranscodingAudioSink(
      * @param eac3 E-AC3 вместо AC3 (тоже не больше 5.1: кодировщик FFmpeg не умеет 7.1)
      * @param channelsSetting каналы на выходе ([AudioMixerLogic.CHANNELS_SOURCE] и др.)
      * @param mixParams усиления пресета микшера
+     * @param upmix расширять звук с меньшим числом каналов до выбранной раскладки
      */
-    data class Config(val eac3: Boolean, val channelsSetting: Int, val mixParams: AudioMixerLogic.MixParams) {
+    data class Config(
+        val eac3: Boolean,
+        val channelsSetting: Int,
+        val mixParams: AudioMixerLogic.MixParams,
+        val upmix: Boolean = false
+    ) {
         val bitRate: Int get() = if (eac3) EAC3_BITRATE else AC3_BITRATE
-        /** Нужно ли сводить сам звук: тогда и AC3/DTS источника декодируются, а не пробрасываются как есть. */
-        val mixingRequired: Boolean get() =
-            mixParams != AudioMixerLogic.STANDARD_PARAMS || channelsSetting != AudioMixerLogic.CHANNELS_SOURCE
     }
 
     private var transcoding = false
@@ -77,19 +80,10 @@ internal class TranscodingAudioSink(
     /** Кодек на выходе для бейджа аудио, null - перекодирования нет. */
     val outputLabel: String? get() = if (transcoding) "${if (config.eac3) "E-AC3" else "AC3"} ${outChannels}ch" else null
 
-    override fun supportsFormat(format: Format): Boolean =
-        getFormatSupport(format) != AudioSink.SINK_FORMAT_UNSUPPORTED
+    // Сжатый звук источника решает PassthroughPolicySink снаружи: здесь он идет в выход как есть
+    override fun supportsFormat(format: Format): Boolean = delegate.supportsFormat(format)
 
-    override fun getFormatSupport(format: Format): Int {
-        // Своя раскладка или усиление голоса: многоканальный битстрим источника декодируем, чтобы свести
-        if (config.mixingRequired && isEncodedMultichannel(format) && AudioEncoderJni.isAvailable) {
-            return AudioSink.SINK_FORMAT_UNSUPPORTED
-        }
-        return delegate.getFormatSupport(format)
-    }
-
-    private fun isEncodedMultichannel(format: Format): Boolean =
-        format.sampleMimeType != MimeTypes.AUDIO_RAW && format.channelCount != 1 && format.channelCount != 2
+    override fun getFormatSupport(format: Format): Int = delegate.getFormatSupport(format)
 
     override fun configure(inputFormat: Format, specifiedBufferSize: Int, outputChannels: IntArray?) {
         val layout = transcodeLayout(inputFormat)
@@ -120,11 +114,11 @@ internal class TranscodingAudioSink(
         if (format.pcmEncoding != C.ENCODING_PCM_16BIT && format.pcmEncoding != C.ENCODING_PCM_FLOAT) return null
         if (format.sampleRate != 48_000 && format.sampleRate != 44_100) return null
         val input = AudioMixerLogic.inputLayoutFor(format.channelCount) ?: return null
-        // Стерео в стерео кодировать незачем; стерео - только если раскладку задали явно
-        if (format.channelCount <= 2 && config.channelsSetting == AudioMixerLogic.CHANNELS_SOURCE) return null
-        val output = AudioMixerLogic.outputLayoutFor(input, config.channelsSetting, AudioMixerLogic.MAX_ENCODED_CHANNELS)
-        // Моно кодируем как стерео
-        return if (output.channelCount < 2) AudioMixerLogic.Layouts.STEREO else output
+        val output = AudioMixerLogic.outputLayoutFor(
+            input, config.channelsSetting, AudioMixerLogic.MAX_ENCODED_CHANNELS, config.upmix
+        )
+        // Стерео и моно кодировать незачем: PCM 2.0 проходит по любому выходу, идет через микшер PCM
+        return output.takeIf { it.channelCount > 2 }
     }
 
     private fun encodedFormat(layout: ChannelLayout, rate: Int): Format = Format.Builder()
@@ -156,7 +150,7 @@ internal class TranscodingAudioSink(
         outChannels = layout.channelCount
         inputFloat = format.pcmEncoding == C.ENCODING_PCM_FLOAT
         matrix = AudioMixerLogic.mixCoefficients(
-            AudioMixerLogic.inputLayoutFor(inChannels)!!, layout, config.mixParams
+            AudioMixerLogic.inputLayoutFor(inChannels)!!, layout, config.mixParams, config.upmix
         )
         frame = FloatArray(outChannels * frameSize)
         return true

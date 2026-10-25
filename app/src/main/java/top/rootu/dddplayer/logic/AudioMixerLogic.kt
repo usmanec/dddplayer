@@ -127,21 +127,25 @@ object AudioMixerLogic {
     }
 
     /**
-     * Выходная раскладка для входа по настройке "Каналы на выходе", не больше [maxChannels] каналов.
-     * "Как в источнике" оставляет раскладку входа; если она шире предела, берется ближайшая меньшая
-     * стандартная (7.1 -> 5.1 -> 4.0 -> 2.0).
+     * Выходная раскладка для входа по настройке "Каналы на выходе": выбранная раскладка - это предел,
+     * каналов не добавляем (стерео остается стерео). Вход шире предела (или шире [maxChannels]) сводится
+     * в ближайшую меньшую стандартную раскладку: 7.1 -> 5.1 -> 4.0 -> 2.0.
+     * [upmix] - вход уже предела расширяется до выбранной раскладки ("как в источнике" не расширяется).
      */
-    fun outputLayoutFor(input: ChannelLayout, setting: Int, maxChannels: Int = 8): ChannelLayout {
-        val wanted = when (setting) {
-            CHANNELS_71 -> Layouts.SEVEN_ONE
-            CHANNELS_51 -> Layouts.FIVE_ONE
-            CHANNELS_40 -> Layouts.QUAD
-            CHANNELS_20 -> Layouts.STEREO
-            else -> input
-        }
-        if (wanted.channelCount <= maxChannels) return wanted
-        return listOf(Layouts.FIVE_ONE, Layouts.QUAD, Layouts.STEREO)
-            .firstOrNull { it.channelCount <= maxChannels } ?: Layouts.STEREO
+    fun outputLayoutFor(input: ChannelLayout, setting: Int, maxChannels: Int = 8, upmix: Boolean = false): ChannelLayout {
+        val limit = minOf(maxChannels, channelLimit(setting))
+        val standard = listOf(Layouts.SEVEN_ONE, Layouts.FIVE_ONE, Layouts.QUAD, Layouts.STEREO)
+            .firstOrNull { it.channelCount <= limit } ?: Layouts.STEREO
+        if (input.channelCount > limit) return standard
+        return if (upmix && setting != CHANNELS_SOURCE && input.channelCount < standard.channelCount) standard else input
+    }
+
+    /** Предел каналов для значения настройки. */
+    fun channelLimit(setting: Int): Int = when (setting) {
+        CHANNELS_51 -> 6
+        CHANNELS_40 -> 4
+        CHANNELS_20 -> 2
+        else -> 8
     }
 
     /**
@@ -181,29 +185,52 @@ object AudioMixerLogic {
         outputLayout: ChannelLayout = Layouts.STEREO
     ): List<ChannelMixingMatrix> = createMatrices(currentParams(repo), outputLayout)
 
+    /** Матрицы входов 1–8 каналов по настройке "Каналы на выходе" (у каждого входа своя выходная раскладка). */
+    fun createMatrices(
+        params: MixParams,
+        channelsSetting: Int,
+        maxChannels: Int,
+        upmix: Boolean = false
+    ): List<ChannelMixingMatrix> =
+        (1..8).mapNotNull { count ->
+            inputLayoutFor(count)?.let {
+                createMatrix(it, outputLayoutFor(it, channelsSetting, maxChannels, upmix), params, upmix)
+            }
+        }
+
     fun createMatrices(params: MixParams, outputLayout: ChannelLayout): List<ChannelMixingMatrix> =
         (1..8).mapNotNull { count ->
             inputLayoutFor(count)?.let { createMatrix(it, outputLayout, params) }
         }
 
-    fun createMatrix(inputLayout: ChannelLayout, outputLayout: ChannelLayout, params: MixParams): ChannelMixingMatrix {
+    fun createMatrix(
+        inputLayout: ChannelLayout,
+        outputLayout: ChannelLayout,
+        params: MixParams,
+        upmix: Boolean = false
+    ): ChannelMixingMatrix {
         val inCount = inputLayout.channelCount
         val outCount = outputLayout.channelCount
-        return ChannelMixingMatrix(inCount, outCount, mixCoefficients(inputLayout, outputLayout, params))
+        return ChannelMixingMatrix(inCount, outCount, mixCoefficients(inputLayout, outputLayout, params, upmix))
     }
 
     /**
      * Коэффициенты в порядке Media3 (row-major): индекс in * outCount + out,
-     * строка - входной канал, столбец - выходной.
+     * строка - входной канал, столбец - выходной. [upmix] - заполнять выходы, которых нет во входе.
      */
-    fun mixCoefficients(inputLayout: ChannelLayout, outputLayout: ChannelLayout, params: MixParams): FloatArray {
+    fun mixCoefficients(
+        inputLayout: ChannelLayout,
+        outputLayout: ChannelLayout,
+        params: MixParams,
+        upmix: Boolean = false
+    ): FloatArray {
         val p = params.sanitized()
         val outCount = outputLayout.channelCount
         val m = Array(inputLayout.channelCount) { FloatArray(outCount) }
         when (outputLayout.speakers) {
             Layouts.STEREO.speakers -> fillStereoMatrix(inputLayout, p, m)
             Layouts.MONO.speakers -> fillMonoOutput(inputLayout, p, m)
-            else -> fillMultichannelMatrix(inputLayout, outputLayout, p, m)
+            else -> fillMultichannelMatrix(inputLayout, outputLayout, p, m, upmix)
         }
         val flat = FloatArray(inputLayout.channelCount * outCount)
         for (i in m.indices) for (o in 0 until outCount) flat[i * outCount + o] = m[i][o]
@@ -259,7 +286,8 @@ object AudioMixerLogic {
         inputLayout: ChannelLayout,
         outputLayout: ChannelLayout,
         params: MixParams,
-        matrix: Array<FloatArray>
+        matrix: Array<FloatArray>,
+        upmix: Boolean
     ) {
         val input = inputLayout.speakers
         val output = outputLayout.speakers
@@ -351,6 +379,8 @@ object AudioMixerLogic {
             }
         }
 
+        if (upmix) fillMissingOutputs(input, output, matrix)
+
         // Общая нормировка до пресета: самая нагруженная колонка не больше 1
         var maxColumn = 0f
         for (o in output.indices) {
@@ -362,6 +392,33 @@ object AudioMixerLogic {
         for (i in input.indices) {
             val gain = gainFor(input[i], params) * scale
             for (o in output.indices) matrix[i][o] *= gain
+        }
+    }
+
+    /**
+     * Простой матричный апмикс (не Pro Logic): пустой центр собирается из фронтов (-6 дБ каждый),
+     * пустые тыловые и боковые - из соседнего окружения той же стороны (-3 дБ), а без него - из фронта (-6 дБ).
+     * LFE не выдумываем: без бас-менеджмента это только гул.
+     */
+    private fun fillMissingOutputs(input: List<Speaker>, output: List<Speaker>, matrix: Array<FloatArray>) {
+        fun isEmpty(target: Speaker): Boolean {
+            val o = output.indexOf(target)
+            return o >= 0 && input.indices.all { matrix[it][o] == 0f }
+        }
+        if (isEmpty(Speaker.FC)) {
+            addOutput(matrix, input.indexOf(Speaker.FL), output, Speaker.FC, 0.5f)
+            addOutput(matrix, input.indexOf(Speaker.FR), output, Speaker.FC, 0.5f)
+        }
+        for ((target, neighbour, front) in listOf(
+            Triple(Speaker.BL, Speaker.SL, Speaker.FL),
+            Triple(Speaker.BR, Speaker.SR, Speaker.FR),
+            Triple(Speaker.SL, Speaker.BL, Speaker.FL),
+            Triple(Speaker.SR, Speaker.BR, Speaker.FR)
+        )) {
+            if (!isEmpty(target)) continue
+            val n = input.indexOf(neighbour)
+            if (n >= 0) addOutput(matrix, n, output, target, INV_SQRT2)
+            else addOutput(matrix, input.indexOf(front), output, target, 0.5f)
         }
     }
 

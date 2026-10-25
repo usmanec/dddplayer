@@ -133,6 +133,29 @@ class AudioMixerLogicTest {
         assertEquals(Layouts.QUAD, AudioMixerLogic.outputLayoutFor(Layouts.FIVE_ONE, AudioMixerLogic.CHANNELS_40))
         assertEquals(Layouts.STEREO, AudioMixerLogic.outputLayoutFor(Layouts.FIVE_ONE, AudioMixerLogic.CHANNELS_20))
         assertEquals(Layouts.STEREO, AudioMixerLogic.outputLayoutFor(Layouts.FIVE_ONE, AudioMixerLogic.CHANNELS_SOURCE, 2))
+        // Выбранная раскладка - предел: каналов не добавляем
+        assertEquals(Layouts.STEREO, AudioMixerLogic.outputLayoutFor(Layouts.STEREO, AudioMixerLogic.CHANNELS_51))
+        assertEquals(Layouts.FIVE_ONE, AudioMixerLogic.outputLayoutFor(Layouts.FIVE_ONE, AudioMixerLogic.CHANNELS_71))
+    }
+
+    @Test
+    fun `upmix expands to the chosen layout`() {
+        assertEquals(
+            Layouts.FIVE_ONE,
+            AudioMixerLogic.outputLayoutFor(Layouts.STEREO, AudioMixerLogic.CHANNELS_51, upmix = true)
+        )
+        // "Как в источнике" не расширяется
+        assertEquals(
+            Layouts.STEREO,
+            AudioMixerLogic.outputLayoutFor(Layouts.STEREO, AudioMixerLogic.CHANNELS_SOURCE, upmix = true)
+        )
+        val m = AudioMixerLogic.mixCoefficients(Layouts.STEREO, Layouts.FIVE_ONE, standard, upmix = true)
+        // FL: в FL целиком, в центр и левый тыл по -6 дБ, в LFE ничего
+        assertEquals(listOf(1f, 0f, 0.5f, 0f, 0.5f, 0f), m.slice(0 until 6))
+        // Квадро -> 7.1: боковые из тылов той же стороны
+        val q = AudioMixerLogic.mixCoefficients(Layouts.QUAD, Layouts.SEVEN_ONE, standard, upmix = true)
+        assertEquals(0.70710677f, q[2 * 8 + 6], 1e-6f)
+        assertEquals(0f, q[2 * 8 + 7], 1e-6f)
     }
 
     @Test

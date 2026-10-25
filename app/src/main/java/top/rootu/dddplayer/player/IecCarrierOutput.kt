@@ -45,6 +45,11 @@ internal object IecCarrierOutput {
     private const val ROUTE_CACHE_MS = 2_000L
     private val routeCache = ConcurrentHashMap<Boolean, Pair<Long, Boolean>>()
 
+    /** Есть ли маршрут несущей для DTS-HD ([dts]) или TrueHD: для списка форматов в настройках. */
+    fun isRouteAvailable(context: Context, dts: Boolean): Boolean = routeAvailable(
+        context, Format.Builder().setSampleMimeType(if (dts) MimeTypes.AUDIO_DTS_HD else MimeTypes.AUDIO_TRUEHD).build()
+    )
+
     private fun routeAvailable(context: Context, format: Format): Boolean {
         val isDts = format.sampleMimeType == MimeTypes.AUDIO_DTS_HD || format.sampleMimeType == MimeTypes.AUDIO_DTS
         val now = SystemClock.elapsedRealtime()

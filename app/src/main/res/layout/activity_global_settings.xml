@@ -699,6 +699,10 @@
                         <TextView
                             style="@style/SettingsItemDesc"
                             android:text="@string/pref_audio_decoder_sw_desc" />
+
+                        <TextView
+                            style="@style/SettingsItemDesc"
+                            android:text="@string/pref_audio_decoder_passthrough_note" />
                     </LinearLayout>
 
                     <TextView
@@ -707,87 +711,33 @@
                         tools:text="SW" />
                 </LinearLayout>
 
-                <!-- Downmix -->
-                <LinearLayout
-                    android:id="@+id/item_downmix"
-                    style="@style/SettingsItemContainer">
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:duplicateParentState="true"
-                        android:orientation="vertical">
-                        <TextView
-                            style="@style/SettingsItemTitle"
-                            android:text="@string/pref_downmix" />
-                        <TextView
-                            style="@style/SettingsItemDesc"
-                            android:text="@string/pref_downmix_desc" />
-                    </LinearLayout>
+                <!-- Подгруппа: проброс (битстрим) на ресивер -->
+                <TextView
+                    style="@style/SettingsSectionHeader"
+                    android:layout_marginTop="16dp"
+                    android:text="@string/pref_group_passthrough" />
 
+                <LinearLayout android:id="@+id/item_audio_passthrough" style="@style/SettingsItemContainer">
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:duplicateParentState="true">
+                        <TextView style="@style/SettingsItemTitle" android:text="@string/pref_audio_passthrough" />
+                        <TextView style="@style/SettingsItemDesc" android:text="@string/pref_audio_passthrough_desc" />
+                        <TextView android:id="@+id/text_audio_passthrough_formats" style="@style/SettingsItemDesc" />
+                    </LinearLayout>
                     <androidx.appcompat.widget.SwitchCompat
-                        android:id="@+id/switch_downmix"
+                        android:id="@+id/switch_audio_passthrough"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:focusable="false"
-                        android:clickable="false" />
+                        android:clickable="false"
+                        android:focusable="false" />
                 </LinearLayout>
 
-                <!-- Настройка Downmix (появляется при включении) -->
-                <LinearLayout
-                    android:id="@+id/item_downmix_config"
-                    style="@style/SettingsItemContainer"
-                    android:visibility="gone"
-                    tools:visibility="visible">
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:duplicateParentState="true"
-                        android:orientation="vertical">
-
-                        <TextView
-                            style="@style/SettingsItemTitle"
-                            android:text="@string/pref_downmix_config" />
-
-                        <TextView
-                            style="@style/SettingsItemDesc"
-                            android:text="@string/pref_downmix_config_desc" />
-                    </LinearLayout>
-
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:contentDescription="@string/pref_downmix_config"
-                        android:src="@drawable/ic_arrow_right"
-                        android:duplicateParentState="true"
-                        app:tint="@color/selector_settings_secondary" />
-                </LinearLayout>
-
-                <!-- Многоканальный звук: PCM или перекодирование в AC3/E-AC3 для проброса, микшер -->
-                <LinearLayout android:id="@+id/item_audio_output_codec" style="@style/SettingsItemContainer">
+                <!-- Пробрасываемые форматы (при включенном пробросе) -->
+                <LinearLayout android:id="@+id/item_passthrough_formats" style="@style/SettingsItemContainer">
                     <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:duplicateParentState="true">
-                        <TextView style="@style/SettingsItemTitle" android:text="@string/pref_audio_output_codec" />
-                        <TextView style="@style/SettingsItemDesc" android:text="@string/pref_audio_output_codec_desc" />
+                        <TextView style="@style/SettingsItemTitle" android:text="@string/pref_passthrough_formats" />
+                        <TextView style="@style/SettingsItemDesc" android:text="@string/pref_passthrough_formats_desc" />
                     </LinearLayout>
-                    <TextView android:id="@+id/text_audio_output_codec_value" style="@style/SettingsItemValue" />
-                </LinearLayout>
-
-                <LinearLayout android:id="@+id/item_audio_output_layout" style="@style/SettingsItemContainer">
-                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:duplicateParentState="true">
-                        <TextView style="@style/SettingsItemTitle" android:text="@string/pref_audio_output_layout" />
-                        <TextView style="@style/SettingsItemDesc" android:text="@string/pref_audio_output_layout_desc" />
-                    </LinearLayout>
-                    <TextView android:id="@+id/text_audio_output_layout_value" style="@style/SettingsItemValue" />
-                </LinearLayout>
-
-                <LinearLayout android:id="@+id/item_center_gain" style="@style/SettingsItemContainer">
-                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:duplicateParentState="true">
-                        <TextView style="@style/SettingsItemTitle" android:text="@string/pref_center_gain" />
-                        <TextView style="@style/SettingsItemDesc" android:text="@string/pref_center_gain_desc" />
-                    </LinearLayout>
-                    <TextView android:id="@+id/text_center_gain_value" style="@style/SettingsItemValue" />
+                    <TextView android:id="@+id/text_passthrough_formats_value" style="@style/SettingsItemValue" />
                 </LinearLayout>
 
                 <!-- HD-звук через IEC 61937 -->
@@ -817,6 +767,80 @@
                         android:layout_height="wrap_content"
                         android:clickable="false"
                         android:focusable="false" />
+                </LinearLayout>
+
+                <!-- Перекодирование декодированного звука в AC3/E-AC3 -->
+                <LinearLayout android:id="@+id/item_audio_transcode" style="@style/SettingsItemContainer">
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:duplicateParentState="true">
+                        <TextView style="@style/SettingsItemTitle" android:text="@string/pref_audio_transcode" />
+                        <TextView style="@style/SettingsItemDesc" android:id="@+id/text_audio_transcode_desc" />
+                    </LinearLayout>
+                    <TextView android:id="@+id/text_audio_transcode_value" style="@style/SettingsItemValue" />
+                </LinearLayout>
+
+                <!-- Подгруппа: микшер (только для звука, который декодирует плеер) -->
+                <TextView
+                    style="@style/SettingsSectionHeader"
+                    android:layout_marginTop="16dp"
+                    android:text="@string/pref_group_mixer" />
+
+                <TextView
+                    style="@style/SettingsItemDesc"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginEnd="16dp"
+                    android:layout_marginBottom="8dp"
+                    android:text="@string/pref_mixer_note" />
+
+                <LinearLayout android:id="@+id/item_audio_output_channels" style="@style/SettingsItemContainer">
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:duplicateParentState="true">
+                        <TextView style="@style/SettingsItemTitle" android:text="@string/pref_audio_output_channels" />
+                        <TextView style="@style/SettingsItemDesc" android:id="@+id/text_audio_output_channels_desc" />
+                    </LinearLayout>
+                    <TextView android:id="@+id/text_audio_output_channels_value" style="@style/SettingsItemValue" />
+                </LinearLayout>
+
+                <!-- Апмикс до выбранной раскладки (только при выбранном числе каналов) -->
+                <LinearLayout android:id="@+id/item_audio_upmix" style="@style/SettingsItemContainer">
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:duplicateParentState="true">
+                        <TextView style="@style/SettingsItemTitle" android:text="@string/pref_audio_upmix" />
+                        <TextView style="@style/SettingsItemDesc" android:text="@string/pref_audio_upmix_desc" />
+                    </LinearLayout>
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switch_audio_upmix"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:clickable="false"
+                        android:focusable="false" />
+                </LinearLayout>
+
+                <!-- Пресет микшера -->
+                <LinearLayout
+                    android:id="@+id/item_downmix_config"
+                    style="@style/SettingsItemContainer">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:duplicateParentState="true"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/SettingsItemTitle"
+                            android:text="@string/pref_downmix_config" />
+
+                        <TextView
+                            style="@style/SettingsItemDesc"
+                            android:text="@string/pref_downmix_config_desc" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:contentDescription="@string/pref_downmix_config"
+                        android:src="@drawable/ic_arrow_right"
+                        android:duplicateParentState="true"
+                        app:tint="@color/selector_settings_secondary" />
                 </LinearLayout>
 
                 <!-- Boost -->

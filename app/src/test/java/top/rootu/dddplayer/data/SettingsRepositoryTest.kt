@@ -12,6 +12,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import top.rootu.dddplayer.logic.AudioMixerLogic
+import top.rootu.dddplayer.logic.AudioPassthroughLogic
 import top.rootu.dddplayer.model.AnaglyphCalibration
 import top.rootu.dddplayer.model.HistoryEntry
 import top.rootu.dddplayer.model.SavedPlaylist
@@ -145,6 +147,45 @@ class SettingsRepositoryTest {
         prefs.edit { putBoolean("show_clock", true) }
         assertEquals(0, repo().getClockTransparency())
         assertFalse(prefs.contains("show_clock"))
+    }
+
+    @Test
+    fun `new install keeps decoded stereo without passthrough`() {
+        val repo = repo()
+        assertFalse(repo.isAudioPassthroughEnabled())
+        assertEquals(AudioMixerLogic.CHANNELS_20, repo.getAudioOutputChannels())
+        assertEquals(SettingsRepository.AUDIO_TRANSCODE_OFF, repo.getAudioTranscode())
+        assertEquals(AudioPassthroughLogic.ALL_FORMATS.toSet(), repo.getAudioPassthroughFormats())
+    }
+
+    @Test
+    fun `device decoders first and no downmix migrate to passthrough with source channels`() {
+        prefs.edit {
+            putInt("audio_decoder_priority", DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+            putBoolean("stereo_downmix", false)
+            putInt("center_gain_db", 6)
+        }
+        val repo = repo()
+        assertTrue(repo.isAudioPassthroughEnabled())
+        assertEquals(AudioMixerLogic.CHANNELS_SOURCE, repo.getAudioOutputChannels())
+        assertFalse(prefs.contains("stereo_downmix"))
+        assertFalse(prefs.contains("center_gain_db"))
+        // Приоритет декодеров остается своим, проброс от него больше не зависит
+        repo.setAudioDecoderPriority(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+        assertTrue(repo.isAudioPassthroughEnabled())
+    }
+
+    @Test
+    fun `transcoding settings migrate to transcode and channels`() {
+        prefs.edit {
+            putInt("audio_output_codec", 2)
+            putInt("audio_output_layout", 2)
+        }
+        val repo = repo()
+        assertEquals(SettingsRepository.AUDIO_TRANSCODE_EAC3, repo.getAudioTranscode())
+        assertEquals(AudioMixerLogic.CHANNELS_40, repo.getAudioOutputChannels())
+        assertFalse(repo.isAudioPassthroughEnabled())
+        assertFalse(prefs.contains("audio_output_codec"))
     }
 
     @Test

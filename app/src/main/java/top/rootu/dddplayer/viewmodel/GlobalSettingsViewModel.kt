@@ -33,12 +33,17 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
 
     private val _isHdr10PlusEnabled = MutableLiveData(repository.isHdr10PlusEnabled())
     val isHdr10PlusEnabled: LiveData<Boolean> = _isHdr10PlusEnabled
-    private val _audioOutputCodec = MutableLiveData(repository.getAudioOutputCodec())
-    val audioOutputCodec: LiveData<Int> = _audioOutputCodec
-    private val _audioOutputLayout = MutableLiveData(repository.getAudioOutputLayout())
-    val audioOutputLayout: LiveData<Int> = _audioOutputLayout
-    private val _centerGainDb = MutableLiveData(repository.getCenterGainDb())
-    val centerGainDb: LiveData<Int> = _centerGainDb
+    // --- Вывод звука: проброс, перекодирование, каналы микшера ---
+    private val _isAudioPassthroughEnabled = MutableLiveData(repository.isAudioPassthroughEnabled())
+    val isAudioPassthroughEnabled: LiveData<Boolean> = _isAudioPassthroughEnabled
+    private val _passthroughFormats = MutableLiveData(repository.getAudioPassthroughFormats())
+    val passthroughFormats: LiveData<Set<String>> = _passthroughFormats
+    private val _audioTranscode = MutableLiveData(repository.getAudioTranscode())
+    val audioTranscode: LiveData<Int> = _audioTranscode
+    private val _audioOutputChannels = MutableLiveData(repository.getAudioOutputChannels())
+    val audioOutputChannels: LiveData<Int> = _audioOutputChannels
+    private val _isAudioUpmixEnabled = MutableLiveData(repository.isAudioUpmixEnabled())
+    val isAudioUpmixEnabled: LiveData<Boolean> = _isAudioUpmixEnabled
 
     private val _isHdAudioIecEnabled = MutableLiveData(repository.isHdAudioIecEnabled())
     val isHdAudioIecEnabled: LiveData<Boolean> = _isHdAudioIecEnabled
@@ -74,9 +79,6 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     val loudnessBoost: LiveData<Int> = _loudnessBoost
 
     // --- Audio Mix Settings ---
-    private val _isStereoDownmixEnabled = MutableLiveData(repository.isStereoDownmixEnabled())
-    val isStereoDownmixEnabled: LiveData<Boolean> = _isStereoDownmixEnabled
-
     private val _mixPresetId = MutableLiveData(repository.getMixPreset())
     val mixPresetId: LiveData<Int> = _mixPresetId
 
@@ -277,22 +279,33 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
         _isTunnelingEnabled.value = enabled
     }
 
-    fun setAudioOutputCodec(codec: Int) {
-        repository.setAudioOutputCodec(codec)
-        _audioOutputCodec.value = codec
+    fun toggleAudioPassthrough(enabled: Boolean) {
+        repository.setAudioPassthroughEnabled(enabled)
+        _isAudioPassthroughEnabled.value = enabled
     }
 
-    fun setAudioOutputLayout(layout: Int) {
-        repository.setAudioOutputLayout(layout)
-        _audioOutputLayout.value = layout
+    fun setPassthroughFormats(formats: Set<String>) {
+        repository.setAudioPassthroughFormats(formats)
+        _passthroughFormats.value = formats
     }
 
-    /** Усиление центра по кругу: 0, +3, ... +12 дБ. */
-    fun cycleCenterGain() {
-        val current = _centerGainDb.value ?: 0
-        val next = if (current >= SettingsRepository.CENTER_GAIN_MAX_DB) 0 else current + SettingsRepository.CENTER_GAIN_STEP_DB
-        repository.setCenterGainDb(next)
-        _centerGainDb.value = next
+    fun setAudioTranscode(codec: Int) {
+        repository.setAudioTranscode(codec)
+        _audioTranscode.value = codec
+        // Стерео не перекодируется: при 2.0 на выходе перекодирование включаем вместе с "как в источнике"
+        if (codec != SettingsRepository.AUDIO_TRANSCODE_OFF && _audioOutputChannels.value == AudioMixerLogic.CHANNELS_20) {
+            setAudioOutputChannels(AudioMixerLogic.CHANNELS_SOURCE)
+        }
+    }
+
+    fun toggleAudioUpmix(enabled: Boolean) {
+        repository.setAudioUpmixEnabled(enabled)
+        _isAudioUpmixEnabled.value = enabled
+    }
+
+    fun setAudioOutputChannels(channels: Int) {
+        repository.setAudioOutputChannels(channels)
+        _audioOutputChannels.value = channels
     }
 
     fun toggleHdAudioIec(enabled: Boolean) {
@@ -434,11 +447,6 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     }
 
     // --- Downmix Logic ---
-
-    fun toggleStereoDownmix(enabled: Boolean) {
-        repository.setStereoDownmixEnabled(enabled)
-        _isStereoDownmixEnabled.value = enabled
-    }
 
     fun setMixPreset(presetId: Int) {
         repository.setMixPreset(presetId)

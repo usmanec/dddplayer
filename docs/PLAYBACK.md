@@ -27,12 +27,22 @@
   - `DefaultTrackSelector`: туннелирование, предпочтительные языки аудио и субтитров (`""` — по умолчанию,
     `device` — языки системы), `exceedRendererCapabilitiesIfNecessary`. Включилось ли туннелирование на деле,
     видно по `AudioTrackConfig.tunneling` (`onAudioTrackInitialized`): тогда у бейджа видео в инфопанели стоит `↳`.
-    Бейдж аудио показывает дорожку и формат вывода (`AC3 5.1 > AC3 5.1` — проброс, `> PCM` — декодирует плеер);
+    Бейдж аудио показывает дорожку и маршрут (`DTS 5.1 > проброс`, `AAC 5.1 > PCM 2.0`, `TrueHD 7.1 > AC3 5.1`);
   - `DefaultRenderersFactory`: приоритет декодеров-расширений отдельно для видео (`video_decoder_priority`, AV1) и аудио
     (`audio_decoder_priority`, ffmpeg) — передается в `buildVideoRenderers`/`buildAudioRenderers`,
-    `enableDecoderFallback`. При `stereo_downmix` подключается свой `DefaultAudioSink` с
-    `ChannelMixingAudioProcessor` (матрицы из `AudioMixerLogic`) и аудиобуфером не больше 256 КБ,
-    чтобы не упасть по памяти. Без даунмикса используется стандартный sink, и passthrough работает;
+    `enableDecoderFallback`. Приоритет аудио решает только, кто декодирует то, что не пробрасывается;
+  - цепочка звука (снаружи внутрь): `PassthroughPolicySink` → `TranscodingAudioSink` (если перекодирование) →
+    `IecCarrierSink` (если `hd_audio_iec` и проброс) → sink с микшером PCM или стандартный.
+    `PassthroughPolicySink` отдает выходу как есть только сжатый звук, разрешенный `AudioPassthroughLogic.isAllowed`
+    (`audio_passthrough` и группа формата в `audio_passthrough_formats`; форматы вне списка, например AC-4, — по
+    переключателю), остальной сжатый звук выход «не поддерживает», и его декодируют. При пробросе первым в списке
+    стоит `MediaCodecAudioRenderer` без декодеров (пустой `MediaCodecSelector`): он берет только то, что sink
+    примет как есть, поэтому проброс работает при любом приоритете декодеров;
+  - микшер PCM: свой `DefaultAudioSink` с `ChannelMixingAudioProcessor` (матрицы `AudioMixerLogic.createMatrices`
+    по `audio_output_channels` и пресету) и аудиобуфером не больше 256 КБ, чтобы не упасть по памяти. Ставится,
+    если каналы не «как в источнике» или пресет не стандартный. Выбранная раскладка — предел: шире сводится
+    (стерео — RFC 7845, многоканальные — маршрутизация по позициям с правилами `swr_build_matrix2`), уже — остается
+    как есть, а с `audio_upmix` расширяется простой матрицей (центр из фронтов, тылы из соседних каналов);
   - `hd_audio_iec`: выбранный sink оборачивается в `IecCarrierSink` (`IecCarrierOutput.wrap`). DTS-HD MA и
     TrueHD упаковываются в IEC 61937 (`DtsHdIecPacker`, `TrueHdMatPacker`, порт из plezy, совпадает с FFmpeg
     байт в байт) и идут отдельным `DefaultAudioSink` без процессоров с `AudioTrack` в `ENCODING_IEC61937`
@@ -46,16 +56,17 @@
     если обычный sink принимает DTS напрямую; ошибка такого перехода приходит как `InitializationException`).
     Бейдж аудио при несущей показывает `TrueHD (IEC 61937)` / `DTS-HD (IEC 61937)` (`carrierCodecLabel`).
     Защелка несовпадения потока сбрасывается в `loadPlaylist` и при `onMediaItemTransition`;
-  - `audio_output_codec` AC3/E-AC3: снаружи всего стоит `TranscodingAudioSink`. Многоканальный PCM (16 бит или
-    float, 44.1/48 кГц, 3+ канала, или любой при явной раскладке) сводится матрицей `AudioMixerLogic.mixCoefficients`
-    в выходную раскладку (`audio_output_layout`: как в источнике до 5.1, 5.1, 4.0, 2.0) с пресетом микшера,
+  - `audio_transcode` AC3/E-AC3: `TranscodingAudioSink` стоит перед микшером PCM. Декодированный PCM (16 бит или
+    float, 44.1/48 кГц) сводится матрицей `AudioMixerLogic.mixCoefficients` в раскладку по `audio_output_channels`
+    (не больше 5.1; если выходит 2.0 и меньше — не перекодируется и идет в микшер PCM) с пресетом микшера,
     кодируется FFmpeg (`AudioEncoderJni`, `libdddaudioenc.so` из `audioenc/`, AC3 640 кбит/с,
     E-AC3 1024 кбит/с, не больше 5.1 — кодировщик FFmpeg не умеет 7.1) и уходит в выбранный sink как проброс
     AC3/E-AC3. Время кадров считается от якоря по числу кадров, громкость плеера применяется в микшере
     (битстрим ее не меняет), скорость не применяется (как у обычного проброса). Если устройство не выводит
-    AC3/E-AC3 битстримом или библиотеки нет — звук идет как раньше. При своей раскладке или усилении центра
-    многоканальный битстрим источника (AC3, DTS, TrueHD) не пробрасывается, а декодируется, чтобы его свести.
-    Бейдж аудио: `PCM → AC3 5.1`;
+    AC3/E-AC3 битстримом или библиотеки нет — звук идет в PCM;
+  - смена скорости при битстриме: `PlayerManager.bitstreamDisabledForSession` выключает проброс и перекодирование
+    до конца сеанса плеера (плеер пересоздается). Каналы «как в источнике» тогда ограничены
+    `AudioCapabilities.maxChannelCount`: по оптике и ARC многоканальный PCM не проходит;
   - `NetworkBufferLoadControl` (см. ниже);
   - `LoudnessEnhancer` по `audioSessionId` (`loudness_boost`), `skipSilence`, шаг перемотки 15 с.
 - `loadPlaylist(items, startIndex, startPosMs)` превращает `MediaItem` в `Media3MediaItem`

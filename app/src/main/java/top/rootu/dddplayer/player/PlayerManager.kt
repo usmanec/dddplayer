@@ -29,10 +29,12 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.Renderer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
+import androidx.media3.exoplayer.audio.AudioCapabilities
 import androidx.media3.exoplayer.audio.AudioRendererEventListener
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.AudioTrackAudioOutputProvider
 import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer
 import androidx.media3.exoplayer.hls.DefaultHlsExtractorFactory
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
@@ -60,8 +62,10 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import top.rootu.dddplayer.App.Companion.USER_AGENT
+import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
 import top.rootu.dddplayer.logic.AudioMixerLogic
+import top.rootu.dddplayer.logic.AudioPassthroughLogic
 import top.rootu.dddplayer.logic.M3uParser
 import top.rootu.dddplayer.logic.StreamTypeLogic
 import top.rootu.dddplayer.logic.UnifiedMetadataReader
@@ -111,6 +115,15 @@ class PlayerManager(
     private var loudnessEnhancer: LoudnessEnhancer? = null
     private var iecSink: IecCarrierSink? = null
     private var transcodingSink: TranscodingAudioSink? = null
+
+    /**
+     * Проброс и перекодирование выключены до конца сеанса плеера: битстрим нельзя ускорить,
+     * и для смены скорости звук декодируется в PCM. Применяется при пересоздании плеера.
+     */
+    var bitstreamDisabledForSession = false
+
+    /** Туннелирование выключено до конца сеанса плеера (с ним не работает масштаб). */
+    var tunnelingDisabledForSession = false
 
     // Состояние для восстановления
     private var currentWindowIndex = 0
@@ -351,7 +364,7 @@ class PlayerManager(
         val trackSelector = DefaultTrackSelector(appContext)
         val parametersBuilder = trackSelector.buildUponParameters()
             .setAllowInvalidateSelectionsOnRendererCapabilitiesChange(true)
-            .setTunnelingEnabled(settingsRepo.isTunnelingEnabled())
+            .setTunnelingEnabled(settingsRepo.isTunnelingEnabled() && !tunnelingDisabledForSession)
             // Разрешаем плееру игнорировать битые дорожки
             .setExceedRendererCapabilitiesIfNecessary(true)
             .setAllowMultipleAdaptiveSelections(true)
@@ -445,10 +458,24 @@ class PlayerManager(
                 eventListener: AudioRendererEventListener,
                 out: ArrayList<Renderer>
             ) {
-                // Решаем, какой Sink использовать
-                val baseSink = if (settingsRepo.isStereoDownmixEnabled()) {
-                    // Если нужен Downmix -> создаем свой Sink с процессором
+                val bitstreamAllowed = !bitstreamDisabledForSession
+                val passthrough = bitstreamAllowed && settingsRepo.isAudioPassthroughEnabled()
+                val passthroughFormats = settingsRepo.getAudioPassthroughFormats()
+                val transcode = if (bitstreamAllowed) settingsRepo.getAudioTranscode() else SettingsRepository.AUDIO_TRANSCODE_OFF
+                val channelsSetting = settingsRepo.getAudioOutputChannels()
+                val mixParams = AudioMixerLogic.currentParams(settingsRepo)
+                val upmix = settingsRepo.isAudioUpmixEnabled()
+                // Проброс выключен на сеанс, а каналы "как в источнике": многоканальный PCM может не пройти
+                // по оптике или ARC (там только стерео PCM), поэтому не больше того, что объявляет выход
+                val maxPcmChannels = if (bitstreamDisabledForSession && channelsSetting == AudioMixerLogic.CHANNELS_SOURCE) {
+                    AudioCapabilities.getCapabilities(context, AudioAttributes.DEFAULT, null).maxChannelCount.coerceIn(2, 8)
+                } else 8
+                // "Как в источнике" не расширяется, апмикс работает только с выбранной раскладкой
+                val pcmMixing = channelsSetting != AudioMixerLogic.CHANNELS_SOURCE ||
+                    mixParams != AudioMixerLogic.STANDARD_PARAMS || maxPcmChannels < 8
 
+                // Микшер PCM: свой Sink с процессором, иначе стандартный. Битстрим идет мимо процессоров
+                val baseSink = if (pcmMixing) {
                     // Ограничиваем аудиобуффер, чтобы не упасть по памяти
                     val bufferSizeProvider = DefaultAudioSink.AudioTrackBufferSizeProvider {
                             minSize, encoding, outputMode, pcmFrameSize, sampleRate, bitrate, speed ->
@@ -479,8 +506,7 @@ class PlayerManager(
                         .setAudioOutputProvider(audioOutputProvider) // Ограничиваем аудиобуффер, чтобы не упасть по памяти
 
                     val mixingProcessor = ChannelMixingAudioProcessor()
-                    val matrices = AudioMixerLogic.createMatrices(settingsRepo)
-                    matrices.forEach { matrix ->
+                    AudioMixerLogic.createMatrices(mixParams, channelsSetting, maxPcmChannels, upmix).forEach { matrix ->
                         mixingProcessor.putChannelMixingMatrix(matrix)
                     }
 
@@ -490,35 +516,42 @@ class PlayerManager(
 
                     sinkBuilder.build()
                 } else {
-                    // Если Downmix не нужен -> используем стандартный (для Passthrough и т.д.)
                     audioSink
                 }
-                // DTS-HD MA и TrueHD через несущую IEC 61937 поверх любого из Sink: даунмикс касается только
-                // декодированного PCM, а битстрим и так идет мимо процессоров
-                val iec = if (settingsRepo.isHdAudioIecEnabled()) IecCarrierOutput.wrap(appContext, baseSink) else null
+                // DTS-HD MA и TrueHD через несущую IEC 61937 - часть проброса
+                val iec = if (passthrough && settingsRepo.isHdAudioIecEnabled()) IecCarrierOutput.wrap(appContext, baseSink) else null
                 iecSink = iec
-                // Многоканальный PCM -> AC3/E-AC3 для проброса (с микшером и усилением центра). Снаружи всего:
-                // сводит декодированный звук до процессоров даунмикса, битстрим источника идет мимо него
-                val outputCodec = settingsRepo.getAudioOutputCodec()
-                val transcoder = if (outputCodec != SettingsRepository.AUDIO_OUTPUT_PCM) {
+                // Декодированный звук -> AC3/E-AC3 для проброса, тем же микшером. Снаружи микшера PCM:
+                // берет звук до его процессоров
+                val transcoder = if (transcode != SettingsRepository.AUDIO_TRANSCODE_OFF) {
                     TranscodingAudioSink(
                         iec ?: baseSink,
                         TranscodingAudioSink.Config(
-                            eac3 = outputCodec == SettingsRepository.AUDIO_OUTPUT_EAC3,
-                            channelsSetting = when (settingsRepo.getAudioOutputLayout()) {
-                                1 -> AudioMixerLogic.CHANNELS_51
-                                2 -> AudioMixerLogic.CHANNELS_40
-                                3 -> AudioMixerLogic.CHANNELS_20
-                                else -> AudioMixerLogic.CHANNELS_SOURCE
-                            },
-                            mixParams = AudioMixerLogic.currentParams(settingsRepo)
+                            eac3 = transcode == SettingsRepository.AUDIO_TRANSCODE_EAC3,
+                            channelsSetting = channelsSetting,
+                            mixParams = mixParams,
+                            upmix = upmix
                         )
                     )
                 } else null
                 transcodingSink = transcoder
-                val finalSink = transcoder ?: iec ?: baseSink
+                // Снаружи всего - выбор, какой сжатый звук пробрасывать; остальное декодируется
+                val finalSink = PassthroughPolicySink(transcoder ?: iec ?: baseSink) { format ->
+                    AudioPassthroughLogic.isAllowed(format.sampleMimeType, passthrough, passthroughFormats)
+                }
 
-                // Приоритет встроенного FFmpeg - своя настройка аудио
+                // Проброс не зависит от приоритета декодеров: первым стоит рендерер без декодеров,
+                // он берет только то, что выход примет как есть
+                if (passthrough) {
+                    out.add(
+                        MediaCodecAudioRenderer(
+                            context, MediaCodecSelector { _, _, _ -> emptyList() }, false,
+                            eventHandler, eventListener, finalSink
+                        )
+                    )
+                }
+
+                // Приоритет встроенного FFmpeg - своя настройка аудио: кто декодирует то, что не пробрасывается
                 super.buildAudioRenderers(
                     context,
                     settingsRepo.getAudioDecoderPriority(),
@@ -631,15 +664,17 @@ class PlayerManager(
                 // Несущая IEC 61937 учитывается как PCM 16 бит, поэтому спрашиваем и ее
                 isDirectAudioOutput = !Util.isEncodingLinearPcm(config.encoding) || iecSink?.isCarrierActive == true
                 // На несущей AudioTrack видит PCM 16 бит 7.1, а на ресивер уходит TrueHD или DTS-HD как есть
+                // Бейдж: дорожка > маршрут ("проброс", "AC3 5.1" при перекодировании, "PCM 2.0")
+                val passthroughLabel = appContext.getString(R.string.audio_route_passthrough)
                 val carrierCodec = iecSink?.carrierCodecLabel
                 if (carrierCodec != null) {
-                    onAudioOutputFormatChanged?.invoke("$carrierCodec (IEC 61937)")
+                    onAudioOutputFormatChanged?.invoke("$passthroughLabel (IEC 61937)")
+                } else if (!Util.isEncodingLinearPcm(config.encoding) && transcodingSink?.isTranscoding != true) {
+                    onAudioOutputFormatChanged?.invoke(passthroughLabel)
                 } else {
                     val encodingName = MediaFormatHelper.getAudioCodecName(config.encoding)
                     val channelStr = MediaFormatHelper.getChannelConfigString(config.channelConfig)
-                    // Перекодирование: декодированный звук уходит битстримом AC3/E-AC3
-                    val prefix = if (transcodingSink?.isTranscoding == true) "PCM → " else ""
-                    onAudioOutputFormatChanged?.invoke("$prefix$encodingName $channelStr")
+                    onAudioOutputFormatChanged?.invoke("$encodingName $channelStr")
                 }
                 // Туннелирование касается видео (кадры идут прямо в аппаратный вывод), показывается у видео
                 onTunnelingChanged?.invoke(config.tunneling)
