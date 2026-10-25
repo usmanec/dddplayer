@@ -15,6 +15,23 @@ class RuntimeFpsDetector {
     // Плеер, на который подписан слушатель: отписываемся именно от него. Текущий плеер после пересоздания
     // (смена настроек) уже другой, и слушатель на старом держал PlayerViewModel (утечка, LeakCanary)
     private var attachedPlayer: ExoPlayer? = null
+    // Колбэки текущего запуска. Слушатель держит их только через этот объект, а stop() его очищает:
+    // clearVideoFrameMetadataListener не обнуляет ссылку на слушатель внутри ExoPlayerImpl, и освобожденный
+    // плеер (его еще ~20 минут держит отложенное сообщение StuckPlayerDetector из Media3) иначе держал бы
+    // PlayerViewModel через лямбды колбэков (утечка, LeakCanary)
+    private var currentCallbacks: Callbacks? = null
+
+    private class Callbacks(
+        var handler: Handler?,
+        var onSuccess: ((fps: Float, format: Format) -> Unit)?,
+        var onVfrDetected: (() -> Unit)?
+    ) {
+        fun clear() {
+            handler = null
+            onSuccess = null
+            onVfrDetected = null
+        }
+    }
 
     // Храним успешно найденный FPS для текущего видео
     var detectedFrameRate: Float? = null
@@ -35,6 +52,7 @@ class RuntimeFpsDetector {
     ) {
         if (isDetectionRunning.getAndSet(true)) return
 
+        val callbacks = Callbacks(handler, onSuccess, onVfrDetected)
         val listener = object : VideoFrameMetadataListener {
             var isDone = false
             var warmup = 0
@@ -74,14 +92,17 @@ class RuntimeFpsDetector {
 
                     val fps = computeFpsByRobustRegression(ptsList)
 
-                    handler.post {
+                    callbacks.handler?.post {
+                        // Детекцию могли остановить, пока результат шел в главный поток
+                        val success = callbacks.onSuccess ?: return@post
+                        val vfr = callbacks.onVfrDetected
                         stop()
                         if (fps > 0.0) {
                             val finalFps = snapToExactRate(fps)
                             detectedFrameRate = finalFps.toFloat()
-                            onSuccess(finalFps.toFloat(), format)
+                            success(finalFps.toFloat(), format)
                         } else {
-                            onVfrDetected()
+                            vfr?.invoke()
                         }
                     }
                 }
@@ -89,6 +110,7 @@ class RuntimeFpsDetector {
         }
 
         currentMetadataListener = listener
+        currentCallbacks = callbacks
         attachedPlayer = player
         player.setVideoFrameMetadataListener(listener)
     }
@@ -99,6 +121,8 @@ class RuntimeFpsDetector {
     fun stop() {
         isDetectionRunning.set(false)
         currentMetadataListener?.let { attachedPlayer?.clearVideoFrameMetadataListener(it) }
+        currentCallbacks?.clear()
+        currentCallbacks = null
         currentMetadataListener = null
         attachedPlayer = null
     }
