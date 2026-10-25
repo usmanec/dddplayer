@@ -421,6 +421,10 @@ class SettingsRepository private constructor(context: Context) {
     fun isSpeedPassthroughAutoEnabled(): Boolean = prefs.getBoolean("speed_passthrough_auto", false)
     fun setSpeedPassthroughAutoEnabled(enabled: Boolean) = prefs.edit { putBoolean("speed_passthrough_auto", enabled) }
 
+    // Ручное увеличение при туннелировании: не спрашивать, а сразу выключать туннелирование до конца сеанса
+    fun isZoomTunnelingAutoEnabled(): Boolean = prefs.getBoolean("zoom_tunneling_auto", false)
+    fun setZoomTunnelingAutoEnabled(enabled: Boolean) = prefs.edit { putBoolean("zoom_tunneling_auto", enabled) }
+
     fun getMixPreset(): Int = prefs.getInt("mix_preset", 0)
     fun setMixPreset(id: Int) = prefs.edit { putInt("mix_preset", id) }
 

@@ -531,4 +531,10 @@
     <string name="pref_audio_upmix">扩展到所选声道布局</string>
     <string name="pref_audio_upmix_desc">声道较少的音频分配到所有扬声器：中置取自前置，环绕取自前置或相邻声道。简单矩阵，并非 Dolby Pro Logic</string>
     <string name="pref_audio_decoder_passthrough_note">不影响直通：决定由谁解码未直通的音频</string>
+    <!-- Выключение проброса и туннелирования на сеанс плеера -->
+    <string name="dont_show_again">不再显示（直接关闭）</string>
+    <string name="session_speed_title">速度与直通</string>
+    <string name="session_speed_message">音频以比特流发送到功放（直通或 AC3/E-AC3），比特流无法加速或减速。要更改速度，将在退出播放器前关闭直通：由播放器自行解码音频（PCM）。取消则保持 1.00x。</string>
+    <string name="session_zoom_title">缩放与隧道模式</string>
+    <string name="session_zoom_message">视频通过隧道模式输出：画面由系统直接绘制，自定义缩放无效。要使用缩放，将在退出播放器前关闭隧道模式（播放器从当前位置重新启动）。取消则恢复之前的模式。</string>
 </resources>

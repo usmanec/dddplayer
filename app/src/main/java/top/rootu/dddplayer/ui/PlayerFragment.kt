@@ -24,6 +24,7 @@ import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.PopupMenu
 import android.widget.TextView
 import android.widget.Toast
@@ -71,6 +72,7 @@ import top.rootu.dddplayer.utils.afr.DisplaySyncHelper
 import top.rootu.dddplayer.utils.afr.TvQuickActions
 import top.rootu.dddplayer.viewmodel.PlayerViewModel
 import top.rootu.dddplayer.viewmodel.SPEED_MENU_CUSTOM
+import top.rootu.dddplayer.viewmodel.SessionPrompt
 import top.rootu.dddplayer.viewmodel.SUBTITLE_MENU_LOAD_FILE
 import top.rootu.dddplayer.viewmodel.PlaylistUiState
 import top.rootu.dddplayer.viewmodel.SettingType
@@ -1431,6 +1433,43 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
                 showResumeDialog(data.first, data.second)
             }
         }
+
+        viewModel.sessionPrompt.observe(viewLifecycleOwner) { prompt ->
+            if (prompt != null && sessionPromptDialog?.isShowing != true) showSessionPrompt(prompt)
+        }
+    }
+
+    private var sessionPromptDialog: Dialog? = null
+
+    /** Выключить проброс (туннелирование) до конца сеанса плеера или вернуть скорость 1x (прежний масштаб). */
+    private fun showSessionPrompt(prompt: SessionPrompt) {
+        timerController.stopControlsTimer()
+        val dialog = Dialog(requireContext(), R.style.Theme_App_Dialog)
+        dialog.setContentView(R.layout.dialog_session_prompt)
+        dialog.setCanceledOnTouchOutside(false)
+        val (title, message) = when (prompt) {
+            SessionPrompt.SPEED_BITSTREAM -> R.string.session_speed_title to R.string.session_speed_message
+            SessionPrompt.ZOOM_TUNNELING -> R.string.session_zoom_title to R.string.session_zoom_message
+        }
+        dialog.findViewById<TextView>(R.id.prompt_title).setText(title)
+        dialog.findViewById<TextView>(R.id.prompt_message).setText(message)
+        val dontAsk = dialog.findViewById<CheckBox>(R.id.prompt_dont_ask)
+        val btnOk = dialog.findViewById<Button>(R.id.btn_prompt_ok)
+        var answered = false
+        fun answer(accept: Boolean) {
+            if (answered) return
+            answered = true
+            viewModel.resolveSessionPrompt(prompt, accept, accept && dontAsk.isChecked)
+            dialog.dismiss()
+            timerController.resetControlsTimer()
+        }
+        btnOk.setOnClickListener { answer(true) }
+        dialog.findViewById<Button>(R.id.btn_prompt_cancel).setOnClickListener { answer(false) }
+        dialog.setOnCancelListener { answer(false) }
+        dialog.setOnDismissListener { sessionPromptDialog = null }
+        sessionPromptDialog = dialog
+        dialog.show()
+        btnOk.requestFocus()
     }
 
     private fun refreshInfoPanelData() {
@@ -1841,6 +1880,8 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
     override fun onDestroyView() {
         // Сначала отвязываем поверхность от плеера
         viewModel.player?.setVideoSurface(null)
+        // Вопрос о сеансе остается в ViewModel и покажется снова в новом экране
+        sessionPromptDialog?.dismiss()
 
         // Останавливаем таймеры
         timerController.cleanup()

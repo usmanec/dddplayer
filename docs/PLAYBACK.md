@@ -66,7 +66,10 @@
     AC3/E-AC3 битстримом или библиотеки нет — звук идет в PCM;
   - смена скорости при битстриме: `PlayerManager.bitstreamDisabledForSession` выключает проброс и перекодирование
     до конца сеанса плеера (плеер пересоздается). Каналы «как в источнике» тогда ограничены
-    `AudioCapabilities.maxChannelCount`: по оптике и ARC многоканальный PCM не проходит;
+    `AudioCapabilities.maxChannelCount`: по оптике и ARC многоканальный PCM не проходит. Аналогично
+    `tunnelingDisabledForSession` выключает туннелирование, если включено ручное увеличение (`ResizeMode.SCALE`
+    масштабирует View, а туннельный кадр выводит композитор мимо него). Вопрос показывает `PlayerFragment`
+    (`SessionPrompt`, `PlayerViewModel.checkSessionConflicts`), отмена возвращает 1.00x или прежний масштаб;
   - `NetworkBufferLoadControl` (см. ниже);
   - `LoudnessEnhancer` по `audioSessionId` (`loudness_boost`), `skipSilence`, шаг перемотки 15 с.
 - `loadPlaylist(items, startIndex, startPosMs)` превращает `MediaItem` в `Media3MediaItem`

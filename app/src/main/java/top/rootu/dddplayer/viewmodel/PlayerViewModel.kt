@@ -83,6 +83,9 @@ data class VideoQualityOption(
     val isAuto: Boolean = false
 )
 
+/** Вопрос "выключить на этот сеанс плеера": скорость при битстриме, масштаб при туннелировании. */
+enum class SessionPrompt { SPEED_BITSTREAM, ZOOM_TUNNELING }
+
 // Обертка для одноразовых событий LiveData
 open class Event<out T>(private val content: T) {
     var hasBeenHandled = false
@@ -194,6 +197,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     val videoResolution: LiveData<String> = _videoResolution
     private val _tunnelingActive = MutableLiveData(false)
     val tunnelingActive: LiveData<Boolean> = _tunnelingActive
+    // Вопрос о выключении проброса или туннелирования на сеанс; null - диалога нет
+    private val _sessionPrompt = MutableLiveData<SessionPrompt?>()
+    val sessionPrompt: LiveData<SessionPrompt?> = _sessionPrompt
+    // Режим масштаба до ручного увеличения: к нему возвращаемся, если туннелирование оставили
+    private var zoomRevertMode = ResizeMode.FIT
     // Соотношение сторон для отображения: принудительное (если выбрано) или из видео
     private val _videoAspectRatio = MutableLiveData(1.777f)
     val videoAspectRatio: LiveData<Float> = _videoAspectRatio
@@ -546,8 +554,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
         playerManager.onAudioOutputFormatChanged = { info ->
             _audioOutputInfo.postValue(info)
+            // Скорость по умолчанию не 1x, а дорожка пошла битстримом
+            handler.post { checkSessionConflicts() }
         }
-        playerManager.onTunnelingChanged = { _tunnelingActive.postValue(it) }
+        playerManager.onTunnelingChanged = {
+            _tunnelingActive.postValue(it)
+            handler.post { checkSessionConflicts() }
+        }
         playerManager.onStopRequested = { _closeRequested.value = Event(Unit) }
 
         // Инициализируем плеер сразу
@@ -1130,6 +1143,51 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private fun applyPlaybackSpeed(speed: Float) {
         _playbackSpeed.value = speed
         player?.setPlaybackSpeed(speed)
+        checkSessionConflicts()
+    }
+
+    /**
+     * Битстрим не ускоряется (выход отдает его как есть), а при туннелировании кадр выводит аппаратный
+     * композитор мимо трансформаций View, и ручное увеличение не работает. Предлагаем выключить проброс
+     * или туннелирование до конца сеанса плеера, а с "больше не показывать" - выключаем сразу.
+     */
+    private fun checkSessionConflicts() {
+        if (_sessionPrompt.value != null) return
+        val speedConflict = (_playbackSpeed.value ?: 1f) != 1f && playerManager.isDirectAudioOutput &&
+            !playerManager.bitstreamDisabledForSession
+        val zoomConflict = _resizeMode.value == ResizeMode.SCALE && _tunnelingActive.value == true &&
+            !playerManager.tunnelingDisabledForSession
+        when {
+            speedConflict && repository.isSpeedPassthroughAutoEnabled() -> resolveSessionPrompt(SessionPrompt.SPEED_BITSTREAM, true, false)
+            speedConflict -> _sessionPrompt.value = SessionPrompt.SPEED_BITSTREAM
+            zoomConflict && repository.isZoomTunnelingAutoEnabled() -> resolveSessionPrompt(SessionPrompt.ZOOM_TUNNELING, true, false)
+            zoomConflict -> _sessionPrompt.value = SessionPrompt.ZOOM_TUNNELING
+        }
+    }
+
+    /**
+     * Ответ на вопрос о сеансе. [accept] - выключить проброс (туннелирование) до конца сеанса и пересоздать
+     * плеер, иначе вернуть скорость 1x (прежний масштаб). [dontAskAgain] - дальше выключать без вопроса.
+     */
+    fun resolveSessionPrompt(prompt: SessionPrompt, accept: Boolean, dontAskAgain: Boolean) {
+        _sessionPrompt.value = null
+        when (prompt) {
+            SessionPrompt.SPEED_BITSTREAM -> if (accept) {
+                if (dontAskAgain) repository.setSpeedPassthroughAutoEnabled(true)
+                playerManager.bitstreamDisabledForSession = true
+                restartPlayer()
+            } else {
+                setPlaybackSpeed(1.0f)
+            }
+            SessionPrompt.ZOOM_TUNNELING -> if (accept) {
+                if (dontAskAgain) repository.setZoomTunnelingAutoEnabled(true)
+                playerManager.tunnelingDisabledForSession = true
+                _tunnelingActive.value = false
+                restartPlayer()
+            } else {
+                setResizeMode(zoomRevertMode)
+            }
+        }
     }
 
     /** Своя скорость с ползунка: запоминаем и сразу применяем. */
@@ -1150,7 +1208,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     fun setDefaultPlaybackSpeed(speed: Float) = repository.setDefaultPlaybackSpeed(speed)
 
     fun setResizeMode(mode: ResizeMode) {
+        if (mode == ResizeMode.SCALE && _resizeMode.value != ResizeMode.SCALE) zoomRevertMode = _resizeMode.value ?: ResizeMode.FIT
         _resizeMode.value = mode
+        checkSessionConflicts()
         // Если включено запоминание - сохраняем
         if (repository.isRememberZoomEnabled()) {
             repository.setGlobalResizeMode(mode.ordinal)
@@ -1161,7 +1221,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         val newScale = percent.coerceIn(100, 200) // Ограничиваем от 100% до 200%
         repository.setZoomScalePercent(newScale)
         _zoomScale.value = newScale
+        if (_resizeMode.value != ResizeMode.SCALE) zoomRevertMode = _resizeMode.value ?: ResizeMode.FIT
         _resizeMode.value = ResizeMode.SCALE
+        checkSessionConflicts()
         // Если включено запоминание - сохраняем режим SCALE
         if (repository.isRememberZoomEnabled()) {
             repository.setGlobalResizeMode(ResizeMode.SCALE.ordinal)
