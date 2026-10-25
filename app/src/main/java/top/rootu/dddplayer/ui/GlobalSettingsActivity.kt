@@ -714,7 +714,7 @@ class GlobalSettingsActivity : AppCompatActivity() {
         itemRememberAudio.setOnClickListener {
             // Порядок пунктов совпадает с SettingsRepository.AUDIO_MEMORY_*
             val options = listOf(getString(R.string.audio_memory_off), getString(R.string.audio_memory_playlist), getString(R.string.audio_memory_all))
-            showSingleChoiceDialog(getString(R.string.pref_remember_audio), options, settingsViewModel.audioTrackMemoryMode.value ?: SettingsRepository.AUDIO_MEMORY_OFF) {
+            showSingleChoiceDialog(getString(R.string.pref_remember_audio), options, settingsViewModel.audioTrackMemoryMode.value ?: SettingsRepository.AUDIO_MEMORY_PLAYLIST) {
                 settingsViewModel.setAudioTrackMemoryMode(it)
             }
         }

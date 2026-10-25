@@ -510,8 +510,9 @@ class SettingsRepository private constructor(context: Context) {
     fun getAppLanguage(): String = prefs.getString("app_language", LANG_SYSTEM_DEFAULT) ?: LANG_SYSTEM_DEFAULT
     fun setAppLanguage(langCode: String) = prefs.edit { putString("app_language", langCode) }
 
-    // Запоминание аудиодорожки (AUDIO_MEMORY_*): в плейлисте и (экспериментально) между разными видео
-    fun getAudioTrackMemoryMode(): Int = prefs.getInt("audio_track_memory", AUDIO_MEMORY_OFF)
+    // Запоминание аудиодорожки (AUDIO_MEMORY_*): в плейлисте и (экспериментально) между разными видео.
+    // По умолчанию - в пределах плейлиста: озвучка, выбранная в первой серии, остается в следующих
+    fun getAudioTrackMemoryMode(): Int = prefs.getInt("audio_track_memory", AUDIO_MEMORY_PLAYLIST)
     fun setAudioTrackMemoryMode(mode: Int) = prefs.edit { putInt("audio_track_memory", mode) }
 
     /**

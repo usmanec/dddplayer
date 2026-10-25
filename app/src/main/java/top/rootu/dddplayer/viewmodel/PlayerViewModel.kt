@@ -291,6 +291,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private var audioChoicePendingStat = false
     // Дорожка, выбранная пользователем в текущем плейлисте (для следующих элементов)
     private var sessionAudioSignature: String? = null
+    // Субтитры (или "выключены"), выбранные пользователем в текущем плейлисте: для следующих элементов
+    private var sessionSubtitleSignature: String? = null
     // Дорожка для текущего видео уже определена (сохраненная, выбранная или найденная среди последних)
     private var audioTrackResolved = false
     // Субтитры для текущего видео уже выбраны (сохраненные, пользователем или автовключением)
@@ -1082,6 +1084,20 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }
         }
+        // Субтитры, выбранные пользователем в этом плейлисте (форсированные, язык или "выкл"): важнее
+        // автовключения, но не сохраненных для видео. Ждем дорожки субтитров, если ищем включенные
+        val sessionSubs = sessionSubtitleSignature
+        if (!subtitleResolved && videoSettingsChecked && pendingSubtitleId == null && pendingSubtitleLabel == null &&
+            sessionSubs != null && (sessionSubs == TrackLogic.SUBTITLE_OFF || subtitleOptions.any { !it.isOff })
+        ) {
+            TrackLogic.findSubtitleIndex(subtitleOptions, sessionSubs)?.let { idx ->
+                subtitleResolved = true
+                if (idx != finalSubIdx) {
+                    finalSubIdx = idx
+                    selectTrackByIndex(C.TRACK_TYPE_TEXT, idx)
+                }
+            }
+        }
         // Автовключение субтитров по настройке: один раз на видео, если субтитры не сохранены для него.
         // Ждем появления дорожек субтитров: в HLS они могут прийти позже видео и звука
         if (!subtitleResolved && videoSettingsChecked && pendingSubtitleId == null && pendingSubtitleLabel == null &&
@@ -1276,7 +1292,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         val startItem = indexedItems.getOrNull(startIndex)
         var startPos = startItem?.startPositionMs ?: 0L
         pendingExternalPosition = null
-        sessionAudioSignature = null // Новый плейлист - выбор дорожки начинается заново
+        sessionAudioSignature = null // Новый плейлист - выбор дорожек начинается заново
+        sessionSubtitleSignature = null
         isFirstItemLoaded = false // Продолжение просмотра - для первого элемента нового плейлиста
         if (startItem != null && startPos > 0 &&
             repository.getExternalPositionMode() == SettingsRepository.EXTERNAL_POSITION_ASK
@@ -1813,7 +1830,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 currentAudioIndex = index
                 _currentAudioTrack.value = option
             } else {
-                if (fromUser) subtitleResolved = true
+                if (fromUser) {
+                    subtitleResolved = true
+                    sessionSubtitleSignature = TrackLogic.subtitleTrackSignature(option)
+                }
                 currentSubtitleIndex = index
                 _currentSubtitleTrack.value = option
             }

@@ -244,7 +244,8 @@ class SettingsRepositoryTest {
         assertEquals(SettingsRepository.CLOCK_OFF, repo.getClockTransparency())
         // Кнопка "Вверх": первое нажатие - инфопанель, второе - боковое меню
         assertEquals(SettingsRepository.UP_ACTION_INFO, repo.getUpButtonAction())
-        assertEquals(SettingsRepository.AUDIO_MEMORY_OFF, repo.getAudioTrackMemoryMode())
+        // Озвучка, выбранная в плейлисте, по умолчанию сохраняется для следующих серий
+        assertEquals(SettingsRepository.AUDIO_MEMORY_PLAYLIST, repo.getAudioTrackMemoryMode())
         assertEquals(SettingsRepository.EXTERNAL_POSITION_APPLY, repo.getExternalPositionMode())
         assertEquals(SettingsRepository.BUFFER_SIZE_AUTO, repo.getTargetBufferMB())
         assertFalse(repo.isLiveModeEnabled())
