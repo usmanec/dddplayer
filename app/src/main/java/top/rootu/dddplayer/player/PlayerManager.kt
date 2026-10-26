@@ -508,12 +508,17 @@ class PlayerManager(
                     AudioMixerLogic.createMatrices(mixParams, channelsSetting, maxPcmChannels, upmix, generateLfe)
                         .forEach { matrix -> mixingProcessor.putChannelMixingMatrix(matrix) }
 
-                    // Созданный LFE - через ФНЧ 120 Гц после микшера
+                    // Созданный LFE - через ФНЧ 120 Гц после микшера, в конце мягкий ограничитель
+                    // (усиление голоса и уровень даунмикса могут перегрузить канал)
+                    // Микшер считает во float (без обрезки), ограничитель возвращает 16 бит
                     val processors = if (generateLfe) {
                         val probe = LfeLowPassAudioProcessor.Probe()
-                        arrayOf(probe, mixingProcessor, LfeLowPassAudioProcessor(probe, channelsSetting, maxPcmChannels))
+                        arrayOf(
+                            SoftLimitAudioProcessor.ToFloat(), probe, mixingProcessor,
+                            LfeLowPassAudioProcessor(probe, channelsSetting, maxPcmChannels), SoftLimitAudioProcessor()
+                        )
                     } else {
-                        arrayOf(mixingProcessor)
+                        arrayOf(SoftLimitAudioProcessor.ToFloat(), mixingProcessor, SoftLimitAudioProcessor())
                     }
                     sinkBuilder.setAudioProcessorChain(
                         DefaultAudioSink.DefaultAudioProcessorChain(*processors)

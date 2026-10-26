@@ -3,6 +3,7 @@ package top.rootu.dddplayer.logic
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.math.sqrt
 import top.rootu.dddplayer.logic.AudioMixerLogic.ChannelLayout
 import top.rootu.dddplayer.logic.AudioMixerLogic.Layouts
 import top.rootu.dddplayer.logic.AudioMixerLogic.Speaker
@@ -23,30 +24,33 @@ class AudioMixerLogicTest {
         return input.speakers.indices.map { m[it * 2] }
     }
 
-    private fun assertRow(expected: List<Double>, actual: List<Float>) {
+    /** [scale] - во сколько раз уровень выше RFC (5–8 каналов сводятся на прежнем уровне плеера, в sqrt(2) раз громче). */
+    private fun assertRow(expected: List<Double>, actual: List<Float>, scale: Double = 1.0) {
         assertEquals(expected.size, actual.size)
-        expected.forEachIndexed { i, e -> assertEquals("index $i", e.toFloat(), actual[i], 1e-5f) }
+        expected.forEachIndexed { i, e -> assertEquals("index $i", (e * scale).toFloat(), actual[i], 1e-5f) }
     }
 
+    private val louder = sqrt(2.0)
+
     @Test
-    fun `stereo downmix matches RFC 7845 figures`() {
+    fun `stereo downmix keeps RFC 7845 proportions`() {
         // Figure 4: L R C
         assertRow(listOf(0.585786, 0.0, 0.414214), leftRow(Layouts.THREE_ZERO))
         // Figure 5: квадро
         assertRow(listOf(0.422650, 0.0, 0.366025, 0.211325), leftRow(Layouts.QUAD))
         // Figure 6: 5.0
-        assertRow(listOf(0.460186, 0.0, 0.325401, 0.398533, 0.230093), leftRow(Layouts.FIVE_ZERO))
+        assertRow(listOf(0.460186, 0.0, 0.325401, 0.398533, 0.230093), leftRow(Layouts.FIVE_ZERO), louder)
         // Figure 7: 5.1
-        assertRow(listOf(0.374107, 0.0, 0.264534, 0.264534, 0.323986, 0.187053), leftRow(Layouts.FIVE_ONE))
+        assertRow(listOf(0.374107, 0.0, 0.264534, 0.264534, 0.323986, 0.187053), leftRow(Layouts.FIVE_ONE), louder)
         // Figure 8: 6.1 (BC = sqrt(3)/2 * 1/sqrt(2), а не деление)
         assertRow(
             listOf(0.321953, 0.0, 0.227655, 0.227655, 0.278819, 0.160976, 0.197155),
-            leftRow(Layouts.SIX_ONE)
+            leftRow(Layouts.SIX_ONE), louder
         )
         // Figure 9: 7.1
         assertRow(
             listOf(0.274804, 0.0, 0.194316, 0.194316, 0.237987, 0.137402, 0.237987, 0.137402),
-            leftRow(Layouts.SEVEN_ONE)
+            leftRow(Layouts.SEVEN_ONE), louder
         )
     }
 
@@ -67,7 +71,13 @@ class AudioMixerLogicTest {
         assertEquals(1.5f, coef(Layouts.FIVE_ONE, Layouts.FIVE_ONE, Speaker.FC, Speaker.FC, voice), 1e-6f)
         assertEquals(0.8f, coef(Layouts.FIVE_ONE, Layouts.FIVE_ONE, Speaker.FL, Speaker.FL, voice), 1e-6f)
         // В стерео усиление ложится на коэффициент RFC
-        assertEquals(0.264534f * 1.5f, coef(Layouts.FIVE_ONE, Layouts.STEREO, Speaker.FC, Speaker.FL, voice), 1e-5f)
+        assertEquals(
+            (0.264534 * sqrt(2.0) * 1.5).toFloat(), coef(Layouts.FIVE_ONE, Layouts.STEREO, Speaker.FC, Speaker.FL, voice), 1e-5f
+        )
+        // Центр до +12 дБ (x4), не больше
+        val loud = voice.copy(center = 10f)
+        assertEquals(AudioMixerLogic.MAX_CHANNEL_GAIN, coef(Layouts.FIVE_ONE, Layouts.FIVE_ONE, Speaker.FC, Speaker.FC, loud), 1e-6f)
+        assertEquals(12f, AudioMixerLogic.gainToDb(AudioMixerLogic.dbToGain(12f)), 1e-4f)
     }
 
     @Test

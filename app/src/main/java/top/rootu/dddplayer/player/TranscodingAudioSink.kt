@@ -16,6 +16,7 @@ import androidx.media3.exoplayer.audio.AudioSink
 import top.rootu.dddplayer.logic.AudioMixerLogic
 import top.rootu.dddplayer.logic.AudioMixerLogic.ChannelLayout
 import top.rootu.dddplayer.logic.LowPassFilter
+import top.rootu.dddplayer.logic.SoftLimiter
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.abs
@@ -203,7 +204,7 @@ internal class TranscodingAudioSink(
                 var sum = 0f
                 for (c in 0 until inChannels) sum += input[c] * matrix[c * outChannels + o]
                 if (o == lfeIndex) sum = lfeFilter?.process(sum) ?: sum
-                frame[o * frameSize + frameFill] = (sum * volume).coerceIn(-1f, 1f)
+                frame[o * frameSize + frameFill] = SoftLimiter.apply(sum * volume)
             }
             frameFill++
             if (frameFill == frameSize && !encodeAndWrite()) return false

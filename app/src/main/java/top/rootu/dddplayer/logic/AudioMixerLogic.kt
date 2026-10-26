@@ -4,6 +4,8 @@ import androidx.media3.common.audio.ChannelMixingMatrix
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
 import kotlin.math.abs
+import kotlin.math.log10
+import kotlin.math.pow
 import kotlin.math.sqrt
 
 /**
@@ -87,7 +89,17 @@ object AudioMixerLogic {
 
     private val INV_SQRT2 = (1.0 / sqrt(2.0)).toFloat()
     private val SQRT3_HALF = (sqrt(3.0) / 2.0).toFloat()
-    private val SQRT2 = sqrt(2.0).toFloat()
+    /** Сумма коэффициентов стороны при сведении 5–8 каналов в стерео (RFC: sqrt(2), прежний уровень плеера: 2). */
+    private const val STEREO_SUM_5_8 = 2f
+
+    /** Предел усиления канала в пресете: ×4 = +12 дБ. */
+    const val MAX_CHANNEL_GAIN = 4f
+
+    /** дБ -> множитель громкости канала. */
+    fun dbToGain(db: Float): Float = 10f.pow(db / 20f)
+
+    /** Множитель -> дБ (для ползунков микшера); 0 - минус бесконечность. */
+    fun gainToDb(gain: Float): Float = if (gain <= 0f) Float.NEGATIVE_INFINITY else 20f * log10(gain)
 
     /** Суммарный уровень созданного LFE: -10 дБ (компенсация усиления LFE в ресивере). */
     private const val GENERATED_LFE_LEVEL = 0.31622776f
@@ -105,7 +117,8 @@ object AudioMixerLogic {
 
     fun getParamsForPreset(preset: MixPreset, repo: SettingsRepository): MixParams = when (preset) {
         MixPreset.STANDARD -> STANDARD_PARAMS
-        MixPreset.BOOST_CENTER -> MixParams(front = 0.8f, center = 1.5f, rear = 0.6f, middle = 0.6f, lfe = 0.5f)
+        // Голос: центр +6 дБ (как средняя ступень прежнего усиления центра), остальное тише
+        MixPreset.BOOST_CENTER -> MixParams(front = 0.8f, center = 2f, rear = 0.6f, middle = 0.6f, lfe = 0.5f)
         MixPreset.NIGHT_MODE -> MixParams(front = 1f, center = 1.2f, rear = 0.3f, middle = 0.3f, lfe = 0f)
         MixPreset.CUSTOM -> MixParams(
             front = repo.getMixFront(),
@@ -253,9 +266,9 @@ object AudioMixerLogic {
     }
 
     /**
-     * Стерео по RFC 7845. Для 3–4 каналов коэффициенты каждой стороны нормируются до суммы 1,
-     * для 5–8 - до суммы sqrt(2): так получаются коэффициенты Figures 4–9 (5.1: FL 0.374107, FC 0.264534).
-     * Пресет применяется после.
+     * Стерео по пропорциям RFC 7845 (Figures 4–9). Для 3–4 каналов коэффициенты каждой стороны нормируются
+     * до суммы 1, как в RFC. Для 5–8 RFC нормирует до sqrt(2), но это на 3 дБ тише прежнего даунмикса, и голос
+     * терялся: нормируем до 2 (прежний уровень), а от перегрузки защищает [SoftLimiter]. Пресет применяется после.
      */
     private fun fillStereoMatrix(inputLayout: ChannelLayout, params: MixParams, matrix: Array<FloatArray>) {
         val speakers = inputLayout.speakers
@@ -267,7 +280,7 @@ object AudioMixerLogic {
         val base = speakers.map { stereoBase(it) }
         val sumLeft = base.sumOf { it.first.toDouble() }.toFloat()
         val sumRight = base.sumOf { it.second.toDouble() }.toFloat()
-        val targetSum = if (speakers.size in 3..4) 1f else SQRT2
+        val targetSum = if (speakers.size in 3..4) 1f else STEREO_SUM_5_8
         val scaleLeft = if (sumLeft > targetSum) targetSum / sumLeft else 1f
         val scaleRight = if (sumRight > targetSum) targetSum / sumRight else 1f
         for (i in speakers.indices) {
@@ -485,7 +498,7 @@ object AudioMixerLogic {
     }
 
     private fun MixParams.sanitized(): MixParams {
-        fun clean(value: Float) = if (value.isFinite()) value.coerceIn(0f, 2f) else 1f
+        fun clean(value: Float) = if (value.isFinite()) value.coerceIn(0f, MAX_CHANNEL_GAIN) else 1f
         return MixParams(clean(front), clean(center), clean(rear), clean(middle), clean(lfe))
     }
 }
