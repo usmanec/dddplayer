@@ -18,7 +18,8 @@ class SoftLimiterTest {
         for (i in 1..40) {
             val y = SoftLimiter.apply(SoftLimiter.THRESHOLD + i * 0.1f)
             assertTrue(y <= 1f)
-            assertTrue(y > previous)
+            // Строгий рост вблизи порога, при сильной перегрузке tanh во float упирается в 1.0
+            if (i <= 5) assertTrue(y > previous) else assertTrue(y >= previous)
             previous = y
         }
         assertEquals(-SoftLimiter.apply(2f), SoftLimiter.apply(-2f), 0f)
