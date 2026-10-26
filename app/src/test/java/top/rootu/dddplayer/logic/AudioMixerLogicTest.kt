@@ -186,6 +186,21 @@ class AudioMixerLogicTest {
     }
 
     @Test
+    fun `mixer sliders work in decibels`() {
+        assertEquals(0, AudioMixerLogic.gainToSlider(0f))
+        assertEquals(0f, AudioMixerLogic.sliderToGain(0))
+        // 0 дБ - множитель 1, +12 дБ - около x4, край шкалы
+        val unity = AudioMixerLogic.gainToSlider(1f)
+        assertEquals(0, AudioMixerLogic.sliderToDb(unity))
+        assertEquals(1f, AudioMixerLogic.sliderToGain(unity), 1e-6f)
+        assertEquals(AudioMixerLogic.SLIDER_MAX, AudioMixerLogic.gainToSlider(AudioMixerLogic.MAX_CHANNEL_GAIN))
+        assertEquals(12, AudioMixerLogic.sliderToDb(AudioMixerLogic.SLIDER_MAX))
+        // Прежние значения в процентах попадают на ближайший дБ: 150% = +3.5 дБ -> +4
+        assertEquals(4, AudioMixerLogic.sliderToDb(AudioMixerLogic.gainToSlider(1.5f)))
+        assertEquals(-24, AudioMixerLogic.sliderToDb(AudioMixerLogic.gainToSlider(0.01f)))
+    }
+
+    @Test
     fun `ffmpeg masks follow the layout`() {
         assertEquals(0x3L, AudioMixerLogic.ffmpegMask(Layouts.STEREO))
         assertEquals(0x33L, AudioMixerLogic.ffmpegMask(Layouts.QUAD))

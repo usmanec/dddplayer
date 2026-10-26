@@ -546,6 +546,7 @@
     <string name="pref_audio_upmix_desc">Звук с меньшим числом каналов разносится на все колонки: центр из фронтов, тылы из фронтов или соседних каналов. Простая матрица, не Dolby Pro Logic</string>
     <string name="pref_audio_generate_lfe">Создавать канал сабвуфера (LFE)</string>
     <string name="pref_audio_generate_lfe_desc">Создает канал сабвуфера, только если его нет в источнике: при расширении до 5.1/7.1 бас всех каналов ниже 120 Гц уходит и в сабвуфер. LFE источника остается как есть. Уровень — ползунок LFE в пресете микшера</string>
+    <string name="mix_db_format">%1$s дБ</string>
     <string name="pref_audio_decoder_passthrough_note">На проброс не влияет: решает, кто декодирует то, что не пробрасывается</string>
     <!-- Выключение проброса и туннелирования на сеанс плеера -->
     <string name="dont_show_again">Больше не показывать (выключать сразу)</string>

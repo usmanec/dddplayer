@@ -532,6 +532,7 @@
     <string name="pref_audio_upmix_desc">声道较少的音频分配到所有扬声器：中置取自前置，环绕取自前置或相邻声道。简单矩阵，并非 Dolby Pro Logic</string>
     <string name="pref_audio_generate_lfe">生成低音炮声道（LFE）</string>
     <string name="pref_audio_generate_lfe_desc">仅当源中没有低音炮声道时才生成：扩展到 5.1/7.1 时，所有声道中 120 Hz 以下的低音也会送往低音炮。源自带的 LFE 保持不变。电平由混音预设中的 LFE 滑块控制</string>
+    <string name="mix_db_format">%1$s dB</string>
     <string name="pref_audio_decoder_passthrough_note">不影响直通：决定由谁解码未直通的音频</string>
     <!-- Выключение проброса и туннелирования на сеанс плеера -->
     <string name="dont_show_again">不再显示（直接关闭）</string>

@@ -1315,23 +1315,29 @@ class GlobalSettingsActivity : AppCompatActivity() {
         val btnReset = dialog.findViewById<Button>(R.id.btn_reset)
         val btnClose = dialog.findViewById<Button>(R.id.btn_close)
 
+        // Ползунки в дБ (хранится множитель): "Выкл", затем -24...+12 дБ
         fun updateText(view: TextView, progress: Int) {
-            view.text = getString(R.string.percentage_int_format, progress)
+            val db = AudioMixerLogic.sliderToDb(progress)
+            view.text = when {
+                db == null -> getString(R.string.track_off)
+                db > 0 -> getString(R.string.mix_db_format, "+$db")
+                else -> getString(R.string.mix_db_format, db.toString())
+            }
         }
 
         var isUpdatingUiFromCode = false
 
         fun updateSeekBars(params: AudioMixerLogic.MixParams) {
             isUpdatingUiFromCode = true
-            seekFront.progress = (params.front * 100).toInt()
+            seekFront.progress = AudioMixerLogic.gainToSlider(params.front)
             updateText(valFront, seekFront.progress)
-            seekCenter.progress = (params.center * 100).toInt()
+            seekCenter.progress = AudioMixerLogic.gainToSlider(params.center)
             updateText(valCenter, seekCenter.progress)
-            seekRear.progress = (params.rear * 100).toInt()
+            seekRear.progress = AudioMixerLogic.gainToSlider(params.rear)
             updateText(valRear, seekRear.progress)
-            seekMiddle.progress = (params.middle * 100).toInt()
+            seekMiddle.progress = AudioMixerLogic.gainToSlider(params.middle)
             updateText(valMiddle, seekMiddle.progress)
-            seekLfe.progress = (params.lfe * 100).toInt()
+            seekLfe.progress = AudioMixerLogic.gainToSlider(params.lfe)
             updateText(valLfe, seekLfe.progress)
             isUpdatingUiFromCode = false
         }
@@ -1354,11 +1360,12 @@ class GlobalSettingsActivity : AppCompatActivity() {
         }
 
         fun initSeek(seekBar: SeekBar, textView: TextView, type: String) {
+            seekBar.max = AudioMixerLogic.SLIDER_MAX
             seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
                     updateText(textView, progress)
                     if (fromUser && !isUpdatingUiFromCode) {
-                        settingsViewModel.updateCustomMixParam(type, progress / 100f)
+                        settingsViewModel.updateCustomMixParam(type, AudioMixerLogic.sliderToGain(progress))
                     }
                 }
                 override fun onStartTrackingTouch(sb: SeekBar?) {}

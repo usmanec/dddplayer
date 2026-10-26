@@ -518,6 +518,7 @@
     <string name="pref_audio_upmix_desc">Гук з меншай колькасцю каналаў разносіцца на ўсе калонкі: цэнтр з фронтаў, тылы з фронтаў або суседніх каналаў. Простая матрыца, не Dolby Pro Logic</string>
     <string name="pref_audio_generate_lfe">Ствараць канал сабвуфера (LFE)</string>
     <string name="pref_audio_generate_lfe_desc">Стварае канал сабвуфера, толькі калі яго няма ў крыніцы: пры пашырэнні да 5.1/7.1 бас усіх каналаў ніжэй за 120 Гц ідзе і ў сабвуфер. LFE крыніцы застаецца як ёсць. Узровень — паўзунок LFE у прэсэце мікшара</string>
+    <string name="mix_db_format">%1$s дБ</string>
     <string name="pref_audio_decoder_passthrough_note">На прамую перадачу не ўплывае: вызначае, хто дэкадуе тое, што не перадаецца напрамую</string>
     <!-- Выключение проброса и туннелирования на сеанс плеера -->
     <string name="dont_show_again">Больш не паказваць (адключаць адразу)</string>

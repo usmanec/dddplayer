@@ -95,6 +95,25 @@ object AudioMixerLogic {
     /** Предел усиления канала в пресете: ×4 = +12 дБ. */
     const val MAX_CHANNEL_GAIN = 4f
 
+    // Ползунок канала в дБ: 0 - канал выключен, дальше от MIN_SLIDER_DB до +12 дБ шагом 1 дБ
+    const val MIN_SLIDER_DB = -24
+    const val MAX_SLIDER_DB = 12
+    const val SLIDER_MAX = MAX_SLIDER_DB - MIN_SLIDER_DB + 1
+
+    /** Позиция ползунка для множителя (ближайший целый дБ). */
+    fun gainToSlider(gain: Float): Int {
+        if (gain <= 0f || !gain.isFinite()) return 0
+        val db = kotlin.math.round(gainToDb(gain)).toInt().coerceIn(MIN_SLIDER_DB, MAX_SLIDER_DB)
+        return db - MIN_SLIDER_DB + 1
+    }
+
+    /** Множитель для позиции ползунка; 0 - канал выключен. */
+    fun sliderToGain(position: Int): Float =
+        if (position <= 0) 0f else dbToGain((position.coerceAtMost(SLIDER_MAX) - 1 + MIN_SLIDER_DB).toFloat())
+
+    /** дБ позиции ползунка, null - канал выключен. */
+    fun sliderToDb(position: Int): Int? = if (position <= 0) null else position.coerceAtMost(SLIDER_MAX) - 1 + MIN_SLIDER_DB
+
     /** дБ -> множитель громкости канала. */
     fun dbToGain(db: Float): Float = 10f.pow(db / 20f)
 

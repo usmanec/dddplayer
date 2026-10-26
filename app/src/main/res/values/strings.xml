@@ -549,6 +549,7 @@
     <string name="pref_audio_upmix_desc">Audio with fewer channels is spread to all speakers: center from the fronts, surrounds from the fronts or neighbours. A simple matrix, not Dolby Pro Logic</string>
     <string name="pref_audio_generate_lfe">Create subwoofer channel (LFE)</string>
     <string name="pref_audio_generate_lfe_desc">Creates the subwoofer channel only if the source has none: when expanding to 5.1/7.1, the bass of all channels below 120 Hz goes to the subwoofer as well. A source LFE stays as is. Level is the LFE slider of the mixer preset</string>
+    <string name="mix_db_format">%1$s dB</string>
     <string name="pref_audio_decoder_passthrough_note">Does not affect passthrough: it decides who decodes what is not passed through</string>
     <!-- Выключение проброса и туннелирования на сеанс плеера -->
     <string name="dont_show_again">Don\'t show again (always disable)</string>
