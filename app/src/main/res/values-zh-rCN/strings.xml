@@ -533,6 +533,19 @@
     <string name="pref_audio_generate_lfe">生成低音炮声道（LFE）</string>
     <string name="pref_audio_generate_lfe_desc">仅当源中没有低音炮声道时才生成：扩展到 5.1/7.1 时，所有声道中 120 Hz 以下的低音也会送往低音炮。源自带的 LFE 保持不变。电平由混音预设中的 LFE 滑块控制</string>
     <string name="mix_db_format">%1$s dB</string>
+    <string name="pref_audio_expert">专家音频设置</string>
+    <string name="pref_audio_expert_desc">手动设置解码器、直通与格式、重新编码、声道和混音器。关闭时只需选择音频系统</string>
+    <string name="pref_audio_system">音频系统</string>
+    <string name="audio_system_stereo">立体声</string>
+    <string name="audio_system_multichannel">多声道</string>
+    <string name="audio_system_stereo_desc">电视、耳机、2.0 回音壁：由播放器解码，多声道缩混为立体声</string>
+    <string name="audio_system_multichannel_desc">通过 HDMI 连接的功放或 5.1+ 回音壁。输出支持的格式（%1$s）原样发送，其余多声道音频重新编码为 %2$s，立体声为 PCM</string>
+    <string name="audio_system_multichannel_transcode_desc">通过 HDMI 连接的功放或 5.1+ 回音壁。所有多声道音频重新编码为 %1$s，立体声为 PCM</string>
+    <string name="audio_system_multichannel_voice_desc">通过 HDMI 连接的功放或 5.1+ 回音壁。启用人声增强时，所有多声道音频重新编码为 %1$s 5.1，不再原样发送</string>
+    <string name="audio_system_multichannel_pcm_desc">通过 HDMI 连接的功放或 5.1+ 回音壁。输出不支持 AC3 和 E-AC3：支持的格式原样发送，其余为 PCM</string>
+    <string name="pref_voice_boost">人声增强</string>
+    <string name="pref_voice_boost_desc">增大中置声道音量：对白和翻译</string>
+    <string name="pref_voice_boost_multichannel_desc">增大中置声道音量：对白和翻译。开启后所有多声道音频重新编码为 %1$s</string>
     <string name="pref_audio_decoder_passthrough_note">不影响直通：决定由谁解码未直通的音频</string>
     <!-- Выключение проброса и туннелирования на сеанс плеера -->
     <string name="dont_show_again">不再显示（直接关闭）</string>

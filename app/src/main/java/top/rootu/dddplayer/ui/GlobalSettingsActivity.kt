@@ -35,6 +35,7 @@ import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
 import top.rootu.dddplayer.logic.AudioMixerLogic
 import top.rootu.dddplayer.logic.AudioPassthroughLogic
+import top.rootu.dddplayer.logic.AudioProfileLogic
 import top.rootu.dddplayer.logic.OpenSourceLicenses
 import top.rootu.dddplayer.logic.UpdateInfo
 import top.rootu.dddplayer.model.MenuItem
@@ -88,6 +89,11 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var switchHdr10Plus: SwitchCompat
     private lateinit var itemTunneling: LinearLayout
     private lateinit var switchTunneling: SwitchCompat
+    private lateinit var switchAudioExpert: SwitchCompat
+    private lateinit var groupAudioExpert: LinearLayout
+    private lateinit var itemAudioSystem: LinearLayout
+    private lateinit var itemVoiceBoost: LinearLayout
+    private lateinit var itemSpeedPassthroughAuto: LinearLayout
     private lateinit var itemAudioPassthrough: LinearLayout
     private lateinit var switchAudioPassthrough: SwitchCompat
     private lateinit var textAudioPassthroughFormats: TextView
@@ -369,6 +375,11 @@ class GlobalSettingsActivity : AppCompatActivity() {
         switchHdr10Plus = findViewById(R.id.switch_hdr10plus)
         itemTunneling = findViewById(R.id.item_tunneling)
         switchTunneling = findViewById(R.id.switch_tunneling)
+        switchAudioExpert = findViewById(R.id.switch_audio_expert)
+        groupAudioExpert = findViewById(R.id.group_audio_expert)
+        itemAudioSystem = findViewById(R.id.item_audio_system)
+        itemVoiceBoost = findViewById(R.id.item_voice_boost)
+        itemSpeedPassthroughAuto = findViewById(R.id.item_speed_passthrough_auto)
         itemAudioPassthrough = findViewById(R.id.item_audio_passthrough)
         switchAudioPassthrough = findViewById(R.id.switch_audio_passthrough)
         textAudioPassthroughFormats = findViewById(R.id.text_audio_passthrough_formats)
@@ -530,7 +541,24 @@ class GlobalSettingsActivity : AppCompatActivity() {
             }
         }
         itemAudioUpmix.setOnClickListener { settingsViewModel.toggleAudioUpmix(!switchAudioUpmix.isChecked) }
-        findViewById<View>(R.id.item_speed_passthrough_auto).setOnClickListener {
+        // Режим настроек звука, аудиосистема и усиление голоса (простой режим)
+        findViewById<View>(R.id.item_audio_expert).setOnClickListener {
+            settingsViewModel.toggleAudioExpertMode(!switchAudioExpert.isChecked)
+        }
+        itemAudioSystem.setOnClickListener {
+            val current = settingsViewModel.audioSystem.value ?: AudioProfileLogic.SYSTEM_STEREO
+            showSingleChoiceDialog(getString(R.string.pref_audio_system), audioSystemLabels(), current) {
+                settingsViewModel.setAudioSystem(it)
+            }
+        }
+        itemVoiceBoost.setOnClickListener {
+            val steps = AudioProfileLogic.VOICE_BOOST_STEPS
+            val current = steps.indexOf(settingsViewModel.voiceBoostDb.value ?: 0)
+            showSingleChoiceDialog(getString(R.string.pref_voice_boost), steps.map { voiceBoostLabel(it) }, current) {
+                settingsViewModel.setVoiceBoostDb(steps[it])
+            }
+        }
+        itemSpeedPassthroughAuto.setOnClickListener {
             settingsViewModel.toggleSpeedPassthroughAuto(!switchSpeedPassthroughAuto.isChecked)
         }
         itemZoomTunnelingAuto.setOnClickListener {
@@ -782,6 +810,22 @@ class GlobalSettingsActivity : AppCompatActivity() {
         settingsViewModel.isZoomTunnelingAuto.observe(this) { switchZoomTunnelingAuto.isChecked = it }
         settingsViewModel.isSpeedPassthroughAuto.observe(this) { switchSpeedPassthroughAuto.isChecked = it }
         settingsViewModel.isHdr10PlusEnabled.observe(this) { switchHdr10Plus.isChecked = it }
+        settingsViewModel.isAudioExpertMode.observe(this) { expert ->
+            switchAudioExpert.isChecked = expert
+            groupAudioExpert.visibility = if (expert) View.VISIBLE else View.GONE
+            itemAudioSystem.visibility = if (expert) View.GONE else View.VISIBLE
+            itemVoiceBoost.visibility = if (expert) View.GONE else View.VISIBLE
+            // Несущая IEC 61937 есть только в экспертном режиме: список форматов выхода зависит от режима
+            refreshDeviceAudioFormats()
+        }
+        settingsViewModel.audioSystem.observe(this) { system ->
+            findViewById<TextView>(R.id.text_audio_system_value).text = audioSystemLabels().getOrElse(system) { "" }
+            updateAudioOutputDescriptions()
+        }
+        settingsViewModel.voiceBoostDb.observe(this) { db ->
+            findViewById<TextView>(R.id.text_voice_boost_value).text = voiceBoostLabel(db)
+            updateAudioOutputDescriptions()
+        }
         settingsViewModel.isAudioPassthroughEnabled.observe(this) { enabled ->
             switchAudioPassthrough.isChecked = enabled
             // Форматы и несущая - часть проброса
@@ -1114,7 +1158,7 @@ class GlobalSettingsActivity : AppCompatActivity() {
     /** Форматы, которые выход принимает битстримом (с несущей IEC 61937, если она включена). */
     private fun refreshDeviceAudioFormats() {
         devicePassthroughFormats = AudioOutputCapabilities.passthroughFormats(
-            this, settingsViewModel.isHdAudioIecEnabled.value == true
+            this, settingsViewModel.isAudioExpertMode.value == true && settingsViewModel.isHdAudioIecEnabled.value == true
         )
         updateAudioOutputDescriptions()
     }
@@ -1145,8 +1189,46 @@ class GlobalSettingsActivity : AppCompatActivity() {
         itemAudioGenerateLfe.visibility = if (visible) View.VISIBLE else View.GONE
     }
 
+    // Индексы совпадают с AudioProfileLogic.SYSTEM_*
+    private fun audioSystemLabels() = listOf(getString(R.string.audio_system_stereo), getString(R.string.audio_system_multichannel))
+
+    private fun voiceBoostLabel(db: Int): String =
+        if (db == 0) getString(R.string.track_off) else getString(R.string.mix_db_format, "+$db")
+
+    /**
+     * Описание аудиосистемы простого режима: что пробрасывается и во что перекодируется (по возможностям выхода).
+     * "Менять скорость без вопроса" нужно только там, где звук идет битстримом: многоканальная система или экспертный режим.
+     */
+    private fun updateSimpleAudioDescriptions() {
+        val expert = settingsViewModel.isAudioExpertMode.value == true
+        val multichannel = settingsViewModel.audioSystem.value == AudioProfileLogic.SYSTEM_MULTICHANNEL
+        itemSpeedPassthroughAuto.visibility = if (expert || multichannel) View.VISIBLE else View.GONE
+        val voice = (settingsViewModel.voiceBoostDb.value ?: 0) > 0
+        val encoder = AudioOutputCapabilities.isEncoderAvailable
+        val codec = when {
+            encoder && AudioPassthroughLogic.AC3 in devicePassthroughFormats -> "AC3"
+            encoder && AudioPassthroughLogic.EAC3 in devicePassthroughFormats -> "E-AC3"
+            else -> null
+        }
+        val supported = AudioPassthroughLogic.ALL_FORMATS.filter { it in devicePassthroughFormats }
+            .joinToString(", ") { AudioPassthroughLogic.label(it) }
+        findViewById<TextView>(R.id.text_audio_system_desc).text = when {
+            !multichannel -> getString(R.string.audio_system_stereo_desc)
+            codec == null -> getString(R.string.audio_system_multichannel_pcm_desc)
+            voice -> getString(R.string.audio_system_multichannel_voice_desc, codec)
+            supported.isEmpty() -> getString(R.string.audio_system_multichannel_transcode_desc, codec)
+            else -> getString(R.string.audio_system_multichannel_desc, supported, codec)
+        }
+        findViewById<TextView>(R.id.text_voice_boost_desc).text = if (multichannel && codec != null) {
+            getString(R.string.pref_voice_boost_multichannel_desc, codec)
+        } else {
+            getString(R.string.pref_voice_boost_desc)
+        }
+    }
+
     /** Описания проброса и микшера по текущим настройкам: что пробрасывается и к чему применяется микшер. */
     private fun updateAudioOutputDescriptions() {
+        updateSimpleAudioDescriptions()
         val supported = AudioPassthroughLogic.ALL_FORMATS.filter { it in devicePassthroughFormats }
         textAudioPassthroughFormats.text = if (supported.isEmpty()) {
             getString(R.string.passthrough_device_none)

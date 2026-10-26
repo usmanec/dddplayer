@@ -31,6 +31,8 @@
   - `DefaultRenderersFactory`: приоритет декодеров-расширений отдельно для видео (`video_decoder_priority`, AV1) и аудио
     (`audio_decoder_priority`, ffmpeg) — передается в `buildVideoRenderers`/`buildAudioRenderers`,
     `enableDecoderFallback`. Приоритет аудио решает только, кто декодирует то, что не пробрасывается;
+  - настройки звука берутся из `SettingsRepository.getAudioConfig`: в экспертном режиме ручные, в простом —
+    профиль аудиосистемы (`AudioProfileLogic.simpleConfig`; во что перекодировать, решают возможности выхода);
   - цепочка звука (снаружи внутрь): `PassthroughPolicySink` → `TranscodingAudioSink` (если перекодирование) →
     `IecCarrierSink` (если `hd_audio_iec` и проброс) → sink с микшером PCM или стандартный.
     `PassthroughPolicySink` отдает выходу как есть только сжатый звук, разрешенный `AudioPassthroughLogic.isAllowed`
@@ -38,6 +40,9 @@
     переключателю), остальной сжатый звук выход «не поддерживает», и его декодируют. При пробросе первым в списке
     стоит `MediaCodecAudioRenderer` без декодеров (пустой `MediaCodecSelector`): он берет только то, что sink
     примет как есть, поэтому проброс работает при любом приоритете декодеров;
+  - микшер PCM считает во float (`SoftLimitAudioProcessor.ToFloat` перед ним) и заканчивается мягким ограничителем
+    (`SoftLimiter`, порог -2 дБ), который возвращает 16 бит: стерео 5–8 каналов сводится на прежнем уровне плеера
+    (пропорции RFC 7845, сумма 2 вместо sqrt(2)), а усиление голоса доходит до +12 дБ;
   - микшер PCM: свой `DefaultAudioSink` с `ChannelMixingAudioProcessor` (матрицы `AudioMixerLogic.createMatrices`
     по `audio_output_channels` и пресету) и аудиобуфером не больше 256 КБ, чтобы не упасть по памяти. Ставится,
     если каналы не «как в источнике» или пресет не стандартный. Выбранная раскладка — предел: шире сводится

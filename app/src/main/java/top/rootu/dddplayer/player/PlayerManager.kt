@@ -457,15 +457,24 @@ class PlayerManager(
                 eventListener: AudioRendererEventListener,
                 out: ArrayList<Renderer>
             ) {
+                // Ручные настройки (экспертный режим) или профиль аудиосистемы (простой). Профилю нужно знать,
+                // во что перекодировать: AC3, если выход его принимает, иначе E-AC3
+                val canEncode = AudioOutputCapabilities.isEncoderAvailable
+                val outputFormats = if (settingsRepo.isAudioExpertMode() || !canEncode) emptySet()
+                    else AudioOutputCapabilities.passthroughFormats(appContext, iec = false)
+                val config = settingsRepo.getAudioConfig(
+                    canAc3 = canEncode && AudioPassthroughLogic.AC3 in outputFormats,
+                    canEac3 = canEncode && AudioPassthroughLogic.EAC3 in outputFormats
+                )
                 val bitstreamAllowed = !bitstreamDisabledForSession
-                val passthrough = bitstreamAllowed && settingsRepo.isAudioPassthroughEnabled()
-                val passthroughFormats = settingsRepo.getAudioPassthroughFormats()
-                val transcode = if (bitstreamAllowed) settingsRepo.getAudioTranscode() else SettingsRepository.AUDIO_TRANSCODE_OFF
-                val channelsSetting = settingsRepo.getAudioOutputChannels()
-                val mixParams = AudioMixerLogic.currentParams(settingsRepo)
-                val upmix = settingsRepo.isAudioUpmixEnabled()
+                val passthrough = bitstreamAllowed && config.passthrough
+                val passthroughFormats = config.passthroughFormats
+                val transcode = if (bitstreamAllowed) config.transcode else SettingsRepository.AUDIO_TRANSCODE_OFF
+                val channelsSetting = config.outputChannels
+                val mixParams = config.mixParams
+                val upmix = config.upmix
                 // LFE из других каналов - часть апмикса
-                val generateLfe = upmix && settingsRepo.isAudioGenerateLfeEnabled()
+                val generateLfe = config.generateLfe
                 // Проброс выключен на сеанс (смена скорости): звук сводится в стерео. Многоканальный PCM
                 // по оптике и ARC не проходит, а ради ускоренного просмотра стерео достаточно
                 val maxPcmChannels = if (bitstreamDisabledForSession) 2 else 8
@@ -529,7 +538,7 @@ class PlayerManager(
                     audioSink
                 }
                 // DTS-HD MA и TrueHD через несущую IEC 61937 - часть проброса
-                val iec = if (passthrough && settingsRepo.isHdAudioIecEnabled()) IecCarrierOutput.wrap(appContext, baseSink) else null
+                val iec = if (passthrough && config.hdAudioIec) IecCarrierOutput.wrap(appContext, baseSink) else null
                 iecSink = iec
                 // Декодированный звук -> AC3/E-AC3 для проброса, тем же микшером. Снаружи микшера PCM:
                 // берет звук до его процессоров
@@ -565,7 +574,7 @@ class PlayerManager(
                 // Приоритет встроенного FFmpeg - своя настройка аудио: кто декодирует то, что не пробрасывается
                 super.buildAudioRenderers(
                     context,
-                    settingsRepo.getAudioDecoderPriority(),
+                    config.decoderPriority,
                     mediaCodecSelector,
                     enableDecoderFallback,
                     finalSink,

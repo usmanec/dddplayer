@@ -14,6 +14,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import top.rootu.dddplayer.logic.AudioMixerLogic
 import top.rootu.dddplayer.logic.AudioPassthroughLogic
+import top.rootu.dddplayer.logic.AudioProfileLogic
 import top.rootu.dddplayer.model.AnaglyphCalibration
 import top.rootu.dddplayer.model.HistoryEntry
 import top.rootu.dddplayer.model.SavedPlaylist
@@ -156,6 +157,22 @@ class SettingsRepositoryTest {
         assertEquals(AudioMixerLogic.CHANNELS_20, repo.getAudioOutputChannels())
         assertEquals(SettingsRepository.AUDIO_TRANSCODE_OFF, repo.getAudioTranscode())
         assertEquals(AudioPassthroughLogic.ALL_FORMATS.toSet(), repo.getAudioPassthroughFormats())
+        // Простой режим, стерео, голос не усиливается
+        assertFalse(repo.isAudioExpertMode())
+        assertEquals(AudioProfileLogic.SYSTEM_STEREO, repo.getAudioSystem())
+        assertEquals(0, repo.getVoiceBoostDb())
+    }
+
+    @Test
+    fun `hardware decoder with passthrough migrates to expert mode`() {
+        prefs.edit {
+            putInt("audio_decoder_priority", DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+            putBoolean("stereo_downmix", false)
+        }
+        val repo = repo()
+        assertTrue(repo.isAudioExpertMode())
+        // Экспертный режим собирает плеер по ручным настройкам
+        assertEquals(repo.getExpertAudioConfig(), repo.getAudioConfig(canAc3 = true, canEac3 = true))
     }
 
     @Test

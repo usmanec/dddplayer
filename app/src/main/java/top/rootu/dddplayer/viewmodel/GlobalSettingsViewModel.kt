@@ -33,6 +33,29 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
 
     private val _isHdr10PlusEnabled = MutableLiveData(repository.isHdr10PlusEnabled())
     val isHdr10PlusEnabled: LiveData<Boolean> = _isHdr10PlusEnabled
+    // --- Режим настроек звука: простой (аудиосистема, усиление голоса) или экспертный ---
+    private val _isAudioExpertMode = MutableLiveData(repository.isAudioExpertMode())
+    val isAudioExpertMode: LiveData<Boolean> = _isAudioExpertMode
+    private val _audioSystem = MutableLiveData(repository.getAudioSystem())
+    val audioSystem: LiveData<Int> = _audioSystem
+    private val _voiceBoostDb = MutableLiveData(repository.getVoiceBoostDb())
+    val voiceBoostDb: LiveData<Int> = _voiceBoostDb
+
+    fun toggleAudioExpertMode(enabled: Boolean) {
+        repository.setAudioExpertMode(enabled)
+        _isAudioExpertMode.value = enabled
+    }
+
+    fun setAudioSystem(system: Int) {
+        repository.setAudioSystem(system)
+        _audioSystem.value = system
+    }
+
+    fun setVoiceBoostDb(db: Int) {
+        repository.setVoiceBoostDb(db)
+        _voiceBoostDb.value = db
+    }
+
     // --- Вывод звука: проброс, перекодирование, каналы микшера ---
     private val _isAudioPassthroughEnabled = MutableLiveData(repository.isAudioPassthroughEnabled())
     val isAudioPassthroughEnabled: LiveData<Boolean> = _isAudioPassthroughEnabled

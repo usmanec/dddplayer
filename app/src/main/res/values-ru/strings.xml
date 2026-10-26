@@ -547,6 +547,19 @@
     <string name="pref_audio_generate_lfe">Создавать канал сабвуфера (LFE)</string>
     <string name="pref_audio_generate_lfe_desc">Создает канал сабвуфера, только если его нет в источнике: при расширении до 5.1/7.1 бас всех каналов ниже 120 Гц уходит и в сабвуфер. LFE источника остается как есть. Уровень — ползунок LFE в пресете микшера</string>
     <string name="mix_db_format">%1$s дБ</string>
+    <string name="pref_audio_expert">Экспертные настройки звука</string>
+    <string name="pref_audio_expert_desc">Вручную: декодер, проброс и форматы, перекодирование, каналы и микшер. Выкл — достаточно выбрать аудиосистему</string>
+    <string name="pref_audio_system">Аудиосистема</string>
+    <string name="audio_system_stereo">Стерео</string>
+    <string name="audio_system_multichannel">Многоканальная</string>
+    <string name="audio_system_stereo_desc">ТВ, наушники, саундбар 2.0: звук декодирует плеер, многоканальный сводится в стерео</string>
+    <string name="audio_system_multichannel_desc">Ресивер или саундбар 5.1+ по HDMI. Форматы, которые принимает выход (%1$s), идут на него без изменений, остальной многоканальный звук перекодируется в %2$s, стерео — в PCM</string>
+    <string name="audio_system_multichannel_transcode_desc">Ресивер или саундбар 5.1+ по HDMI. Весь многоканальный звук перекодируется в %1$s, стерео — в PCM</string>
+    <string name="audio_system_multichannel_voice_desc">Ресивер или саундбар 5.1+ по HDMI. С усилением голоса весь многоканальный звук перекодируется в %1$s 5.1, без изменений на ресивер ничего не идет</string>
+    <string name="audio_system_multichannel_pcm_desc">Ресивер или саундбар 5.1+ по HDMI. Выход не принимает AC3 и E-AC3: форматы, которые он принимает, идут без изменений, остальное — в PCM</string>
+    <string name="pref_voice_boost">Усиление голоса</string>
+    <string name="pref_voice_boost_desc">Громче центральный канал: диалоги и перевод</string>
+    <string name="pref_voice_boost_multichannel_desc">Громче центральный канал: диалоги и перевод. Включено — весь многоканальный звук перекодируется в %1$s</string>
     <string name="pref_audio_decoder_passthrough_note">На проброс не влияет: решает, кто декодирует то, что не пробрасывается</string>
     <!-- Выключение проброса и туннелирования на сеанс плеера -->
     <string name="dont_show_again">Больше не показывать (выключать сразу)</string>

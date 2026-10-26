@@ -519,6 +519,19 @@
     <string name="pref_audio_generate_lfe">Ствараць канал сабвуфера (LFE)</string>
     <string name="pref_audio_generate_lfe_desc">Стварае канал сабвуфера, толькі калі яго няма ў крыніцы: пры пашырэнні да 5.1/7.1 бас усіх каналаў ніжэй за 120 Гц ідзе і ў сабвуфер. LFE крыніцы застаецца як ёсць. Узровень — паўзунок LFE у прэсэце мікшара</string>
     <string name="mix_db_format">%1$s дБ</string>
+    <string name="pref_audio_expert">Экспертныя налады гуку</string>
+    <string name="pref_audio_expert_desc">Уручную: дэкодар, прамая перадача і фарматы, перакадаванне, каналы і мікшар. Выкл — дастаткова выбраць аўдыясістэму</string>
+    <string name="pref_audio_system">Аўдыясістэма</string>
+    <string name="audio_system_stereo">Стэрэа</string>
+    <string name="audio_system_multichannel">Шматканальная</string>
+    <string name="audio_system_stereo_desc">ТБ, навушнікі, саўндбар 2.0: гук дэкадуе плэер, шматканальны зводзіцца ў стэрэа</string>
+    <string name="audio_system_multichannel_desc">Рэсівер або саўндбар 5.1+ праз HDMI. Фарматы, якія прымае выхад (%1$s), ідуць на яго без змен, астатні шматканальны гук перакадуецца ў %2$s, стэрэа — у PCM</string>
+    <string name="audio_system_multichannel_transcode_desc">Рэсівер або саўндбар 5.1+ праз HDMI. Увесь шматканальны гук перакадуецца ў %1$s, стэрэа — у PCM</string>
+    <string name="audio_system_multichannel_voice_desc">Рэсівер або саўндбар 5.1+ праз HDMI. З узмацненнем голасу ўвесь шматканальны гук перакадуецца ў %1$s 5.1, без змен на рэсівер нічога не ідзе</string>
+    <string name="audio_system_multichannel_pcm_desc">Рэсівер або саўндбар 5.1+ праз HDMI. Выхад не прымае AC3 і E-AC3: фарматы, якія ён прымае, ідуць без змен, астатняе — у PCM</string>
+    <string name="pref_voice_boost">Узмацненне голасу</string>
+    <string name="pref_voice_boost_desc">Гучнейшы цэнтральны канал: дыялогі і пераклад</string>
+    <string name="pref_voice_boost_multichannel_desc">Гучнейшы цэнтральны канал: дыялогі і пераклад. Уключана — увесь шматканальны гук перакадуецца ў %1$s</string>
     <string name="pref_audio_decoder_passthrough_note">На прамую перадачу не ўплывае: вызначае, хто дэкадуе тое, што не перадаецца напрамую</string>
     <!-- Выключение проброса и туннелирования на сеанс плеера -->
     <string name="dont_show_again">Больш не паказваць (адключаць адразу)</string>

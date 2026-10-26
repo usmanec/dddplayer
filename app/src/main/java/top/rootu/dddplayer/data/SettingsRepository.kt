@@ -10,6 +10,7 @@ import org.json.JSONObject
 import top.rootu.dddplayer.logic.AnaglyphLogic
 import top.rootu.dddplayer.logic.AudioMixerLogic
 import top.rootu.dddplayer.logic.AudioPassthroughLogic
+import top.rootu.dddplayer.logic.AudioProfileLogic
 import top.rootu.dddplayer.logic.HomeLogic
 import top.rootu.dddplayer.model.AnaglyphCalibration
 import top.rootu.dddplayer.model.AudioTrackStat
@@ -421,6 +422,69 @@ class SettingsRepository private constructor(context: Context) {
         }
     }
 
+    // --- Режимы настроек звука: простой (аудиосистема и усиление голоса) и экспертный (все вручную) ---
+
+    fun isAudioExpertMode(): Boolean {
+        migrateAudioMode()
+        return prefs.getBoolean("audio_expert_mode", false)
+    }
+    fun setAudioExpertMode(enabled: Boolean) = prefs.edit { putBoolean("audio_expert_mode", enabled) }
+
+    // Аудиосистема простого режима (AudioProfileLogic.SYSTEM_*)
+    fun getAudioSystem(): Int {
+        migrateAudioMode()
+        return prefs.getInt("audio_system", AudioProfileLogic.SYSTEM_STEREO)
+    }
+    fun setAudioSystem(system: Int) = prefs.edit { putInt("audio_system", system) }
+
+    // Усиление голоса (центра) простого режима, дБ: 0 - выкл
+    fun getVoiceBoostDb(): Int {
+        migrateAudioMode()
+        return prefs.getInt("voice_boost_db", 0)
+    }
+    fun setVoiceBoostDb(db: Int) = prefs.edit { putInt("voice_boost_db", db) }
+
+    /** Ручные (экспертные) настройки звука. */
+    fun getExpertAudioConfig(): AudioProfileLogic.AudioConfig {
+        val upmix = isAudioUpmixEnabled()
+        return AudioProfileLogic.AudioConfig(
+            decoderPriority = getAudioDecoderPriority(),
+            passthrough = isAudioPassthroughEnabled(),
+            passthroughFormats = getAudioPassthroughFormats(),
+            hdAudioIec = isHdAudioIecEnabled(),
+            transcode = getAudioTranscode(),
+            outputChannels = getAudioOutputChannels(),
+            upmix = upmix,
+            generateLfe = upmix && isAudioGenerateLfeEnabled(),
+            mixParams = AudioMixerLogic.currentParams(this)
+        )
+    }
+
+    /**
+     * Настройки звука, по которым собирается плеер: ручные в экспертном режиме, иначе профиль аудиосистемы.
+     * @param canAc3 / [canEac3] выход принимает AC3 / E-AC3 битстримом (для перекодирования в простом режиме)
+     */
+    fun getAudioConfig(canAc3: Boolean, canEac3: Boolean): AudioProfileLogic.AudioConfig =
+        if (isAudioExpertMode()) getExpertAudioConfig()
+        else AudioProfileLogic.simpleConfig(getAudioSystem(), getVoiceBoostDb(), canAc3, canEac3)
+
+    /**
+     * Переход на режимы настроек звука: если ручные настройки совпадают с простым профилем (в том числе у новой
+     * установки), включается простой режим с этим профилем, иначе экспертный - чтобы поведение не поменялось.
+     */
+    private fun migrateAudioMode() {
+        if (prefs.contains("audio_expert_mode")) return
+        val standardPreset = getMixPreset() == AudioMixerLogic.MixPreset.STANDARD.id
+        val profile = AudioProfileLogic.matchSimpleProfile(getExpertAudioConfig(), standardPreset)
+        prefs.edit {
+            putBoolean("audio_expert_mode", profile == null)
+            if (profile != null) {
+                putInt("audio_system", profile.first)
+                putInt("voice_boost_db", profile.second)
+            }
+        }
+    }
+
     // Скорость при битстриме: не спрашивать, а сразу выключать проброс до конца сеанса плеера
     fun isSpeedPassthroughAutoEnabled(): Boolean = prefs.getBoolean("speed_passthrough_auto", false)
     fun setSpeedPassthroughAutoEnabled(enabled: Boolean) = prefs.edit { putBoolean("speed_passthrough_auto", enabled) }
@@ -757,7 +821,8 @@ class SettingsRepository private constructor(context: Context) {
     fun getHardSettingsSignature(): String {
         val videoParams = "${getVideoDecoderPriority()}_${getAudioDecoderPriority()}_${isTunnelingEnabled()}_${getDvMode()}_${isHdAudioIecEnabled()}_${isHdr10PlusEnabled()}"
         val audioMix = "${getAudioOutputChannels()}_${isAudioUpmixEnabled()}_${isAudioGenerateLfeEnabled()}_${getMixPreset()}_${getMixFront()}_${getMixCenter()}_${getMixRear()}_${getMixMiddle()}_${getMixLfe()}"
-        val audioOutput = "${isAudioPassthroughEnabled()}_${getAudioPassthroughFormats().sorted()}_${getAudioTranscode()}"
+        val audioOutput = "${isAudioPassthroughEnabled()}_${getAudioPassthroughFormats().sorted()}_${getAudioTranscode()}" +
+            "_${isAudioExpertMode()}_${getAudioSystem()}_${getVoiceBoostDb()}"
         return "${videoParams}_${audioMix}_${audioOutput}_${getTargetBufferCorrectMB()}"
     }
 

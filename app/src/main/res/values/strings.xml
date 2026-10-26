@@ -550,6 +550,19 @@
     <string name="pref_audio_generate_lfe">Create subwoofer channel (LFE)</string>
     <string name="pref_audio_generate_lfe_desc">Creates the subwoofer channel only if the source has none: when expanding to 5.1/7.1, the bass of all channels below 120 Hz goes to the subwoofer as well. A source LFE stays as is. Level is the LFE slider of the mixer preset</string>
     <string name="mix_db_format">%1$s dB</string>
+    <string name="pref_audio_expert">Expert audio settings</string>
+    <string name="pref_audio_expert_desc">Manual decoder, passthrough and formats, re-encoding, channels and mixer. Off: just pick your audio system</string>
+    <string name="pref_audio_system">Audio system</string>
+    <string name="audio_system_stereo">Stereo</string>
+    <string name="audio_system_multichannel">Multichannel</string>
+    <string name="audio_system_stereo_desc">TV, headphones, 2.0 soundbar: the player decodes audio and mixes multichannel down to stereo</string>
+    <string name="audio_system_multichannel_desc">Receiver or 5.1+ soundbar over HDMI. Formats the output accepts (%1$s) go to it unchanged, other multichannel audio is re-encoded to %2$s, stereo stays PCM</string>
+    <string name="audio_system_multichannel_transcode_desc">Receiver or 5.1+ soundbar over HDMI. All multichannel audio is re-encoded to %1$s, stereo stays PCM</string>
+    <string name="audio_system_multichannel_voice_desc">Receiver or 5.1+ soundbar over HDMI. With voice boost all multichannel audio is re-encoded to %1$s 5.1, nothing goes to the receiver unchanged</string>
+    <string name="audio_system_multichannel_pcm_desc">Receiver or 5.1+ soundbar over HDMI. The output does not accept AC3 or E-AC3: formats it accepts go unchanged, the rest is output as PCM</string>
+    <string name="pref_voice_boost">Voice boost</string>
+    <string name="pref_voice_boost_desc">Louder center channel: dialogue and translation</string>
+    <string name="pref_voice_boost_multichannel_desc">Louder center channel: dialogue and translation. When on, all multichannel audio is re-encoded to %1$s</string>
     <string name="pref_audio_decoder_passthrough_note">Does not affect passthrough: it decides who decodes what is not passed through</string>
     <!-- Выключение проброса и туннелирования на сеанс плеера -->
     <string name="dont_show_again">Don\'t show again (always disable)</string>
