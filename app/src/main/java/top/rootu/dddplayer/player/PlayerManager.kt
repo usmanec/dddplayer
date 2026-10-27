@@ -86,6 +86,8 @@ private const val MAX_PROBE_BYTES = 32 * 1024 * 1024 // Ограничение �
 private const val DAV1D_MAX_FRAME_DELAY = 4 // Кадров в работе у dav1d (по умолчанию 2)
 private const val DAV1D_INPUT_BUFFERS = 8
 private const val DAV1D_OUTPUT_BUFFERS = 6
+// Пауза между выключением и включением звука при пересоздании аудиовыхода
+private const val AUDIO_REFRESH_DELAY_MS = 300L
 
 // Счетчик для уникальных ID MediaSession (общий для всех экземпляров PlayerManager в процессе)
 private val sessionCounter = AtomicInteger()
@@ -120,6 +122,10 @@ class PlayerManager(
      * и для смены скорости звук декодируется в PCM. Применяется при пересоздании плеера.
      */
     var bitstreamDisabledForSession = false
+
+    // Bluetooth после звонка или голосового ассистента: пересоздаем аудиовыход, см. AudioRouteWatcher
+    private val audioRouteWatcher = AudioRouteWatcher(appContext) { refreshAudioOutput("voice mode ended") }
+    private val audioRefreshHandler = Handler(android.os.Looper.getMainLooper())
 
     /** Туннелирование выключено до конца сеанса плеера (с ним не работает масштаб). */
     var tunnelingDisabledForSession = false
@@ -625,6 +631,7 @@ class PlayerManager(
 
         // Handle Noisy
         player.setHandleAudioBecomingNoisy(true)
+        audioRouteWatcher.start()
 
         // Seek Parameters
         player.setSeekBackIncrementMs(15000)
@@ -705,6 +712,14 @@ class PlayerManager(
                 config: AudioSink.AudioTrackConfig
             ) {
                 isDirectAudioOutput = false
+            }
+
+            // Для диагностики пропадающего звука: плеер приглушен потерей аудиофокуса (звонок, другое приложение)
+            override fun onPlaybackSuppressionReasonChanged(
+                eventTime: AnalyticsListener.EventTime,
+                playbackSuppressionReason: Int
+            ) {
+                Log.i("PlayerManager", "Playback suppression reason: $playbackSuppressionReason")
             }
         })
 
@@ -1023,7 +1038,28 @@ class PlayerManager(
         player.prepare()
     }
 
+    /**
+     * Пересоздает аудиовыход, как "Выкл" и обратно в меню дорожек: новый AudioTrack заново выбирает маршрут
+     * (A2DP вместо гарнитурного режима). Включение откладываем: два изменения параметров подряд плеер
+     * объединил бы и ничего не пересоздал. Звук, выключенный пользователем, не трогаем.
+     */
+    private fun refreshAudioOutput(reason: String) {
+        val player = exoPlayer ?: return
+        val params = player.trackSelectionParameters
+        if (C.TRACK_TYPE_AUDIO in params.disabledTrackTypes) return
+        Log.i("PlayerManager", "Refreshing audio output: $reason")
+        player.trackSelectionParameters = params.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true).build()
+        audioRefreshHandler.postDelayed({
+            val current = exoPlayer ?: return@postDelayed
+            current.trackSelectionParameters = current.trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
+                .build()
+        }, AUDIO_REFRESH_DELAY_MS)
+    }
+
     fun releasePlayer(isFinalRelease: Boolean = false, saveState: Boolean = true) {
+        audioRouteWatcher.stop()
+        audioRefreshHandler.removeCallbacksAndMessages(null)
         exoPlayer?.let { player ->
             if (saveState) {
                 currentWindowIndex = player.currentMediaItemIndex

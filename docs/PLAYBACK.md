@@ -79,6 +79,11 @@
     `tunnelingDisabledForSession` выключает туннелирование, если включено ручное увеличение (`ResizeMode.SCALE`
     масштабирует View, а туннельный кадр выводит композитор мимо него). Вопрос показывает `PlayerFragment`
     (`SessionPrompt`, `PlayerViewModel.checkSessionConflicts`), отмена возвращает 1.00x или прежний масштаб;
+  - `AudioRouteWatcher`: звонок, мессенджер или голосовой ассистент переводят Bluetooth-наушники в гарнитурный режим
+    (HFP/SCO), и часть телефонов не возвращает открытый AudioTrack на A2DP (звук тише, "как через микрофон", или
+    тишина). Когда аудиорежим (`AudioManager.getMode`, опрос раз в 2 с) возвращается из звонка/связи в обычный,
+    `PlayerManager.refreshAudioOutput` выключает и через 300 мс включает аудиодорожку - как вручную в меню.
+    Смены режима, выходных устройств и подавления звука (аудиофокус) пишутся в лог;
   - `NetworkBufferLoadControl` (см. ниже);
   - `LoudnessEnhancer` по `audioSessionId` (`loudness_boost`), `skipSilence`, шаг перемотки 15 с.
 - `loadPlaylist(items, startIndex, startPosMs)` превращает `MediaItem` в `Media3MediaItem`
