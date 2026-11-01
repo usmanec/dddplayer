@@ -191,8 +191,8 @@ class PlayerManager(
     private val baseHttpFactory = OkHttpDataSource.Factory(okHttpClient)
 
     // Универсальная фабрика, которая умеет работать с content://, file:// и http://
-    // Мы передаем baseHttpFactory как источник для сетевых запросов.
-    private val defaultDataSourceFactory = DefaultDataSource.Factory(appContext, baseHttpFactory)
+    // Сеть идет через ReusingDataSource: прыжки экстрактора по файлу не открывают новое соединение каждый раз.
+    private val defaultDataSourceFactory = DefaultDataSource.Factory(appContext, ReusingDataSource.Factory(baseHttpFactory))
 
     // Ответы, уже скачанные при проверке ссылки на M3U: плеер получает их без повторного запроса
     private val prefetchStore = PrefetchStore()
