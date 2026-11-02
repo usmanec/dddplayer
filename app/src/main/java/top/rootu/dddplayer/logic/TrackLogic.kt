@@ -14,6 +14,8 @@ import top.rootu.dddplayer.viewmodel.TrackOption
 import top.rootu.dddplayer.viewmodel.VideoQualityOption
 
 object TrackLogic {
+    // Подпись «субтитры выключены» в результате и в Intent (subtitle_track)
+    const val SUBTITLES_OFF = "off"
 
     fun extractVideoTracks(tracks: Tracks): List<VideoQualityOption> {
         val options = mutableListOf<VideoQualityOption>()
@@ -147,6 +149,18 @@ object TrackLogic {
     }
 
     /**
+     * Подпись субтитров для памяти фильма/сериала: название, язык и формат, "off" для пункта "Выкл".
+     * Только поля дорожки (без метаданных файла): они есть с первого списка дорожек, сравнение делается один раз.
+     */
+    fun subtitleTrackSignature(option: TrackOption): String? {
+        if (option.isOff) return SUBTITLES_OFF
+        val format = option.format ?: return null
+        return listOf(format.label?.trim().orEmpty(), format.language ?: "und", format.sampleMimeType.orEmpty())
+            .joinToString("|")
+            .replace('\n', ' ')
+    }
+
+    /**
      * Индекс субтитров для автовключения при загрузке видео (настройка subtitle_auto_mode).
      * null - ничего не менять (режим "По умолчанию" или подходящей дорожки нет).
      * @param preferredLangs предпочитаемые языки субтитров по порядку
@@ -190,6 +204,18 @@ object TrackLogic {
             else -> null
         }
     }
+
+    /** Дорожка на одном из языков запуска (extra audio_lang); без них подходит любая */
+    fun isWantedAudio(language: String?, wanted: Array<String>?): Boolean =
+        wanted == null || wanted.any { sameLanguage(it, language) }
+
+    /**
+     * Запомненная для ссылки дорожка [index] при audio_lang: на нужном языке, или такого языка в файле нет вовсе
+     * (дорожки без меток языка: отказ от нее ничего не дал бы, плеер не найдет язык и сам).
+     */
+    fun keepsSavedAudio(options: List<TrackOption>, index: Int, wanted: Array<String>?): Boolean =
+        isWantedAudio(options[index].format?.language, wanted) ||
+            options.none { !it.isOff && isWantedAudio(it.format?.language, wanted) }
 
     /** Сравнение кодов языков без учета региона и формата (ru, rus, ru-RU) */
     fun sameLanguage(a: String?, b: String?): Boolean {

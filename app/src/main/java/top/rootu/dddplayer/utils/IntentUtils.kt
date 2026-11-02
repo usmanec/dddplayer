@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.os.Parcelable
 import android.provider.OpenableColumns
 import androidx.core.net.toUri
+import top.rootu.dddplayer.logic.TrackLogic
 import top.rootu.dddplayer.model.HistorySource
 import top.rootu.dddplayer.model.MediaItem
 import top.rootu.dddplayer.model.SubtitleItem
@@ -21,6 +22,37 @@ object IntentUtils {
     const val EXTRA_HISTORY_NAME = "top.rootu.dddplayer.history_name"
     // Ссылка может быть плейлистом без расширения .m3u (например, get.php?...): проверить содержимое
     const val EXTRA_FORCE_M3U = "top.rootu.dddplayer.force_m3u"
+    // Для внешних приложений: языки аудио этого видео через запятую, по порядку предпочтения
+    const val EXTRA_AUDIO_LANG = "audio_lang"
+    // Для внешних приложений: дорожки и скорость, которые приложение помнит для фильма или сериала.
+    // Плеер возвращает текущие в результате теми же ключами
+    const val EXTRA_AUDIO_TRACK = "audio_track"       // подпись аудиодорожки (TrackLogic.audioTrackSignature)
+    const val EXTRA_SUBTITLE_TRACK = "subtitle_track" // подпись субтитров (TrackLogic.subtitleTrackSignature) или "off"
+    const val EXTRA_SPEED = "speed"                    // скорость воспроизведения
+    const val SUBTITLES_OFF = TrackLogic.SUBTITLES_OFF
+
+    /** Дорожки и скорость фильма/сериала; null у поля - приложение его не помнит. */
+    data class TitleTracks(val audio: String?, val subtitle: String?, val speed: Float?)
+
+    /**
+     * Дорожки фильма/сериала от приложения. null - ни одного ключа: приложение их не помнит.
+     * Ключ, переданный хоть пустым, включает память: дорожка, выбранная в этом запуске, переходит на следующие видео списка.
+     */
+    @Suppress("DEPRECATION")
+    fun parseTitleTracks(intent: Intent): TitleTracks? {
+        val extras = intent.extras ?: return null
+        if (listOf(EXTRA_AUDIO_TRACK, EXTRA_SUBTITLE_TRACK, EXTRA_SPEED).none { extras.containsKey(it) }) return null
+        val speed = when (val value = extras.get(EXTRA_SPEED)) {
+            is Number -> value.toFloat()
+            is String -> value.toFloatOrNull()
+            else -> null
+        }
+        return TitleTracks(
+            extras.getString(EXTRA_AUDIO_TRACK)?.ifEmpty { null },
+            extras.getString(EXTRA_SUBTITLE_TRACK)?.ifEmpty { null },
+            speed?.takeIf { it > 0f }
+        )
+    }
 
     /** Источник для истории "Продолжить просмотр" или null, если видео открыто не со стартового экрана. */
     fun parseHistorySource(intent: Intent): HistorySource? {
@@ -30,6 +62,11 @@ object IntentUtils {
     }
 
     fun isForceM3u(intent: Intent): Boolean = intent.getBooleanExtra(EXTRA_FORCE_M3U, false)
+
+    /** Языки аудио для этого видео ("ru,uk"): важнее настройки плеера. null - как в настройке. */
+    fun parseAudioLanguages(intent: Intent): Array<String>? =
+        intent.getStringExtra(EXTRA_AUDIO_LANG)?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }
+            ?.takeIf { it.isNotEmpty() }?.toTypedArray()
 
     /**
      * Парсит Intent и возвращает список медиа-элементов и стартовую позицию.

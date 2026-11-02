@@ -174,6 +174,26 @@ When started with `startActivityForResult` and `return_result = true`, the playe
 | `position` | Long | Playback position in milliseconds (equals the duration when the video ended). |
 | `duration` | Long | Video duration in milliseconds. |
 | `end_by` | String | `completion` if the video finished (the player closes automatically), `user` if the user exited. |
+| `audio_track` | String | Signature of the current audio track (see below). |
+| `subtitle_track` | String | Signature of the current subtitles or `off`; only when the video has subtitles. |
+| `speed` | Float | Playback speed, only when it was chosen (not the default). |
+
+#### Tracks and Speed of a Movie or Series
+An app can remember the tracks per movie or series and pass them back on the next launch (single video or playlist):
+
+| Key | Type | Description |
+| :--- | :--- | :--- |
+| `audio_lang` | String | Audio languages of this video in order of preference (`ru,uk`); beats the "Audio language" setting. |
+| `audio_track` | String | Audio track signature from a previous result. Wins over `audio_lang` when the track exists. |
+| `subtitle_track` | String | Subtitle signature from a previous result, or `off`. |
+| `speed` | Float / Double / String | Playback speed for this launch. |
+
+A video's own saved tracks (the player's per-URI settings) still win, except a saved audio track that isn't in one of
+the `audio_lang` languages (or has no language tag) when `audio_lang` is passed and the file has a track in one of them;
+a track the user picked for the video they last picked one in (this session) wins anyway, also after the player
+restarts. With `audio_lang`, the most used
+tracks from other videos ("Remember audio track: all") count under the same rule. Passing any of the three keys, even an empty
+`audio_track`, turns the memory on for this launch: a track the user picks is also used for the next items of the playlist.
 
 ### Tech Stack
 
