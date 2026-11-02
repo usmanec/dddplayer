@@ -15,6 +15,7 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.common.ForwardingPlayer
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
@@ -107,7 +108,8 @@ class PlayerManager(
     private var loudnessEnhancer: LoudnessEnhancer? = null
     private var iecSink: IecCarrierSink? = null
 
-    // Скорость, выбранная пользователем (PlayerViewModel), без поправок LivePlaybackSpeedControl: для SpeedDecodeSink
+    // Скорость, выбранная пользователем (PlayerViewModel, MediaSession), без поправок LivePlaybackSpeedControl:
+    // для SpeedDecodeSink и IecCarrierSink
     @Volatile var requestedSpeed = 1f
 
     // Состояние для восстановления
@@ -475,7 +477,7 @@ class PlayerManager(
                 }
                 // DTS-HD MA и TrueHD через несущую IEC 61937 поверх любого из Sink: даунмикс касается только
                 // декодированного PCM, а битстрим и так идет мимо процессоров
-                val iec = if (settingsRepo.isHdAudioIecEnabled()) IecCarrierOutput.wrap(appContext, baseSink) else null
+                val iec = if (settingsRepo.isHdAudioIecEnabled()) IecCarrierOutput.wrap(appContext, baseSink) { requestedSpeed } else null
                 iecSink = iec
                 // Проброс только Dolby: DTS и TrueHD декодируются. Декодеры устройства перед FFmpeg (PREFER -> ON),
                 // иначе FFmpeg забрал бы и AC3/E-AC3 раньше, чем до них дойдет passthrough; «только устройства» (OFF)
@@ -576,6 +578,17 @@ class PlayerManager(
                 val sessionPlayer = object : ForwardingPlayer(player) {
                     override fun stop() {
                         onStopRequested?.invoke() ?: super.stop()
+                    }
+
+                    // Скорость от внешнего контроллера - тоже выбор пользователя, Sink'и должны о нем знать
+                    override fun setPlaybackSpeed(speed: Float) {
+                        requestedSpeed = speed
+                        super.setPlaybackSpeed(speed)
+                    }
+
+                    override fun setPlaybackParameters(playbackParameters: PlaybackParameters) {
+                        requestedSpeed = playbackParameters.speed
+                        super.setPlaybackParameters(playbackParameters)
                     }
                 }
                 mediaSession = MediaSession.Builder(appContext, sessionPlayer)

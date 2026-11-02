@@ -2,8 +2,10 @@ package top.rootu.dddplayer.player
 
 import androidx.media3.common.Format
 import androidx.media3.common.MimeTypes
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.exoplayer.audio.AudioSink
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -139,6 +141,59 @@ class IecCarrierSinkSwitchTest {
         assertEquals("DTS-HD", sink.carrierCodecLabel)
         sink.configure(format(MimeTypes.AUDIO_AC3, 6), 0, null)
         assertNull(sink.carrierCodecLabel)
+    }
+
+    @Test
+    fun liveSpeedControlKeepsTrueHdOnTheCarrier() {
+        var requested = 1f
+        val signals = mutableListOf<String>()
+        var carrierSpeed = 1f
+        val carrier = Proxy.newProxyInstance(AudioSink::class.java.classLoader, arrayOf(AudioSink::class.java)) { _, method, args ->
+            if (method.name == "setPlaybackParameters") carrierSpeed = (args!![0] as PlaybackParameters).speed
+            when (method.returnType) {
+                java.lang.Boolean.TYPE -> false
+                java.lang.Integer.TYPE -> 0
+                java.lang.Long.TYPE -> 0L
+                else -> null
+            }
+        } as AudioSink
+        val sink = IecCarrierSink(
+            normalSink(AudioSink.SINK_FORMAT_SUPPORTED_DIRECTLY), carrier, { true }, { false },
+            requestedSpeed = { requested }
+        )
+        sink.setListener(Proxy.newProxyInstance(AudioSink.Listener::class.java.classLoader, arrayOf(AudioSink.Listener::class.java)) { _, method, _ ->
+            if (method.name == "onAudioCapabilitiesChanged") signals += method.name
+            null
+        } as AudioSink.Listener)
+        val trueHd = format(MimeTypes.AUDIO_TRUEHD, 8)
+        sink.configure(trueHd, 0, null)
+
+        // Эфир: LivePlaybackSpeedControl двигает скорость часов около 1x, пользователь ее не менял
+        for (speed in listOf(0.98f, 1f, 1.03f, 1f, 1.05f)) sink.setPlaybackParameters(PlaybackParameters(speed))
+        assertEquals("TrueHD must stay on the carrier", AudioSink.SINK_FORMAT_SUPPORTED_DIRECTLY, sink.getFormatSupport(trueHd))
+        // Битстрим не ускорить: несущая на 1x, а плееру отдается его скорость, иначе часы и видео разъедутся
+        assertEquals(1f, carrierSpeed)
+        assertEquals(1.05f, sink.playbackParameters.speed)
+        assertEquals("no re-selection while the user speed is 1x", 0, signals.size)
+
+        // Пользователь выбрал 1.5x: битстрим не ускорить, TrueHD уходит на декодер
+        requested = 1.5f
+        sink.setPlaybackParameters(PlaybackParameters(1.5f))
+        assertEquals(AudioSink.SINK_FORMAT_UNSUPPORTED, sink.getFormatSupport(trueHd))
+        assertEquals(1, signals.size)
+
+        requested = 1f
+        sink.setPlaybackParameters(PlaybackParameters(1f))
+        assertEquals(AudioSink.SINK_FORMAT_SUPPORTED_DIRECTLY, sink.getFormatSupport(trueHd))
+        assertEquals("back at 1x it returns to the carrier", 2, signals.size)
+    }
+
+    @Test
+    fun withoutRequestedSpeedTheClockSpeedDecides() {
+        val sink = IecCarrierSink(normalSink(AudioSink.SINK_FORMAT_SUPPORTED_DIRECTLY), recordingSink(mutableListOf()), { true }, { false })
+        sink.setPlaybackParameters(PlaybackParameters(1.5f))
+        sink.configure(format(MimeTypes.AUDIO_TRUEHD, 8), 0, null)
+        assertFalse(sink.isCarrierActive)
     }
 
     /** Первый кадр ядра DTS из фикстуры DTS-HD MA, без HD-части (EXSS) */
