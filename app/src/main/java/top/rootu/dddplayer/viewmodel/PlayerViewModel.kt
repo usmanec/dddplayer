@@ -1166,6 +1166,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         var startPos = startItem?.startPositionMs ?: 0L
         pendingExternalPosition = null
         sessionAudioSignature = null // Новый плейлист - выбор дорожки начинается заново
+        userAudioUri = null
         isFirstItemLoaded = false // Продолжение просмотра - для первого элемента нового плейлиста
         if (startItem != null && startPos > 0 &&
             repository.getExternalPositionMode() == SettingsRepository.EXTERNAL_POSITION_ASK
@@ -1677,7 +1678,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         for (signature in chosen + stats) {
             val idx = audioOptions.indexOfFirst { TrackLogic.audioTrackSignature(it) == signature }
             if (idx != -1 && (signature in chosen ||
-                    TrackLogic.isWantedAudio(audioOptions[idx].format?.language, playerManager.audioLanguages))) return idx
+                    TrackLogic.keepsSavedAudio(audioOptions, idx, playerManager.audioLanguages))) return idx
         }
         return null
     }

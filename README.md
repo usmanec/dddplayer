@@ -189,7 +189,9 @@ An app can remember the tracks per movie or series and pass them back on the nex
 | `speed` | Float / Double / String | Playback speed for this launch. |
 
 A video's own saved tracks (the player's per-URI settings) still win, except a saved audio track that isn't in one of
-the `audio_lang` languages (or has no language tag) when `audio_lang` is passed. Passing any of the three keys, even an empty
+the `audio_lang` languages (or has no language tag) when `audio_lang` is passed and the file has a track in one of them;
+a track the user picked in this session wins anyway, also after the player restarts. With `audio_lang`, the most used
+tracks from other videos ("Remember audio track: all") count under the same rule. Passing any of the three keys, even an empty
 `audio_track`, turns the memory on for this launch: a track the user picks is also used for the next items of the playlist.
 
 ### Tech Stack
