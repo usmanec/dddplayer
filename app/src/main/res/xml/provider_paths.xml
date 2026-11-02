@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <external-files-path name="external_files" path="." />
+    <!-- Локальный файл (и USB-диск) в другой плеер: PlayerFragment.openInExternalPlayer, только с разрешением на этот URI.
+         Только общие хранилища: не корень (иначе через выбор плеера можно отдать файлы самого DDD, например
+         настройки с паролями SMB) -->
+    <root-path name="storage" path="storage/" />
+    <root-path name="media_rw" path="mnt/media_rw/" />
 </paths>

@@ -62,4 +62,13 @@ class PlaybackErrorLogicTest {
         )
         assertFalse(PlaybackErrorLogic.isContentSourceError(network))
     }
+
+    @Test
+    fun `unparsed formats can be opened in another player`() {
+        fun error(code: Int) = PlaybackException("Source error", null, code)
+        assertTrue(PlaybackErrorLogic.canOpenInOtherPlayer(error(PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED)))
+        assertTrue(PlaybackErrorLogic.canOpenInOtherPlayer(error(PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED)))
+        assertFalse(PlaybackErrorLogic.canOpenInOtherPlayer(error(PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)))
+        assertFalse(PlaybackErrorLogic.canOpenInOtherPlayer(error(PlaybackException.ERROR_CODE_DECODER_INIT_FAILED)))
+    }
 }

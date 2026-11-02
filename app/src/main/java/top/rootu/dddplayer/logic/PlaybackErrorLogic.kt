@@ -1,5 +1,6 @@
 package top.rootu.dddplayer.logic
 
+import androidx.media3.common.PlaybackException
 import androidx.media3.datasource.ContentDataSource
 
 /**
@@ -50,4 +51,11 @@ object PlaybackErrorLogic {
         }
         return false
     }
+
+    /**
+     * Формат не разобран (контейнер или манифест, коды 3001–3004): видео можно открыть в другом плеере.
+     * Сюда попадает и Blu-ray .m2ts по ссылке без расширения: после ошибки контейнера плеер пробует HLS и получает 3002.
+     */
+    fun canOpenInOtherPlayer(error: PlaybackException): Boolean =
+        error.errorCode in PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED..PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED
 }

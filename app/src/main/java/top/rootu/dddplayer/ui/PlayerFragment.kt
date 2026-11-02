@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.app.Dialog
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.ComponentName
+import android.content.ContentResolver
 import android.content.Context
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -30,6 +32,7 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.isVisible
+import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
@@ -76,6 +79,8 @@ import top.rootu.dddplayer.viewmodel.SettingsViewModel
 import top.rootu.dddplayer.viewmodel.UpdateViewModel
 import kotlin.math.abs
 import kotlin.math.roundToInt
+
+import java.io.File
 
 class PlayerFragment : Fragment(), OnSurfaceReadyListener {
 
@@ -178,7 +183,8 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
             onShowControls = { ui.showControls(); timerController.resetControlsTimer() },
             onHideControls = { ui.hideControls() },
             onResetHideTimer = { timerController.resetControlsTimer() },
-            onShowPlaylist = { showPlaylist() }
+            onShowPlaylist = { showPlaylist() },
+            onOpenExternal = { openInExternalPlayer() }
         )
 
         swipeAction = settingsRepo.getHorizontalSwipeAction()
@@ -766,6 +772,37 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         }
     }
 
+    // Открыть текущее видео в другом плеере (контейнер, который Media3 не читает, например Blu-ray .m2ts).
+    // Заголовки и название - ключами MX Player (их же читает DDD); плеер закрывается
+    private fun openInExternalPlayer() {
+        val context = requireContext()
+        val item = viewModel.getPlayingItem()
+        val uri = viewModel.player?.currentMediaItem?.localConfiguration?.uri ?: return
+        // file:// за пределы приложения нельзя (FileUriExposedException): через FileProvider с разрешением на чтение
+        val shared = if (uri.scheme == ContentResolver.SCHEME_FILE) {
+            try {
+                FileProvider.getUriForFile(context, "${context.packageName}.provider", File(uri.path ?: return))
+            } catch (e: IllegalArgumentException) {
+                return // путь вне provider_paths
+            }
+        } else uri
+        val view = Intent(Intent.ACTION_VIEW)
+            .setDataAndType(shared, "video/*")
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        item?.title?.let { view.putExtra("title", it) }
+        item?.headers?.takeIf { it.isNotEmpty() }?.let { h ->
+            view.putExtra("headers", h.flatMap { listOf(it.key, it.value) }.toTypedArray())
+        }
+        val chooser = Intent.createChooser(view, null)
+            .putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(ComponentName(requireContext(), PlayerActivity::class.java)))
+        try {
+            startActivity(chooser)
+            requireActivity().finish()
+        } catch (e: ActivityNotFoundException) {
+            // Других плееров нет: остаемся на экране ошибки
+        }
+    }
+
     private fun showPlaybackSpeedMenu(initialFocusId: String? = null) {
         val menuItems = viewModel.getPlaybackSpeedMenuItems(requireContext())
 
@@ -1070,6 +1107,8 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
             resetDimTimer()
         }
         // Фатальная ошибка (плеер стоп)
+        ui.handOffAllowed = { !viewModel.isOverallLiveMode() }
+        ui.onHandOff = { openInExternalPlayer() }
         viewModel.fatalError.observe(viewLifecycleOwner) { error ->
             if (error != null) {
                 ui.showFatalError(error)
