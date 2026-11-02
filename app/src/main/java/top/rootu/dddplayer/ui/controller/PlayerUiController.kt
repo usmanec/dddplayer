@@ -18,6 +18,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.toColorInt
 import androidx.core.view.isVisible
+import androidx.core.view.updateLayoutParams
 import androidx.media3.common.PlaybackException
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.SubtitleView
@@ -28,6 +29,7 @@ import top.rootu.dddplayer.data.SettingsRepository
 import top.rootu.dddplayer.logic.PlaybackErrorLogic
 import top.rootu.dddplayer.model.MediaItem
 import top.rootu.dddplayer.model.ResizeMode
+import top.rootu.dddplayer.model.SkipSegment
 import top.rootu.dddplayer.model.StereoInputType
 import top.rootu.dddplayer.model.StereoOutputMode
 import top.rootu.dddplayer.model.SubtitleStyle
@@ -167,12 +169,58 @@ class PlayerUiController(private val rootView: View) {
     // Автоскрытие инфопанели, показанной без панели управления
     private val hideInfoPanelRunnable = Runnable { hideInfoPanel() }
 
+    // Кнопка «Пропустить»: видна, пока идет отрезок (после пропуска или выхода из отрезка скрывается)
+    val skipButton: TextView = rootView.findViewById(R.id.skip_segment_button)
+
+    // Начало финальных титров текущего видео (PlayerViewModel.creditsStartMs), для «Закончится в»
+    var creditsStartMs: () -> Long? = { null }
+
+    /** toNextItem: титры идут до конца, а в плейлисте есть следующий элемент; withIntro: пересказ вместе с заставкой. */
+    fun showSkipButton(segment: SkipSegment?, toNextItem: Boolean, withIntro: Boolean = false) {
+        skipWanted = segment != null
+        if (segment != null) skipButton.setText(when (segment.kind) {
+            SkipSegment.Kind.INTRO -> R.string.skip_intro
+            SkipSegment.Kind.RECAP -> if (withIntro) R.string.skip_recap_intro else R.string.skip_recap
+            SkipSegment.Kind.CREDITS -> if (toNextItem) R.string.skip_to_next_episode else R.string.skip_credits
+        })
+        placeSkipButton()
+        skipButton.isVisible = skipWanted && !inPictureInPicture
+    }
+
+    // Отрезок идет: кнопка снова видна после PiP (в PiP ее прячем)
+    private var skipWanted = false
+
+    // Субтитры включены (не «Выкл»): кнопка «Пропустить» тогда над ними
+    var subtitlesOn = false
+        set(value) {
+            field = value
+            placeSkipButton()
+        }
+    private var subtitleStyle = SubtitleStyle()
+
+    /**
+     * Кнопка «Пропустить» в правом нижнем углу: над панелью управления, пока она видна; иначе над двумя строками
+     * субтитров, если они включены (их отступ и размер из стиля), а без субтитров в самом углу.
+     */
+    private fun placeSkipButton() {
+        val metrics = rootView.resources.displayMetrics
+        val height = rootView.height.takeIf { it > 0 } ?: metrics.heightPixels
+        val bottom = when {
+            controlsView.isVisible -> 160 * metrics.density
+            subtitlesOn -> height * (subtitleStyle.bottomPercent / 100f +
+                2.4f * SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * subtitleStyle.sizePercent / 100f) + 8 * metrics.density
+            else -> 40 * metrics.density
+        }
+        skipButton.updateLayoutParams<ViewGroup.MarginLayoutParams> { bottomMargin = bottom.toInt() }
+    }
+
     private var inPictureInPicture = false
 
     fun setPictureInPictureMode(enabled: Boolean) {
         inPictureInPicture = enabled
         if (enabled) {
             playlistDialog?.dismiss()
+            skipButton.isVisible = false
             hideControls()
             topSettingsPanel.isVisible = false
             hideHandler.removeCallbacks(hideGestureRunnable)
@@ -185,6 +233,8 @@ class PlayerUiController(private val rootView: View) {
             }
         } else {
             showControls()
+            placeSkipButton()
+            skipButton.isVisible = skipWanted
         }
         updateClockVisibility()
     }
@@ -592,8 +642,11 @@ class PlayerUiController(private val rootView: View) {
             val remainingMs = (durationMs - currentMs).coerceAtLeast(0)
             timeDurationTextView.text = rootView.context.getString(R.string.seek_delta_format, "-", formatTime(remainingMs))
 
+            // «Закончится в» - к началу финальных титров, если они известны (их пропускают)
+            // (не дальше конца файла: время титров могло прийти от другой, более длинной версии)
+            val endMs = (creditsStartMs()?.takeIf { currentMs < it } ?: durationMs).coerceAtMost(durationMs)
             // Если скорость 2.0x, то 10 минут видео пройдут за 5 минут реального времени
-            val realTimeLeftMs = (remainingMs / speed).toLong()
+            val realTimeLeftMs = ((endMs - currentMs).coerceAtLeast(0) / speed).toLong()
             val endTimeMs = System.currentTimeMillis() + realTimeLeftMs
 
             val endTimeStr = timeFormat.format(Date(endTimeMs))
@@ -663,6 +716,7 @@ class PlayerUiController(private val rootView: View) {
         updateClockVisibility() // Скрываем одиночные часы, т.к. показана панель
 
         if (focusOnSeekBar) seekBar.requestFocus() else playPauseButton.requestFocus()
+        placeSkipButton()
     }
 
     fun hideControls() {
@@ -672,6 +726,7 @@ class PlayerUiController(private val rootView: View) {
         updateClockVisibility() // Показываем одиночные часы, если они разрешены
 
         rootView.findViewById<View>(R.id.root_container).requestFocus()
+        placeSkipButton()
     }
 
     fun loadPoster(uri: android.net.Uri?, playlistIndex: Int, playlistSize: Int, showIndex: Boolean) {
@@ -837,6 +892,8 @@ class PlayerUiController(private val rootView: View) {
 
     /** Стиль субтитров из настроек - для обычного слоя и двойного (Cardboard VR). */
     fun applySubtitleStyle(style: SubtitleStyle) {
+        subtitleStyle = style
+        placeSkipButton()
         listOf(subtitleView, subtitleViewLeft, subtitleViewRight).forEach { SubtitleStyleOptions.apply(it, style) }
     }
 

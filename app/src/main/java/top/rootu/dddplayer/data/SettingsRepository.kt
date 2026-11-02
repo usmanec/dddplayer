@@ -323,6 +323,10 @@ class SettingsRepository private constructor(context: Context) {
     fun isAutoPipEnabled(): Boolean = prefs.getBoolean("auto_pip", false)
     fun setAutoPipEnabled(enabled: Boolean) = prefs.edit { putBoolean("auto_pip", enabled) }
 
+    // Заставку и краткое содержание (отрезки из Intent) пропускать без кнопки
+    fun isAutoSkipIntroEnabled(): Boolean = prefs.getBoolean("auto_skip_intro", false)
+    fun setAutoSkipIntroEnabled(enabled: Boolean) = prefs.edit { putBoolean("auto_skip_intro", enabled) }
+
     // Приоритет встроенных декодеров (EXTENSION_RENDERER_MODE_*) отдельно для видео (AV1) и аудио (FFmpeg).
     // Пока не заданы, берут прежнюю общую настройку "decoder_priority", если ее меняли
     private fun legacyDecoderPriority(default: Int): Int = prefs.getInt("decoder_priority", default)

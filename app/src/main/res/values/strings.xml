@@ -519,4 +519,12 @@
     <string name="diag_yes">yes</string>
     <string name="diag_no">no</string>
     <string name="diag_builtin">built-in</string>
+    <!-- Пропуск заставки и титров -->
+    <string name="skip_intro">Skip Intro</string>
+    <string name="skip_recap">Skip Recap</string>
+    <string name="skip_recap_intro">Skip Recap &amp; Intro</string>
+    <string name="skip_credits">Skip Credits</string>
+    <string name="skip_to_next_episode">Next Episode</string>
+    <string name="pref_auto_skip_intro">Skip Intros Automatically</string>
+    <string name="pref_auto_skip_intro_desc">Skip the intro and the recap without the button, when the app that opened the video sends their times.</string>
 </resources>

@@ -72,3 +72,15 @@ HLS (`application/vnd.apple.mpegurl`, `application/x-mpegURL`), `application/das
 | `position` | Long | Позиция в мс. При завершении видео равна длительности |
 | `duration` | Long | Длительность в мс |
 | `end_by` | String | `completion` (видео закончилось само; при `return_result` активити закрывается) или `user` |
+
+## Пропуск заставки и титров (`SkipSegmentLogic`)
+`segments` (одно видео) и `video_list.segments` (String[] по элементам плейлиста) разбирает `SkipSegmentLogic.parse`
+в `MediaItem.segments`: `intro|recap|credits:<начало>-<конец>` через `;`, мс, у `credits` конец можно опустить.
+Неизвестные виды, конец раньше начала и заставка без конца отбрасываются. В `PlayerViewModel`:
+- `progressUpdater` (раз в 200 мс во время воспроизведения) находит отрезок под позицией (`active`) и при смене
+  отдает его в `skipSegment`; при `auto_skip_intro` заставка и пересказ перематываются сразу, без кнопки;
+- `skipCurrentSegment` перематывает в `target`: конец отрезка, а для титров, кончающихся в последние 15 с
+  (`runsToEnd`), - в конец видео: дальше обычный переход к следующему элементу или завершение.
+Кнопка (`PlayerUiController.showSkipButton`) видна, пока идет отрезок; OK нажимает ее при скрытой панели управления
+(`PlayerInputHandler`; с панелью OK - ее кнопки). Автопропуск (`auto_skip_intro`) - один раз за видео: перемотал назад
+в заставку - кнопка. «Закончится в» считается до начала титров, идущих до конца (`creditsStart`).

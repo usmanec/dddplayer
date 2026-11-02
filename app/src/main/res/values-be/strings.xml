@@ -488,4 +488,12 @@
     <string name="diag_yes">так</string>
     <string name="diag_no">не</string>
     <string name="diag_builtin">убудаваны</string>
+    <!-- Пропуск заставки и титров -->
+    <string name="skip_intro">Прапусціць застаўку</string>
+    <string name="skip_recap">Прапусціць пераказ</string>
+    <string name="skip_recap_intro">Прапусціць пераказ і застаўку</string>
+    <string name="skip_credits">Прапусціць тытры</string>
+    <string name="skip_to_next_episode">Наступная серыя</string>
+    <string name="pref_auto_skip_intro">Прапускаць застаўкі аўтаматычна</string>
+    <string name="pref_auto_skip_intro_desc">Прапускаць застаўку і пераказ папярэдніх серый без кнопкі, калі праграма, якая адкрыла відэа, перадала іх час.</string>
 </resources>
