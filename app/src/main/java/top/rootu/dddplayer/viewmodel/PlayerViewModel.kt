@@ -1072,8 +1072,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     fun seekForward() = playerManager.seekForward()
     fun seekBack() = playerManager.seekBack()
     fun seekTo(pos: Long) {
-        player?.seekTo(pos)
+        // Сначала позиция: перемотка внутри seekTo может перемотать дальше (автопропуск отрезка встык) и записать свою
         _currentPosition.value = pos
+        player?.seekTo(pos)
     }
     fun togglePlayPause() = playerManager.togglePlayPause()
 
