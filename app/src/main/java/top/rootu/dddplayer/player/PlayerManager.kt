@@ -486,9 +486,11 @@ class PlayerManager(
                         DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON
                     } else it
                 }
-                // Снаружи всех: при скорости не 1x битстрим уходит в декодер, иначе ускорять нечему
-                val finalSink = SpeedDecodeSink((iec ?: baseSink).let { if (dolbyOnly) DolbyOnlySink(it) else it },
-                    { requestedSpeed }, iec)
+                // Снаружи всех: при скорости не 1x битстрим уходит в декодер, иначе ускорять нечему. Только с FFmpeg:
+                // в режиме «только декодеры устройства» (OFF) DTS на Fire TV декодировать нечем - звук пропал бы
+                val inner = (iec ?: baseSink).let { if (dolbyOnly) DolbyOnlySink(it) else it }
+                val finalSink = if (audioPriority == DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF) inner
+                else SpeedDecodeSink(inner, { requestedSpeed }, iec)
 
                 // Приоритет встроенного FFmpeg - своя настройка аудио
                 super.buildAudioRenderers(

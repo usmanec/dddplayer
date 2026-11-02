@@ -455,7 +455,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
         // Подписываемся на создание нового плеера
         playerManager.onPlayerCreated = { newPlayer ->
-            // Новый плеер (и пересозданный после смены настроек) идет с выбранной скоростью
+            // Новый плеер (и пересозданный после смены настроек) идет с выбранной скоростью; ее же знает
+            // SpeedDecodeSink с первого выбора дорожки (скорость по умолчанию не через applyPlaybackSpeed)
+            playerManager.requestedSpeed = _playbackSpeed.value ?: 1.0f
             newPlayer.setPlaybackSpeed(_playbackSpeed.value ?: 1.0f)
             _playerRecreatedEvent.postValue(newPlayer)
             // Принудительно обновляем UI состояние
