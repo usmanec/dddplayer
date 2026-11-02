@@ -398,7 +398,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 // После буферизации или старта обновляем инфо
                 player?.videoFormat?.let { updateVideoInfoBadge(it) }
             }
-            if (playbackState == Player.STATE_ENDED) _playbackEnded.value = true
+            if (playbackState == Player.STATE_ENDED) {
+                _playbackEnded.value = true
+                _skipSegment.value = null // титры без конца иначе остались бы на экране и забрали бы OK
+            }
             updateProgressUpdaterState()
             val isCurrentItemLive = player?.isCurrentMediaItemLive ?: false
             _isLive.value = isCurrentItemLive
@@ -452,6 +455,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             if (reason == Player.DISCONTINUITY_REASON_SEEK) {
                 // При перемотке просто останавливаем текущий процесс детекции, если он был запущен.
                 fpsDetector.stop(player)
+                // Перемотали внутрь отрезка сами: кнопка, а не автопропуск. Кнопку обновляем сразу: на паузе
+                // перемотка в пределах буфера не запускает progressUpdater
+                if (oldPosition.mediaItemIndex == newPosition.mediaItemIndex) {
+                    SkipSegmentLogic.active(getPlayingItem()?.segments.orEmpty(), newPosition.positionMs)
+                        ?.let { autoSkipped.add(it) }
+                    player?.let { updateSkipSegment(it) }
+                }
             }
         }
     }
@@ -657,7 +667,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         // Сбрасываем отложенные ID дорожек при переходе на новое видео
         pendingAudioId = null
         pendingSubtitleId = null
-        autoSkipped.clear()
+        _skipSegment.value = null
+        // Тот же файл после пересоздания плеера: пропущенную заставку не пропускаем снова
+        if (mediaItem?.localConfiguration?.uri?.toString() != currentUri) autoSkipped.clear()
         audioChosenByUser = false
         audioChoicePendingStat = false
         audioTrackResolved = false
@@ -1083,13 +1095,22 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     fun creditsStartMs(): Long? =
         SkipSegmentLogic.creditsStart(getPlayingItem()?.segments.orEmpty(), player?.duration ?: 0L)
 
-    /** Кнопка «Пропустить»: в конец отрезка; титры до конца - следующий элемент плейлиста или завершение. */
-    fun skipCurrentSegment() {
-        val p = player ?: return
-        val segment = _skipSegment.value ?: return
-        val target = SkipSegmentLogic.target(segment, p.duration, getPlayingItem()?.segments.orEmpty()) ?: return
+    /**
+     * Кнопка «Пропустить»: в конец отрезка; титры до конца - следующий элемент плейлиста или завершение.
+     * false - отрезок уже кончился (кнопка устарела): OK делает свое обычное дело.
+     */
+    fun skipCurrentSegment(): Boolean {
+        val p = player ?: return false
+        val segment = _skipSegment.value ?: return false
+        val segments = getPlayingItem()?.segments.orEmpty()
+        if (SkipSegmentLogic.active(segments, p.currentPosition) != segment) {
+            _skipSegment.value = null
+            return false
+        }
+        val target = SkipSegmentLogic.target(segment, p.duration, segments) ?: return false
         _skipSegment.value = null
         seekTo(target)
+        return true
     }
     fun nextTrack() { if (player?.hasNextMediaItem() == true) player!!.seekToNextMediaItem() }
     fun prevTrack() { if (player?.hasPreviousMediaItem() == true) player!!.seekToPreviousMediaItem() }

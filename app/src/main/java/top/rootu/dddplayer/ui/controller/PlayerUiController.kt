@@ -643,7 +643,8 @@ class PlayerUiController(private val rootView: View) {
             timeDurationTextView.text = rootView.context.getString(R.string.seek_delta_format, "-", formatTime(remainingMs))
 
             // «Закончится в» - к началу финальных титров, если они известны (их пропускают)
-            val endMs = creditsStartMs()?.takeIf { currentMs < it } ?: durationMs
+            // (не дальше конца файла: время титров могло прийти от другой, более длинной версии)
+            val endMs = (creditsStartMs()?.takeIf { currentMs < it } ?: durationMs).coerceAtMost(durationMs)
             // Если скорость 2.0x, то 10 минут видео пройдут за 5 минут реального времени
             val realTimeLeftMs = ((endMs - currentMs).coerceAtLeast(0) / speed).toLong()
             val endTimeMs = System.currentTimeMillis() + realTimeLeftMs
