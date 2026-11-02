@@ -82,7 +82,7 @@ HLS (`application/vnd.apple.mpegurl`, `application/x-mpegURL`), `application/das
 и `speed` (Float, Double или строка) — то, что приложение запомнило из прошлого результата. Хоть один ключ (даже пустой)
 дает `TitleTracks`, иначе null. В `PlayerViewModel`:
 - аудио: после сохраненной для URI дорожки (с `audio_lang` - только если она на одном из этих языков или таких в
-  файле нет вовсе: `TrackLogic.keepsSavedAudio`; выбранная в этом сеансе для этого URI - всегда, `userAudioUri`,
+  файле нет вовсе: `TrackLogic.keepsSavedAudio`; выбранная в этом сеансе для этого URI, если он последний, где выбирали, - всегда, `userAudioUri`,
   и после пересоздания плеера), в `findRememberedAudioTrackIndex` при любом `audio_track_memory` (частые из других
   видео - по тому же `keepsSavedAudio`);
 - субтитры: после сохраненных для URI, перед автовключением. Подпись — `label|язык|mime` без метаданных файла,
