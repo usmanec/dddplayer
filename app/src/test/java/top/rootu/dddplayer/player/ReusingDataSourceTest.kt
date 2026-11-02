@@ -15,6 +15,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.io.IOException
+import java.io.InterruptedIOException
 
 @RunWith(RobolectricTestRunner::class)
 class ReusingDataSourceTest {
@@ -31,8 +32,8 @@ class ReusingDataSourceTest {
         private var position = 0
         override fun addTransferListener(transferListener: TransferListener) {}
         override fun open(dataSpec: DataSpec): Long {
-            if (live == limit) throw HttpDataSource.HttpDataSourceException(dataSpec,
-                PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS, HttpDataSource.HttpDataSourceException.TYPE_OPEN)
+            if (live == limit) throw HttpDataSource.InvalidResponseCodeException(458, "Too many connections", null,
+                emptyMap(), dataSpec, ByteArray(0))
             live++
             opens += dataSpec.position
             position = dataSpec.position.toInt()
@@ -107,6 +108,41 @@ class ReusingDataSourceTest {
         assertReads(file.size - 1000L, 1000) // индекс в конце: голова еще на парковке
         assertEquals(listOf(0L, file.size - 1000L - ReusingDataSource.BACK), opens)
         assertEquals(1, live)
+    }
+
+    @Test
+    fun `off by the setting, and manifests or playlists (gzip allowed) are never served from memory`() {
+        val off = ReusingDataSource({ false }) { Network() }
+        repeat(2) {
+            off.open(DataSpec.Builder().setUri(uri).build())
+            off.close()
+        }
+        val manifest = DataSpec.Builder().setUri(uri).setFlags(DataSpec.FLAG_ALLOW_GZIP).build()
+        repeat(2) {
+            source.open(manifest)
+            source.close()
+        }
+        assertEquals(listOf(0L, 0L, 0L, 0L), opens)
+        assertEquals(0, live)
+    }
+
+    @Test
+    fun `a cancelled or timed-out open is not repeated and keeps the parked connection`() {
+        assertReads(0, 10)
+        val cancelled = HttpDataSource.HttpDataSourceException(InterruptedIOException(), DataSpec(uri),
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT, HttpDataSource.HttpDataSourceException.TYPE_OPEN)
+        val failing = ReusingDataSource { object : DataSource by Network() {
+            override fun open(dataSpec: DataSpec): Long = throw cancelled
+        } }
+        try {
+            failing.open(DataSpec.Builder().setUri(uri).setPosition(file.size - 1000L).build())
+            fail("expected the cancellation")
+        } catch (e: HttpDataSource.HttpDataSourceException) {
+            assertEquals(cancelled, e)
+        }
+        assertEquals(0, closes) // голова на парковке осталась
+        assertReads(5, 5)
+        assertEquals(listOf(0L), opens)
     }
 
     @Test

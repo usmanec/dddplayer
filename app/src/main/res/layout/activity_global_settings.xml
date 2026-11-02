@@ -198,6 +198,31 @@
                         tools:text="Авто" />
                 </LinearLayout>
 
+                <!-- Повторное использование соединения -->
+                <LinearLayout
+                    android:id="@+id/item_connection_reuse"
+                    style="@style/SettingsItemContainer">
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:duplicateParentState="true"
+                        android:orientation="vertical">
+                        <TextView
+                            style="@style/SettingsItemTitle"
+                            android:text="@string/pref_connection_reuse" />
+                        <TextView
+                            style="@style/SettingsItemDesc"
+                            android:text="@string/pref_connection_reuse_desc" />
+                    </LinearLayout>
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switch_connection_reuse"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:clickable="false"
+                        android:focusable="false" />
+                </LinearLayout>
+
                 <!-- Picture-in-picture -->
                 <LinearLayout
                     android:id="@+id/item_auto_pip"

@@ -259,6 +259,8 @@
     <string name="buffer_clock">Near the clock and in the info panel</string>
     <string name="pref_buffer_size">Buffer size</string>
     <string name="pref_buffer_size_desc">Memory for buffering network video. “Auto” keeps 15–50 seconds ahead: it loads more when less than 15 s is left and stops at 50 s. With a size in MB the player loads ahead until that amount is filled. Local files always use “Auto”</string>
+    <string name="pref_connection_reuse">Reuse the connection</string>
+    <string name="pref_connection_reuse_desc">Jumps within a network file (MP4 with many subtitle tracks, seeking) go through the open connection instead of a new request each time. Faster with some servers</string>
     <string name="buffer_size_auto">Auto</string>
     <string name="buffer_size_mb">%d MB</string>
     <string name="buffer_percentage">Buffer: %d%%</string>

@@ -309,6 +309,10 @@ class SettingsRepository private constructor(context: Context) {
         val currentVal = getTargetBufferMB()
         return if (currentVal in getTargetBufferOptions()) currentVal else BUFFER_SIZE_AUTO
     }
+    // Прыжки по файлу через уже открытое соединение (ReusingDataSource); у некоторых серверов - заметно быстрее
+    fun isConnectionReuseEnabled(): Boolean = prefs.getBoolean("reuse_connections", false)
+    fun setConnectionReuseEnabled(enabled: Boolean) = prefs.edit { putBoolean("reuse_connections", enabled) }
+
     fun getTargetBufferMB(): Int = prefs.getInt("target_buffer_mb", BUFFER_SIZE_AUTO)
     fun setTargetBufferMB(sizeInMB: Int) = prefs.edit { putInt("target_buffer_mb", sizeInMB) }
 

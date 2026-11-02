@@ -249,6 +249,8 @@
     <string name="buffer_clock">Рядом с часами и в инфопанели</string>
     <string name="pref_buffer_size">Размер буфера</string>
     <string name="pref_buffer_size_desc">Память для буферизации сетевого видео. «Авто» держит запас 15–50 секунд: догружает видео, когда впереди остаётся меньше 15 с, и останавливается на 50 с. С размером в МБ плеер загружает вперёд, пока не заполнит этот объём. Локальные файлы всегда используют «Авто»</string>
+    <string name="pref_connection_reuse">Повторно использовать соединение</string>
+    <string name="pref_connection_reuse_desc">Прыжки по сетевому файлу (MP4 с множеством субтитров, перемотка) идут через открытое соединение, а не новым запросом каждый раз. С некоторыми серверами заметно быстрее</string>
     <string name="buffer_size_auto">Авто</string>
     <string name="buffer_size_mb">%d МБ</string>
     <string name="buffer_percentage">Буфер: %d%%</string>

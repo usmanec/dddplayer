@@ -31,7 +31,11 @@ import kotlin.math.min
  * еще на парковке), они закрываются и запрос повторяется один раз.
  * Параллельные запросы не помогают: TorBox отдает 15 МБ/с в одно соединение, а 2-8 частей ждут самый медленный ответ.
  */
-class ReusingDataSource(private val factory: DataSource.Factory) : DataSource {
+class ReusingDataSource(
+    // Настройка reuse_connections (по умолчанию выключена): иначе каждый open - свой запрос, как раньше
+    private val enabled: () -> Boolean = { true },
+    private val factory: DataSource.Factory
+) : DataSource {
 
     private data class Key(val uri: String, val headers: Map<String, String>)
 
@@ -99,8 +103,10 @@ class ReusingDataSource(private val factory: DataSource.Factory) : DataSource {
 
     override fun open(dataSpec: DataSpec): Long {
         val scheme = dataSpec.uri.scheme?.lowercase()
-        if (dataSpec.length != C.LENGTH_UNSET.toLong() || dataSpec.httpMethod != DataSpec.HTTP_METHOD_GET ||
-            (scheme != "http" && scheme != "https")
+        // FLAG_ALLOW_GZIP - манифесты и плейлисты (DASH, HLS): они меняются, и копия из памяти отдала бы старый
+        // (эфирный MPD с Content-Length, который парсер не дочитывает до конца). Файлы видео идут без него
+        if (!enabled() || dataSpec.isFlagSet(DataSpec.FLAG_ALLOW_GZIP) || dataSpec.length != C.LENGTH_UNSET.toLong() ||
+            dataSpec.httpMethod != DataSpec.HTTP_METHOD_GET || (scheme != "http" && scheme != "https")
         ) {
             val source = newUpstream()
             direct = source
@@ -120,8 +126,9 @@ class ReusingDataSource(private val factory: DataSource.Factory) : DataSource {
         other.forEach { DataSourceUtil.closeQuietly(it.upstream) }
         val connection = found?.takeIf { reached(it, target) } ?: try {
             connect(dataSpec, key, target)
-        } catch (e: HttpDataSource.HttpDataSourceException) {
-            // Сервер не дал еще одно соединение, а наше (голова файла) ждет на парковке: закрываем и еще раз
+        } catch (e: HttpDataSource.InvalidResponseCodeException) {
+            // Сервер не дал еще одно соединение (ответил кодом ошибки), а наше (голова файла) ждет на парковке:
+            // закрываем и еще раз. Отмена или таймаут - не отказ сервера, их не повторяем
             if (!closeParked()) throw e
             connect(dataSpec, key, target)
         }
@@ -136,7 +143,8 @@ class ReusingDataSource(private val factory: DataSource.Factory) : DataSource {
             if (connection.skipTo(target)) return true
         } catch (e: IOException) {
             DataSourceUtil.closeQuietly(connection.upstream)
-            if (e is InterruptedIOException) throw e
+            // OkHttp заворачивает прерывание в HttpDataSourceException
+            if (e is InterruptedIOException || e.cause is InterruptedIOException) throw e
             return false
         }
         DataSourceUtil.closeQuietly(connection.upstream)
@@ -198,8 +206,11 @@ class ReusingDataSource(private val factory: DataSource.Factory) : DataSource {
         closer.schedule({ closeIdle() }, IDLE_MS + 100, TimeUnit.MILLISECONDS)
     }
 
-    class Factory(private val upstreamFactory: DataSource.Factory) : DataSource.Factory {
-        override fun createDataSource(): DataSource = ReusingDataSource(upstreamFactory)
+    class Factory(
+        private val upstreamFactory: DataSource.Factory,
+        private val enabled: () -> Boolean = { true }
+    ) : DataSource.Factory {
+        override fun createDataSource(): DataSource = ReusingDataSource(enabled, upstreamFactory)
     }
 
     companion object {

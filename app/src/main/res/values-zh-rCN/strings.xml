@@ -242,6 +242,8 @@
     <string name="buffer_clock">在时钟旁边和信息面板中</string>
     <string name="pref_buffer_size">缓冲区大小</string>
     <string name="pref_buffer_size_desc">用于缓冲网络视频的内存。“自动”保持 15–50 秒的预读：剩余不足 15 秒时继续加载，达到 50 秒时停止。设置为 MB 时，播放器会一直预加载直到填满该容量。本地文件始终使用“自动”</string>
+    <string name="pref_connection_reuse">复用连接</string>
+    <string name="pref_connection_reuse_desc">在网络文件中跳转（带大量字幕轨的 MP4、快进快退）时使用已打开的连接，而不是每次发出新请求。对某些服务器明显更快</string>
     <string name="buffer_size_auto">自动</string>
     <string name="buffer_size_mb">%d MB</string>
     <string name="buffer_percentage">缓冲: %d%%</string>
