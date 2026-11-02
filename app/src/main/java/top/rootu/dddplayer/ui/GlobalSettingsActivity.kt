@@ -85,6 +85,8 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var itemHdr10Plus: LinearLayout
     private lateinit var switchHdr10Plus: SwitchCompat
     private lateinit var itemTunneling: LinearLayout
+    private lateinit var itemConnectionReuse: LinearLayout
+    private lateinit var switchConnectionReuse: SwitchCompat
     private lateinit var switchTunneling: SwitchCompat
     private lateinit var itemHdAudioIec: LinearLayout
     private lateinit var switchHdAudioIec: SwitchCompat
@@ -346,6 +348,8 @@ class GlobalSettingsActivity : AppCompatActivity() {
         itemHdr10Plus = findViewById(R.id.item_hdr10plus)
         switchHdr10Plus = findViewById(R.id.switch_hdr10plus)
         itemTunneling = findViewById(R.id.item_tunneling)
+        itemConnectionReuse = findViewById(R.id.item_connection_reuse)
+        switchConnectionReuse = findViewById(R.id.switch_connection_reuse)
         switchTunneling = findViewById(R.id.switch_tunneling)
         itemHdAudioIec = findViewById(R.id.item_hd_audio_iec)
         switchHdAudioIec = findViewById(R.id.switch_hd_audio_iec)
@@ -465,6 +469,9 @@ class GlobalSettingsActivity : AppCompatActivity() {
         }
 
         // Tunneling
+        itemConnectionReuse.setOnClickListener {
+            settingsViewModel.toggleConnectionReuse(!switchConnectionReuse.isChecked)
+        }
         itemTunneling.setOnClickListener {
             settingsViewModel.toggleTunneling(!switchTunneling.isChecked)
         }
@@ -702,6 +709,7 @@ class GlobalSettingsActivity : AppCompatActivity() {
             findViewById<TextView>(R.id.text_audio_decoder_desc).setText(settingsViewModel.getDecoderDescResId(mode, video = false))
         }
         settingsViewModel.isTunnelingEnabled.observe(this) { switchTunneling.isChecked = it }
+        settingsViewModel.isConnectionReuseEnabled.observe(this) { switchConnectionReuse.isChecked = it }
         settingsViewModel.isHdr10PlusEnabled.observe(this) { switchHdr10Plus.isChecked = it }
         settingsViewModel.isHdAudioIecEnabled.observe(this) { switchHdAudioIec.isChecked = it }
         settingsViewModel.dvMode.observe(this) { mode ->

@@ -262,6 +262,14 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
         _isHdr10PlusEnabled.value = enabled
     }
 
+    private val _isConnectionReuseEnabled = MutableLiveData(repository.isConnectionReuseEnabled())
+    val isConnectionReuseEnabled: LiveData<Boolean> = _isConnectionReuseEnabled
+
+    fun toggleConnectionReuse(enabled: Boolean) {
+        repository.setConnectionReuseEnabled(enabled)
+        _isConnectionReuseEnabled.value = enabled
+    }
+
     fun toggleTunneling(enabled: Boolean) {
         repository.setTunnelingEnabled(enabled)
         _isTunnelingEnabled.value = enabled

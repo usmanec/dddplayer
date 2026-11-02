@@ -234,6 +234,8 @@
     <string name="buffer_clock">Побач з гадзіннікам і ў інфапанэлі</string>
     <string name="pref_buffer_size">Памер буфера</string>
     <string name="pref_buffer_size_desc">Памяць для буферызацыі сеткавага відэа. «Аўта» трымае запас 15–50 секунд: давантажвае відэа, калі наперадзе застаецца менш за 15 с, і спыняецца на 50 с. З памерам у МБ плэер загружае наперад, пакуль не запоўніць гэты аб\'ём. Лакальныя файлы заўсёды выкарыстоўваюць «Аўта»</string>
+    <string name="pref_connection_reuse">Паўторна выкарыстоўваць злучэнне</string>
+    <string name="pref_connection_reuse_desc">Скачкі па сеткавым файле (MP4 з мноствам субцітраў, перамотка) ідуць праз адкрытае злучэнне, а не новым запытам кожны раз. З некаторымі серверамі прыкметна хутчэй</string>
     <string name="buffer_size_auto">Аўта</string>
     <string name="buffer_size_mb">%d МБ</string>
     <string name="buffer_percentage">Буфер: %d%%</string>

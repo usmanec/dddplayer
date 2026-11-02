@@ -74,8 +74,16 @@
 ### Цепочка DataSource
 
 ```
-ParsingDataSource → PrefetchingDataSource → DefaultDataSource (file/content/asset) → OkHttpDataSource
+ParsingDataSource → PrefetchingDataSource → DefaultDataSource (file/content/asset) → ReusingDataSource → OkHttpDataSource
 ```
+
+- **`ReusingDataSource`.** После `close()` HTTP-соединение файла с известным размером ждет 10 с (не больше двух,
+  общие для всех экземпляров): шаг назад в пределах последних 256 КБ, вперед до 1 МБ или возврат к нему (голова
+  MKV/MP4 после индекса в конце) обходятся без нового запроса. Другой адрес закрывает их сразу; сервер не дал
+  новое соединение (одно на аккаунт у IPTV, ответ с кодом ошибки) - закрывает их и повторяет запрос один раз;
+  отмену и таймаут не повторяет. Только с настройкой `reuse_connections` (по умолчанию выключена) и только GET
+  без длины запроса; манифесты и плейлисты (`FLAG_ALLOW_GZIP`), HLS с диапазонами, POST и эфир без длины идут
+  как раньше.
 
 - **`PrefetchingDataSource` / `PrefetchStore`.** Если ответ уже скачан при M3U-пробе и оказался не M3U
   (например, HLS), он отдается плееру без повторного запроса. Ответ одноразовый и живет 30 с. `getUri()`
