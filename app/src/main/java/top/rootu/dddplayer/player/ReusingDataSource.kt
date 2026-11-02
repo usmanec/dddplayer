@@ -10,6 +10,7 @@ import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.TransferListener
 import java.io.IOException
 import java.io.InterruptedIOException
+import java.net.SocketTimeoutException
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.math.max
@@ -143,8 +144,11 @@ class ReusingDataSource(
             if (connection.skipTo(target)) return true
         } catch (e: IOException) {
             DataSourceUtil.closeQuietly(connection.upstream)
-            // OkHttp заворачивает прерывание в HttpDataSourceException
-            if (e is InterruptedIOException || e.cause is InterruptedIOException) throw e
+            // OkHttp заворачивает прерывание в HttpDataSourceException. Таймаут чтения (тоже InterruptedIOException) -
+            // не отмена: такое соединение заменяем новым
+            val cause = e.cause
+            if (e is InterruptedIOException && e !is SocketTimeoutException ||
+                cause is InterruptedIOException && cause !is SocketTimeoutException) throw e
             return false
         }
         DataSourceUtil.closeQuietly(connection.upstream)
