@@ -30,6 +30,10 @@
     `enableDecoderFallback`. При `stereo_downmix` подключается свой `DefaultAudioSink` с
     `ChannelMixingAudioProcessor` (матрицы из `AudioMixerLogic`) и аудиобуфером не больше 256 КБ,
     чтобы не упасть по памяти. Без даунмикса используется стандартный sink, и passthrough работает;
+  - `dolby_only_passthrough`: sink (с `IecCarrierSink` внутри) оборачивается в `DolbyOnlySink`: битстрим не из
+    семейства Dolby (DTS, TrueHD) он не принимает, и тот декодируется, поэтому несущая IEC при этом не работает.
+    Для HDMI-связей, где проходит только AC3/E-AC3 (ARC, проектор), хотя EDID обещает больше. Аудиодекодеры
+    устройства тогда идут перед FFmpeg (`PREFER` -> `ON`), иначе FFmpeg декодировал бы и AC3/E-AC3;
   - `hd_audio_iec`: выбранный sink оборачивается в `IecCarrierSink` (`IecCarrierOutput.wrap`). DTS-HD MA и
     TrueHD упаковываются в IEC 61937 (`DtsHdIecPacker`, `TrueHdMatPacker`, порт из plezy, совпадает с FFmpeg
     байт в байт) и идут отдельным `DefaultAudioSink` без процессоров с `AudioTrack` в `ENCODING_IEC61937`

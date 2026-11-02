@@ -141,6 +141,8 @@
     <string name="pref_hdr10plus_desc">HDR10+ 动态元数据。如果电视显示 HDR10+ 不正确请关闭：此类视频将按 HDR10 播放（MKV、MP4、TS）</string>
     <string name="pref_tunneling">隧道播放</string>
     <string name="pref_tunneling_summary">隧道播放允许视频绕过应用程序和 Android 框架代码，从而可以更有效地渲染 4K/HDR 内容，但可能并非在所有设备上都能使用。\n注意！！！在隧道播放模式下，视频的处理和同步由终端设备负责，因此部分播放器功能将无法使用。</string>
+    <string name="pref_dolby_only">直通：仅 Dolby</string>
+    <string name="pref_dolby_only_summary">将 Dolby Digital 和 Dolby Digital Plus（含 Atmos）原样传送到功放，DTS 和 TrueHD 在本机解码。适用于只传送 Dolby 的 HDMI 连接（ARC、只转发 Dolby 的电视或投影仪），在那里 DTS 和 TrueHD 会无声。</string>
     <string name="pref_hd_audio_iec">无损 HD 音频（IEC 61937）</string>
     <string name="pref_hd_audio_iec_summary">通过 HDMI 将 DTS-HD MA 和 TrueHD/Atmos 原样传送到功放，与 Kodi 相同。Fire TV 否则只传送 DTS 核心。如果功放出现噪音或无声，请关闭。</string>
     <string name="pref_map_dv">Dolby Vision 模式</string>

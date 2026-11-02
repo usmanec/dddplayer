@@ -347,6 +347,10 @@ class SettingsRepository private constructor(context: Context) {
     fun isHdAudioIecEnabled(): Boolean = prefs.getBoolean("hd_audio_iec", false)
     fun setHdAudioIecEnabled(enabled: Boolean) = prefs.edit { putBoolean("hd_audio_iec", enabled) }
 
+    // Без изменений только Dolby (AC3/E-AC3): остальное декодируется (DolbyOnlySink)
+    fun isDolbyOnlyPassthroughEnabled(): Boolean = prefs.getBoolean("dolby_only_passthrough", false)
+    fun setDolbyOnlyPassthroughEnabled(enabled: Boolean) = prefs.edit { putBoolean("dolby_only_passthrough", enabled) }
+
     // Принудительный Downmix в стерео
     fun isStereoDownmixEnabled(): Boolean = prefs.getBoolean("stereo_downmix", true)
     fun setStereoDownmixEnabled(enabled: Boolean) = prefs.edit { putBoolean("stereo_downmix", enabled) }
@@ -672,7 +676,7 @@ class SettingsRepository private constructor(context: Context) {
 
     // Сигнатура настроек, требующих полного перезапуска плеера
     fun getHardSettingsSignature(): String {
-        val videoParams = "${getVideoDecoderPriority()}_${getAudioDecoderPriority()}_${isTunnelingEnabled()}_${getDvMode()}_${isHdAudioIecEnabled()}_${isHdr10PlusEnabled()}"
+        val videoParams = "${getVideoDecoderPriority()}_${getAudioDecoderPriority()}_${isTunnelingEnabled()}_${getDvMode()}_${isHdAudioIecEnabled()}_${isDolbyOnlyPassthroughEnabled()}_${isHdr10PlusEnabled()}"
         val audioDownmix = "${isStereoDownmixEnabled()}_${getMixPreset()}_${getMixFront()}_${getMixCenter()}_${getMixRear()}_${getMixMiddle()}_${getMixLfe()}"
         return "${videoParams}_${audioDownmix}_${getTargetBufferCorrectMB()}"
     }

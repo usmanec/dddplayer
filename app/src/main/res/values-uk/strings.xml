@@ -138,6 +138,8 @@
     <string name="pref_hdr10plus_desc">Динамічні метадані HDR10+. Вимкніть, якщо телевізор неправильно показує HDR10+: такі відео відтворюватимуться як HDR10 (MKV, MP4, TS)</string>
     <string name="pref_tunneling">Тунельне відтворення</string>
     <string name="pref_tunneling_summary">Туннелювання дозволяє відео йти в обхід коду додатку та Android, що може забезпечити більш ефективний рендеринг 4K/HDR контенту, але може не працювати на всіх пристроях.\nУвага!!! При туннельному відтворенні обробкою та синхронізацією відео займається кінцевий пристрій, тому з цією опцією не працюватиме частина функціоналу плеєра.</string>
+    <string name="pref_dolby_only">Прокидання: лише Dolby</string>
+    <string name="pref_dolby_only_summary">Передавати Dolby Digital і Dolby Digital Plus (разом з Atmos) на ресивер без змін, а DTS і TrueHD декодувати. Для HDMI-з’єднань, які передають лише Dolby (ARC, телевізор або проєктор, що пропускає лише Dolby): DTS і TrueHD там дають тишу.</string>
     <string name="pref_hd_audio_iec">HD-звук без втрат (IEC 61937)</string>
     <string name="pref_hd_audio_iec_summary">Передавати DTS-HD MA і TrueHD/Atmos на ресивер через HDMI без змін, як це робить Kodi. Потрібно на Fire TV, який інакше передає лише ядро DTS. Вимкніть, якщо ресивер видає шум або тишу.</string>
     <string name="pref_map_dv">Режим Dolby Vision</string>

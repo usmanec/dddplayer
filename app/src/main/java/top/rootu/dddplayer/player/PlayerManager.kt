@@ -474,12 +474,21 @@ class PlayerManager(
                 // декодированного PCM, а битстрим и так идет мимо процессоров
                 val iec = if (settingsRepo.isHdAudioIecEnabled()) IecCarrierOutput.wrap(appContext, baseSink) else null
                 iecSink = iec
-                val finalSink = iec ?: baseSink
+                // Проброс только Dolby: DTS и TrueHD декодируются. Декодеры устройства перед FFmpeg (PREFER -> ON),
+                // иначе FFmpeg забрал бы и AC3/E-AC3 раньше, чем до них дойдет passthrough; «только устройства» (OFF)
+                // не трогаем
+                val dolbyOnly = settingsRepo.isDolbyOnlyPassthroughEnabled()
+                val audioPriority = settingsRepo.getAudioDecoderPriority().let {
+                    if (dolbyOnly && it == DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER) {
+                        DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON
+                    } else it
+                }
+                val finalSink = (iec ?: baseSink).let { if (dolbyOnly) DolbyOnlySink(it) else it }
 
                 // Приоритет встроенного FFmpeg - своя настройка аудио
                 super.buildAudioRenderers(
                     context,
-                    settingsRepo.getAudioDecoderPriority(),
+                    audioPriority,
                     mediaCodecSelector,
                     enableDecoderFallback,
                     finalSink,
