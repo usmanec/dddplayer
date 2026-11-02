@@ -30,6 +30,9 @@
     `enableDecoderFallback`. При `stereo_downmix` подключается свой `DefaultAudioSink` с
     `ChannelMixingAudioProcessor` (матрицы из `AudioMixerLogic`) и аудиобуфером не больше 256 КБ,
     чтобы не упасть по памяти. Без даунмикса используется стандартный sink, и passthrough работает;
+  - снаружи всех sink'ов `SpeedDecodeSink`: пока выбранная скорость (`PlayerManager.requestedSpeed`, без поправок
+    `LivePlaybackSpeedControl`) не 1x, он не принимает битстрим и сообщает о смене возможностей - звук декодируется
+    и ускоряется (битстрим `DefaultAudioSink` играет как есть, и 1.5x/2x молча не работали). На 1x - обратно;
   - `dolby_only_passthrough`: sink (с `IecCarrierSink` внутри) оборачивается в `DolbyOnlySink`: битстрим не из
     семейства Dolby (DTS, TrueHD) он не принимает, и тот декодируется, поэтому несущая IEC при этом не работает.
     Для HDMI-связей, где проходит только AC3/E-AC3 (ARC, проектор), хотя EDID обещает больше. Аудиодекодеры

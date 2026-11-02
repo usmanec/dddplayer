@@ -1059,6 +1059,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun applyPlaybackSpeed(speed: Float) {
         _playbackSpeed.value = speed
+        playerManager.requestedSpeed = speed
         player?.setPlaybackSpeed(speed)
     }
 

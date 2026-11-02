@@ -107,6 +107,9 @@ class PlayerManager(
     private var loudnessEnhancer: LoudnessEnhancer? = null
     private var iecSink: IecCarrierSink? = null
 
+    // Скорость, выбранная пользователем (PlayerViewModel), без поправок LivePlaybackSpeedControl: для SpeedDecodeSink
+    @Volatile var requestedSpeed = 1f
+
     // Состояние для восстановления
     private var currentWindowIndex = 0
     private var currentPosition = 0L
@@ -483,7 +486,9 @@ class PlayerManager(
                         DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON
                     } else it
                 }
-                val finalSink = (iec ?: baseSink).let { if (dolbyOnly) DolbyOnlySink(it) else it }
+                // Снаружи всех: при скорости не 1x битстрим уходит в декодер, иначе ускорять нечему
+                val finalSink = SpeedDecodeSink((iec ?: baseSink).let { if (dolbyOnly) DolbyOnlySink(it) else it },
+                    { requestedSpeed }, iec)
 
                 // Приоритет встроенного FFmpeg - своя настройка аудио
                 super.buildAudioRenderers(
