@@ -209,6 +209,14 @@ object TrackLogic {
     fun isWantedAudio(language: String?, wanted: Array<String>?): Boolean =
         wanted == null || wanted.any { sameLanguage(it, language) }
 
+    /**
+     * Запомненная для ссылки дорожка [index] при audio_lang: на нужном языке, или такого языка в файле нет вовсе
+     * (дорожки без меток языка: отказ от нее ничего не дал бы, плеер не найдет язык и сам).
+     */
+    fun keepsSavedAudio(options: List<TrackOption>, index: Int, wanted: Array<String>?): Boolean =
+        isWantedAudio(options[index].format?.language, wanted) ||
+            options.none { !it.isOff && isWantedAudio(it.format?.language, wanted) }
+
     /** Сравнение кодов языков без учета региона и формата (ru, rus, ru-RU) */
     fun sameLanguage(a: String?, b: String?): Boolean {
         val x = primaryLanguage(a) ?: return false

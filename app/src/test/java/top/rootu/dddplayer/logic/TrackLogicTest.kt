@@ -151,4 +151,15 @@ class TrackLogicTest {
         assertFalse(TrackLogic.isWantedAudio("eng", arrayOf("ru", "uk")))
         assertFalse(TrackLogic.isWantedAudio(null, arrayOf("ru")))
     }
+
+    @Test
+    fun `saved audio track stays when the file has no track in the asked languages`() {
+        val tagged = listOf(option(null, isOff = true), option(audio("Dub", "ru", MimeTypes.AUDIO_AC3, 6)),
+            option(audio("Original", "en", MimeTypes.AUDIO_AC3, 6)))
+        assertFalse(TrackLogic.keepsSavedAudio(tagged, 2, arrayOf("ru")))
+        assertTrue(TrackLogic.keepsSavedAudio(tagged, 1, arrayOf("ru")))
+        val untagged = listOf(option(audio("Dub", null, MimeTypes.AUDIO_AC3, 6)), option(audio("Original", null, MimeTypes.AUDIO_AC3, 6)))
+        assertTrue(TrackLogic.keepsSavedAudio(untagged, 1, arrayOf("ru")))
+        assertTrue(TrackLogic.keepsSavedAudio(tagged, 2, null))
+    }
 }

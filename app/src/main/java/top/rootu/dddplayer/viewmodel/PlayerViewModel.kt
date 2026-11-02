@@ -268,6 +268,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private var pendingAudioId: String? = null
     // pendingAudioId запомнен для ссылки (Room), а не текущая дорожка перед перезагрузкой: только его проверяем по audio_lang
     private var pendingAudioSaved = false
+    // Ссылка, для которой пользователь выбрал дорожку в этом сеансе: выбор важнее audio_lang и после пересоздания
+    // плеера (тот же файл снова проходит handleMediaItemTransition, audioChosenByUser сбрасывается)
+    private var userAudioUri: String? = null
     private var pendingSubtitleId: String? = null
 
     // Название внешних субтитров, которые нужно включить после их добавления
@@ -955,8 +958,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             val foundIdx = audioOptions.indexOfFirst { it.format?.id == id }
             // Запуск просит языки (audio_lang): запомненная для ссылки дорожка на другом языке не мешает,
             // кроме выбранной вручную в этом сеансе
-            if (foundIdx != -1 && (audioChosenByUser || !pendingAudioSaved ||
-                    TrackLogic.isWantedAudio(audioOptions[foundIdx].format?.language, playerManager.audioLanguages))) {
+            if (foundIdx != -1 && (audioChosenByUser || userAudioUri == currentUri || !pendingAudioSaved ||
+                    TrackLogic.keepsSavedAudio(audioOptions, foundIdx, playerManager.audioLanguages))) {
                 finalAudioIdx = foundIdx
                 selectTrackByIndex(C.TRACK_TYPE_AUDIO, foundIdx)
                 audioTrackResolved = true
@@ -1667,16 +1670,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         // Дорожка фильма/сериала от приложения действует при любом режиме памяти
         val titleAudio = titleTracks?.audio
         if (mode == SettingsRepository.AUDIO_MEMORY_OFF && titleAudio == null) return null
-        val candidates = buildList {
-            if (mode != SettingsRepository.AUDIO_MEMORY_OFF) sessionAudioSignature?.let { add(it) }
-            titleAudio?.let { add(it) }
-            if (mode == SettingsRepository.AUDIO_MEMORY_ALL) {
-                addAll(repository.getAudioTrackStats().map { it.signature })
-            }
-        }
-        for (signature in candidates) {
+        // Частые в других видео - только на языках audio_lang (выбор в этом плейлисте и от приложения важнее)
+        val stats = if (mode == SettingsRepository.AUDIO_MEMORY_ALL) repository.getAudioTrackStats().map { it.signature }
+        else emptyList()
+        val chosen = listOfNotNull(sessionAudioSignature.takeIf { mode != SettingsRepository.AUDIO_MEMORY_OFF }, titleAudio)
+        for (signature in chosen + stats) {
             val idx = audioOptions.indexOfFirst { TrackLogic.audioTrackSignature(it) == signature }
-            if (idx != -1) return idx
+            if (idx != -1 && (signature in chosen ||
+                    TrackLogic.isWantedAudio(audioOptions[idx].format?.language, playerManager.audioLanguages))) return idx
         }
         return null
     }
@@ -1701,6 +1702,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             if (trackType == C.TRACK_TYPE_AUDIO) {
                 if (fromUser) {
                     audioChosenByUser = true
+                    userAudioUri = currentUri
                     audioChoicePendingStat = true
                     audioTrackResolved = true
                     sessionAudioSignature = TrackLogic.audioTrackSignature(option)
