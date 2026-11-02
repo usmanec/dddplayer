@@ -414,6 +414,8 @@ class PlayerActivity : AppCompatActivity() {
             // Новое видео при открытом окне PiP: старый плеер закрываем, а не оставляем висеть вторым.
             // Только когда видео действительно пришло: служебный запуск окно PiP не закрывает
             activePipPlayer()?.takeIf { it !== this }?.closeFromPictureInPicture(taskId)
+            viewModel.setAudioLanguages(IntentUtils.parseAudioLanguages(intent))
+            viewModel.setTitleTracks(IntentUtils.parseTitleTracks(intent))
             viewModel.loadMedia(playlist, startIndex, forceM3uProbe = IntentUtils.isForceM3u(intent))
         }
     }
@@ -497,6 +499,12 @@ class PlayerActivity : AppCompatActivity() {
 
             // Сообщаем, закончилось ли видео само ("completion") или закрыл юзер ("user")
             resultIntent.putExtra("end_by", if (isCompleted) "completion" else "user")
+
+            // Дорожки и скорость: приложение может запомнить их для фильма/сериала и передать в следующий раз
+            val tracks = viewModel.currentTitleTracks()
+            tracks.audio?.let { resultIntent.putExtra(IntentUtils.EXTRA_AUDIO_TRACK, it) }
+            tracks.subtitle?.let { resultIntent.putExtra(IntentUtils.EXTRA_SUBTITLE_TRACK, it) }
+            tracks.speed?.let { resultIntent.putExtra(IntentUtils.EXTRA_SPEED, it) }
 
             setResult(RESULT_OK, resultIntent)
         }

@@ -48,6 +48,7 @@ import top.rootu.dddplayer.model.StereoOutputMode
 import top.rootu.dddplayer.model.SubtitleItem
 import top.rootu.dddplayer.player.PlayerManager
 import top.rootu.dddplayer.renderer.StereoRenderer
+import top.rootu.dddplayer.utils.IntentUtils
 import top.rootu.dddplayer.utils.MediaFormatHelper
 import top.rootu.dddplayer.utils.StereoTypeDetector
 import top.rootu.dddplayer.utils.afr.RuntimeFpsDetector
@@ -265,6 +266,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     // Храним ID, которые нужно применить, когда треки загрузятся (восстановление треков)
     private var pendingAudioId: String? = null
+    // pendingAudioId запомнен для ссылки (Room), а не текущая дорожка перед перезагрузкой: только его проверяем по audio_lang
+    private var pendingAudioSaved = false
     private var pendingSubtitleId: String? = null
 
     // Название внешних субтитров, которые нужно включить после их добавления
@@ -276,6 +279,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private var audioChoicePendingStat = false
     // Дорожка, выбранная пользователем в текущем плейлисте (для следующих элементов)
     private var sessionAudioSignature: String? = null
+    // Дорожки фильма/сериала от приложения (интент). Выбор пользователя в этом запуске заменяет их
+    // для следующих видео списка. null - приложение их не помнит
+    private var titleTracks: IntentUtils.TitleTracks? = null
     // Дорожка для текущего видео уже определена (сохраненная, выбранная или найденная среди последних)
     private var audioTrackResolved = false
     // Субтитры для текущего видео уже выбраны (сохраненные, пользователем или автовключением)
@@ -696,6 +702,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                         applySettings(saved)
                         // Сохраняем ID из базы как отложенные
                         pendingAudioId = saved.audioTrackId
+                        pendingAudioSaved = true
                         pendingSubtitleId = saved.subtitleTrackId
 
                         isSettingsLoadedFromDb = true
@@ -704,7 +711,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     }
                     videoSettingsChecked = true
                     // Дорожки могли прийти раньше настроек: применяем автовключение субтитров сейчас
-                    if (!subtitleResolved && repository.getSubtitleAutoMode() != SettingsRepository.SUB_AUTO_DEFAULT) {
+                    if (!subtitleResolved && (repository.getSubtitleAutoMode() != SettingsRepository.SUB_AUTO_DEFAULT ||
+                            titleTracks?.subtitle != null)) {
                         player?.let { updateTracksInfo(it.currentTracks) }
                     }
                     if (!isFirstItemLoaded) {
@@ -945,7 +953,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         var finalAudioIdx = audioIdx
         pendingAudioId?.let { id ->
             val foundIdx = audioOptions.indexOfFirst { it.format?.id == id }
-            if (foundIdx != -1) {
+            // Запуск просит языки (audio_lang): запомненная для ссылки дорожка на другом языке не мешает,
+            // кроме выбранной вручную в этом сеансе
+            if (foundIdx != -1 && (audioChosenByUser || !pendingAudioSaved ||
+                    TrackLogic.isWantedAudio(audioOptions[foundIdx].format?.language, playerManager.audioLanguages))) {
                 finalAudioIdx = foundIdx
                 selectTrackByIndex(C.TRACK_TYPE_AUDIO, foundIdx)
                 audioTrackResolved = true
@@ -993,6 +1004,21 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     finalSubIdx = foundIdx
                     subtitleResolved = true
                     selectTrackByIndex(C.TRACK_TYPE_TEXT, foundIdx)
+                }
+            }
+        }
+        // Субтитры фильма/сериала от приложения, если для видео ничего не сохранено.
+        // Не нашлись (другая раздача) - дальше автовключение по настройке
+        val titleSubtitle = titleTracks?.subtitle
+        if (titleSubtitle != null && !subtitleResolved && videoSettingsChecked && pendingSubtitleId == null &&
+            pendingSubtitleLabel == null && subtitleOptions.any { !it.isOff }
+        ) {
+            val idx = subtitleOptions.indexOfFirst { TrackLogic.subtitleTrackSignature(it) == titleSubtitle }
+            if (idx != -1) {
+                subtitleResolved = true
+                if (idx != finalSubIdx) {
+                    finalSubIdx = idx
+                    selectTrackByIndex(C.TRACK_TYPE_TEXT, idx)
                 }
             }
         }
@@ -1260,6 +1286,23 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setHistorySource(source: HistorySource?) {
         historySource = source
+    }
+
+    fun setTitleTracks(tracks: IntentUtils.TitleTracks?) {
+        titleTracks = tracks
+        tracks?.speed?.let { setPlaybackSpeed(PlaybackSpeed.normalize(it)) }
+    }
+
+    /** Дорожки и скорость для результата: субтитры - если они есть в видео, скорость - если ее выбрали, а не по умолчанию. */
+    fun currentTitleTracks() = IntentUtils.TitleTracks(
+        _currentAudioTrack.value?.let { TrackLogic.audioTrackSignature(it) },
+        _currentSubtitleTrack.value?.takeIf { subtitleOptions.any { !it.isOff } }?.let { TrackLogic.subtitleTrackSignature(it) },
+        _playbackSpeed.value?.takeUnless { speedFromDefault }
+    )
+
+    fun setAudioLanguages(languages: Array<String>?) {
+        playerManager.audioLanguages = languages
+        playerManager.updateTrackSelectionParameters()
     }
 
     /**
@@ -1602,6 +1645,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
         // После перезагрузки оставляем текущую аудиодорожку и включаем новые субтитры
         pendingAudioId = _currentAudioTrack.value?.format?.id
+        pendingAudioSaved = false
         pendingSubtitleLabel = name
         // То же видео перезагружается: настройки и счетчики не сбрасываем
         isRecoveringFromError = true
@@ -1620,9 +1664,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun findRememberedAudioTrackIndex(): Int? {
         val mode = repository.getAudioTrackMemoryMode()
-        if (mode == SettingsRepository.AUDIO_MEMORY_OFF) return null
+        // Дорожка фильма/сериала от приложения действует при любом режиме памяти
+        val titleAudio = titleTracks?.audio
+        if (mode == SettingsRepository.AUDIO_MEMORY_OFF && titleAudio == null) return null
         val candidates = buildList {
-            sessionAudioSignature?.let { add(it) }
+            if (mode != SettingsRepository.AUDIO_MEMORY_OFF) sessionAudioSignature?.let { add(it) }
+            titleAudio?.let { add(it) }
             if (mode == SettingsRepository.AUDIO_MEMORY_ALL) {
                 addAll(repository.getAudioTrackStats().map { it.signature })
             }
@@ -1657,11 +1704,15 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     audioChoicePendingStat = true
                     audioTrackResolved = true
                     sessionAudioSignature = TrackLogic.audioTrackSignature(option)
+                    titleTracks = titleTracks?.copy(audio = sessionAudioSignature)
                 }
                 currentAudioIndex = index
                 _currentAudioTrack.value = option
             } else {
-                if (fromUser) subtitleResolved = true
+                if (fromUser) {
+                    subtitleResolved = true
+                    titleTracks = titleTracks?.copy(subtitle = TrackLogic.subtitleTrackSignature(option))
+                }
                 currentSubtitleIndex = index
                 _currentSubtitleTrack.value = option
             }

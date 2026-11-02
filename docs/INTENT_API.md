@@ -72,3 +72,19 @@ HLS (`application/vnd.apple.mpegurl`, `application/x-mpegURL`), `application/das
 | `position` | Long | Позиция в мс. При завершении видео равна длительности |
 | `duration` | Long | Длительность в мс |
 | `end_by` | String | `completion` (видео закончилось само; при `return_result` активити закрывается) или `user` |
+| `audio_track` | String | `TrackLogic.audioTrackSignature` текущей дорожки |
+| `subtitle_track` | String | `TrackLogic.subtitleTrackSignature` (или `off`), только если в видео есть субтитры |
+| `speed` | Float | Только если скорость выбрана (`speedFromDefault == false`) |
+
+## Дорожки фильма/сериала (`IntentUtils.parseTitleTracks`)
+
+`audio_lang` (`parseAudioLanguages`) задает языки аудио этого запуска поверх настройки. `audio_track`, `subtitle_track`
+и `speed` (Float, Double или строка) — то, что приложение запомнило из прошлого результата. Хоть один ключ (даже пустой)
+дает `TitleTracks`, иначе null. В `PlayerViewModel`:
+- аудио: после сохраненной для URI дорожки (с `audio_lang` - только если она на одном из этих языков:
+  `TrackLogic.isWantedAudio`, дорожка без языка не подходит), в `findRememberedAudioTrackIndex` при любом
+  `audio_track_memory`;
+- субтитры: после сохраненных для URI, перед автовключением. Подпись — `label|язык|mime` без метаданных файла,
+  поэтому сравнивается один раз; не нашлись — работает автовключение;
+- скорость: `setPlaybackSpeed` до загрузки, на весь плейлист;
+- выбор пользователя в этом запуске заменяет дорожки `TitleTracks` для следующих элементов плейлиста.

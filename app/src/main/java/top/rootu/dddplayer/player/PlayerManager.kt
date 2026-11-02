@@ -98,6 +98,8 @@ class PlayerManager(
 
     var exoPlayer: ExoPlayer? = null
         private set
+    // Языки аудио текущего видео из запуска (extra audio_lang); null - по настройке
+    var audioLanguages: Array<String>? = null
 
     private var mediaSession: MediaSession? = null
 
@@ -349,12 +351,7 @@ class PlayerManager(
             .setAllowMultipleAdaptiveSelections(true)
 
         // Audio Language
-        val audioPref = settingsRepo.getPreferredAudioLang()
-        when (audioPref) {
-            SettingsRepository.TRACK_DEFAULT -> parametersBuilder.setPreferredAudioLanguages()
-            SettingsRepository.TRACK_DEVICE -> parametersBuilder.setPreferredAudioLanguages(*getDeviceLanguages())
-            else -> parametersBuilder.setPreferredAudioLanguage(audioPref)
-        }
+        parametersBuilder.setPreferredAudioLanguages(*preferredAudioLanguages())
 
         // Subtitle Language & CaptioningManager
         val captioningManager = appContext.getSystemService(Context.CAPTIONING_SERVICE) as? CaptioningManager
@@ -709,16 +706,11 @@ class PlayerManager(
 
     fun updateTrackSelectionParameters() {
         val player = exoPlayer ?: return
-        val audioPref = settingsRepo.getPreferredAudioLang()
         val subPref = settingsRepo.getPreferredSubLang()
 
         val builder = player.trackSelectionParameters.buildUpon()
 
-        when (audioPref) {
-            SettingsRepository.TRACK_DEFAULT -> builder.setPreferredAudioLanguages()
-            SettingsRepository.TRACK_DEVICE -> builder.setPreferredAudioLanguages(*getDeviceLanguages())
-            else -> builder.setPreferredAudioLanguage(audioPref)
-        }
+        builder.setPreferredAudioLanguages(*preferredAudioLanguages())
 
         when (subPref) {
             SettingsRepository.TRACK_DEFAULT -> builder.setPreferredTextLanguages()
@@ -728,6 +720,14 @@ class PlayerManager(
 
         player.trackSelectionParameters = builder.build()
     }
+
+    // Языки из запуска (audio_lang), иначе из настройки
+    private fun preferredAudioLanguages(): Array<String> = audioLanguages
+        ?: when (val pref = settingsRepo.getPreferredAudioLang()) {
+            SettingsRepository.TRACK_DEFAULT -> emptyArray()
+            SettingsRepository.TRACK_DEVICE -> getDeviceLanguages()
+            else -> arrayOf(pref)
+        }
 
     private fun getDeviceLanguages(): Array<String> {
         val locales = LocaleListCompat.getAdjustedDefault()
