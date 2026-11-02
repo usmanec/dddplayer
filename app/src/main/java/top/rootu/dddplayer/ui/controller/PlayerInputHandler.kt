@@ -75,9 +75,10 @@ class PlayerInputHandler(
             return true
         }
 
-        // Формат не разобран (например, Blu-ray .m2ts): OK открывает видео в другом плеере
+        // Формат не разобран (например, Blu-ray .m2ts): OK открывает видео в другом плеере, пока панель скрыта
+        // (с панелью OK - ее кнопки, например «Далее» к следующему файлу)
         if ((event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER) &&
-            ui.errorScreen.isVisible && ui.canHandOff
+            ui.errorScreen.isVisible && ui.canHandOff && !ui.controlsView.isVisible
         ) {
             onOpenExternal()
             return true
