@@ -22,6 +22,8 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     // --- Playback Settings ---
     private val _isAutoPipEnabled = MutableLiveData(repository.isAutoPipEnabled())
     val isAutoPipEnabled: LiveData<Boolean> = _isAutoPipEnabled
+    private val _isAutoSkipIntroEnabled = MutableLiveData(repository.isAutoSkipIntroEnabled())
+    val isAutoSkipIntroEnabled: LiveData<Boolean> = _isAutoSkipIntroEnabled
 
     private val _videoDecoderPriority = MutableLiveData(repository.getVideoDecoderPriority())
     val videoDecoderPriority: LiveData<Int> = _videoDecoderPriority
@@ -197,6 +199,11 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     fun toggleAutoPip(enabled: Boolean) {
         repository.setAutoPipEnabled(enabled)
         _isAutoPipEnabled.value = enabled
+    }
+
+    fun toggleAutoSkipIntro(enabled: Boolean) {
+        repository.setAutoSkipIntroEnabled(enabled)
+        _isAutoSkipIntroEnabled.value = enabled
     }
 
     fun setBufferDisplayMode(mode: Int) {

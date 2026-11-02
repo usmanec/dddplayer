@@ -33,6 +33,7 @@ import top.rootu.dddplayer.data.SettingsRepository
 import top.rootu.dddplayer.data.VideoSettings
 import top.rootu.dddplayer.logic.AnaglyphLogic
 import top.rootu.dddplayer.logic.SettingsMutator
+import top.rootu.dddplayer.logic.SkipSegmentLogic
 import top.rootu.dddplayer.logic.StereoFormatLogic
 import top.rootu.dddplayer.logic.StreamTypeLogic
 import top.rootu.dddplayer.logic.TrackLogic
@@ -43,6 +44,7 @@ import top.rootu.dddplayer.model.MediaItem
 import top.rootu.dddplayer.model.MenuItem
 import top.rootu.dddplayer.model.PlaybackSpeed
 import top.rootu.dddplayer.model.ResizeMode
+import top.rootu.dddplayer.model.SkipSegment
 import top.rootu.dddplayer.model.StereoInputType
 import top.rootu.dddplayer.model.StereoOutputMode
 import top.rootu.dddplayer.model.SubtitleItem
@@ -300,6 +302,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     // Состояние воспроизведения при уходе с экрана (onPause), чтобы в onResume
     // не запускать видео, которое пользователь сам поставил на паузу
     var resumePlayWhenReady = true
+    // Отрезок под кнопкой «Пропустить» (заставка, краткое содержание, титры); null - кнопки нет
+    private val _skipSegment = MutableLiveData<SkipSegment?>()
+    // Автопропуск - один раз за видео: кто перемотал назад в заставку, хочет ее посмотреть (тогда кнопка)
+    private val autoSkipped = mutableSetOf<SkipSegment>()
+    val skipSegment: LiveData<SkipSegment?> = _skipSegment
+
     private val _playbackEnded = MutableLiveData<Boolean>()
     val playbackEnded: LiveData<Boolean> = _playbackEnded
 
@@ -341,6 +349,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     _currentPosition.value = p.currentPosition
                 }
                 updateBufferInfo(p)
+                updateSkipSegment(p)
 
                 // Если AFR еще не сработал, проверяем формат
                 if (!afrAppliedForCurrentItem) {
@@ -648,6 +657,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         // Сбрасываем отложенные ID дорожек при переходе на новое видео
         pendingAudioId = null
         pendingSubtitleId = null
+        autoSkipped.clear()
         audioChosenByUser = false
         audioChoicePendingStat = false
         audioTrackResolved = false
@@ -1049,6 +1059,38 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         _currentPosition.value = pos
     }
     fun togglePlayPause() = playerManager.togglePlayPause()
+
+    // Позиция вошла в отрезок или вышла из него: кнопка (или сразу перемотка, если включен автопропуск заставок)
+    private fun updateSkipSegment(p: Player) {
+        val segments = getPlayingItem()?.segments.orEmpty()
+        val segment = SkipSegmentLogic.active(segments, p.currentPosition)
+        if (segment == _skipSegment.value) return
+        if (segment != null && segment.kind != SkipSegment.Kind.CREDITS && repository.isAutoSkipIntroEnabled() &&
+            autoSkipped.add(segment)
+        ) {
+            SkipSegmentLogic.introAfter(segment, segments)?.let { autoSkipped.add(it) }
+            SkipSegmentLogic.target(segment, p.duration, segments)?.let { seekTo(it) }
+            return
+        }
+        _skipSegment.value = segment
+    }
+
+    /** Пересказ, за которым сразу идет заставка: кнопка пропускает обе. */
+    fun skipsIntroToo(segment: SkipSegment): Boolean =
+        SkipSegmentLogic.introAfter(segment, getPlayingItem()?.segments.orEmpty()) != null
+
+    /** Начало финальных титров текущего видео, если они известны (из Intent), иначе null. */
+    fun creditsStartMs(): Long? =
+        SkipSegmentLogic.creditsStart(getPlayingItem()?.segments.orEmpty(), player?.duration ?: 0L)
+
+    /** Кнопка «Пропустить»: в конец отрезка; титры до конца - следующий элемент плейлиста или завершение. */
+    fun skipCurrentSegment() {
+        val p = player ?: return
+        val segment = _skipSegment.value ?: return
+        val target = SkipSegmentLogic.target(segment, p.duration, getPlayingItem()?.segments.orEmpty()) ?: return
+        _skipSegment.value = null
+        seekTo(target)
+    }
     fun nextTrack() { if (player?.hasNextMediaItem() == true) player!!.seekToNextMediaItem() }
     fun prevTrack() { if (player?.hasPreviousMediaItem() == true) player!!.seekToPreviousMediaItem() }
 

@@ -516,4 +516,12 @@
     <string name="diag_yes">да</string>
     <string name="diag_no">нет</string>
     <string name="diag_builtin">встроенный</string>
+    <!-- Пропуск заставки и титров -->
+    <string name="skip_intro">Пропустить заставку</string>
+    <string name="skip_recap">Пропустить пересказ</string>
+    <string name="skip_recap_intro">Пропустить пересказ и заставку</string>
+    <string name="skip_credits">Пропустить титры</string>
+    <string name="skip_to_next_episode">Следующая серия</string>
+    <string name="pref_auto_skip_intro">Пропускать заставки автоматически</string>
+    <string name="pref_auto_skip_intro_desc">Пропускать заставку и пересказ прошлых серий без кнопки, если приложение, открывшее видео, передало их время.</string>
 </resources>

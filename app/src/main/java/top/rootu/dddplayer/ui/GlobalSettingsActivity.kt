@@ -80,6 +80,8 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var itemDecoder: LinearLayout
     private lateinit var itemAutoPip: LinearLayout
     private lateinit var switchAutoPip: SwitchCompat
+    private lateinit var itemAutoSkipIntro: LinearLayout
+    private lateinit var switchAutoSkipIntro: SwitchCompat
     private lateinit var textDecoderDesc: TextView
     private lateinit var textDecoderValue: TextView
     private lateinit var itemHdr10Plus: LinearLayout
@@ -341,6 +343,8 @@ class GlobalSettingsActivity : AppCompatActivity() {
         itemDecoder = findViewById(R.id.item_decoder)
         itemAutoPip = findViewById(R.id.item_auto_pip)
         switchAutoPip = findViewById(R.id.switch_auto_pip)
+        itemAutoSkipIntro = findViewById(R.id.item_auto_skip_intro)
+        switchAutoSkipIntro = findViewById(R.id.switch_auto_skip_intro)
         textDecoderDesc = findViewById(R.id.text_decoder_desc)
         textDecoderValue = findViewById(R.id.text_decoder_value)
         itemHdr10Plus = findViewById(R.id.item_hdr10plus)
@@ -449,6 +453,9 @@ class GlobalSettingsActivity : AppCompatActivity() {
         findViewById<View>(R.id.item_audio_decoder).setOnClickListener { settingsViewModel.toggleAudioDecoderPriority() }
         itemAutoPip.setOnClickListener {
             settingsViewModel.toggleAutoPip(!switchAutoPip.isChecked)
+        }
+        itemAutoSkipIntro.setOnClickListener {
+            settingsViewModel.toggleAutoSkipIntro(!switchAutoSkipIntro.isChecked)
         }
 
         // Downmix
@@ -693,6 +700,7 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private fun observeViewModel() {
         // Playback
         settingsViewModel.isAutoPipEnabled.observe(this) { switchAutoPip.isChecked = it }
+        settingsViewModel.isAutoSkipIntroEnabled.observe(this) { switchAutoSkipIntro.isChecked = it }
         settingsViewModel.videoDecoderPriority.observe(this) { mode ->
             textDecoderValue.text = settingsViewModel.getDecoderValueString(mode)
             textDecoderDesc.setText(settingsViewModel.getDecoderDescResId(mode, video = true))

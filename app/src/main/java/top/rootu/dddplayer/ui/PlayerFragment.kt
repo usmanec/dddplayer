@@ -45,6 +45,7 @@ import top.rootu.dddplayer.BuildConfig
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
 import top.rootu.dddplayer.logic.AnaglyphLogic
+import top.rootu.dddplayer.logic.SkipSegmentLogic
 import top.rootu.dddplayer.logic.StereoFormatLogic
 import top.rootu.dddplayer.logic.TrackLogic
 import top.rootu.dddplayer.model.AspectRatioMode
@@ -1069,6 +1070,15 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
             // Сбрасываем таймер затемнения при снятии/постановке на паузу
             resetDimTimer()
         }
+        // Отрезок для кнопки «Пропустить» (заставка, титры)
+        viewModel.skipSegment.observe(viewLifecycleOwner) { segment ->
+            val p = viewModel.player
+            ui.showSkipButton(segment, segment != null && p != null && p.hasNextMediaItem() &&
+                SkipSegmentLogic.runsToEnd(segment, p.duration), segment != null && viewModel.skipsIntroToo(segment))
+        }
+        ui.skipButton.setOnClickListener { viewModel.skipCurrentSegment() }
+        ui.creditsStartMs = { viewModel.creditsStartMs() }
+
         // Фатальная ошибка (плеер стоп)
         viewModel.fatalError.observe(viewLifecycleOwner) { error ->
             if (error != null) {
@@ -1184,6 +1194,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         viewModel.currentSubtitleTrack.observe(viewLifecycleOwner) { trackOption ->
             val name = trackOption?.let { TrackLogic.buildTrackLabel(it, requireContext()) } ?: ""
             ui.badgeSubtitle.text = name
+            ui.subtitlesOn = trackOption != null && !trackOption.isOff
             updateSettingsText()
         }
         viewModel.playbackSpeed.observe(viewLifecycleOwner) { speed ->

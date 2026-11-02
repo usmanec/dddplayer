@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.os.Parcelable
 import android.provider.OpenableColumns
 import androidx.core.net.toUri
+import top.rootu.dddplayer.logic.SkipSegmentLogic
 import top.rootu.dddplayer.model.HistorySource
 import top.rootu.dddplayer.model.MediaItem
 import top.rootu.dddplayer.model.SubtitleItem
@@ -21,6 +22,9 @@ object IntentUtils {
     const val EXTRA_HISTORY_NAME = "top.rootu.dddplayer.history_name"
     // Ссылка может быть плейлистом без расширения .m3u (например, get.php?...): проверить содержимое
     const val EXTRA_FORCE_M3U = "top.rootu.dddplayer.force_m3u"
+    // Для внешних приложений: что можно пропустить кнопкой (SkipSegmentLogic.parse), у плейлиста - по элементам
+    const val EXTRA_SEGMENTS = "segments"
+    const val EXTRA_VIDEO_LIST_SEGMENTS = "video_list.segments"
 
     /** Источник для истории "Продолжить просмотр" или null, если видео открыто не со стартового экрана. */
     fun parseHistorySource(intent: Intent): HistorySource? {
@@ -84,7 +88,8 @@ object IntentUtils {
             headers = parseHeaders(extras),
             // Если субтитры не переданы, ищем рядом с файлом (movie.mkv -> movie.srt)
             subtitles = singleSubs.ifEmpty { SubtitleFinder.findSidecarSubtitles(uri) },
-            startPositionMs = startPosition
+            startPositionMs = startPosition,
+            segments = SkipSegmentLogic.parse(extras.getString(EXTRA_SEGMENTS))
         )
 
         return Pair(listOf(item), 0)
@@ -99,6 +104,7 @@ object IntentUtils {
         val filenames = getSmartStringArray(extras, "video_list.filename")
         val posters = getSmartStringArray(extras, "video_list.thumbnail")
         val playlistSubsBundles = getParcelableArrayListCompat<Bundle>(extras, "video_list.subtitles")
+        val segments = getSmartStringArray(extras, EXTRA_VIDEO_LIST_SEGMENTS)
 
         val headersMap = parseHeaders(extras)
 
@@ -133,7 +139,8 @@ object IntentUtils {
                     posterUri = posters?.getOrNull(i)?.takeIf { it.isNotEmpty() }?.toUri(),
                     headers = headersMap,
                     subtitles = itemSubs.ifEmpty { SubtitleFinder.findSidecarSubtitles(uri, listDir) },
-                    startPositionMs = pos
+                    startPositionMs = pos,
+                    segments = SkipSegmentLogic.parse(segments?.getOrNull(i))
                 )
             )
         }

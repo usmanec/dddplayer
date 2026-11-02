@@ -222,6 +222,31 @@
                         android:focusable="false"
                         android:clickable="false" />
                 </LinearLayout>
+
+                <!-- Автопропуск заставки -->
+                <LinearLayout
+                    android:id="@+id/item_auto_skip_intro"
+                    style="@style/SettingsItemContainer">
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:duplicateParentState="true"
+                        android:orientation="vertical">
+                        <TextView
+                            style="@style/SettingsItemTitle"
+                            android:text="@string/pref_auto_skip_intro" />
+                        <TextView
+                            style="@style/SettingsItemDesc"
+                            android:text="@string/pref_auto_skip_intro_desc" />
+                    </LinearLayout>
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switch_auto_skip_intro"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:focusable="false"
+                        android:clickable="false" />
+                </LinearLayout>
             </LinearLayout>
 
             <LinearLayout

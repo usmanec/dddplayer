@@ -91,4 +91,21 @@ class IntentUtilsTest {
         val (items, _) = IntentUtils.parseIntent(context, intent)
         assertEquals(listOf("first.mp4", "second.mp4", "third.mp4"), items.map { it.title })
     }
+
+    @Test
+    fun `skip segments per playlist item and for a single file`() {
+        val playlist = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(videos[0], "video/*")
+            putExtra("video_list", videos)
+            putExtra("video_list.segments", arrayOf("intro:0-58867;credits:3395489-", "", "credits:100-200"))
+        }
+        val (items, _) = IntentUtils.parseIntent(context, playlist)
+        assertEquals(listOf(2, 0, 1), items.map { it.segments.size })
+        assertEquals(58867L, items[0].segments[0].endMs)
+        val single = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(Uri.parse("http://example.com/film.mkv"), "video/*")
+            putExtra("segments", "credits:10452995-10822200")
+        }
+        assertEquals(10_452_995L, IntentUtils.parseIntent(context, single).first[0].segments[0].startMs)
+    }
 }

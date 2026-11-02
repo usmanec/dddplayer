@@ -502,4 +502,12 @@
     <string name="diag_yes">是</string>
     <string name="diag_no">否</string>
     <string name="diag_builtin">内置</string>
+    <!-- Пропуск заставки и титров -->
+    <string name="skip_intro">跳过片头</string>
+    <string name="skip_recap">跳过前情提要</string>
+    <string name="skip_recap_intro">跳过前情提要和片头</string>
+    <string name="skip_credits">跳过片尾</string>
+    <string name="skip_to_next_episode">下一集</string>
+    <string name="pref_auto_skip_intro">自动跳过片头</string>
+    <string name="pref_auto_skip_intro_desc">当打开视频的应用提供了片头和前情提要的时间时，无需按键直接跳过。</string>
 </resources>

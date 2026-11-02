@@ -30,6 +30,7 @@
 | `live_mode_control` | false | Эфирный режим (см. [PLAYLISTS.md](PLAYLISTS.md)) |
 | `show_info_on_change` | false | Инфопанель при смене элемента плейлиста |
 | `show_playlist_index` | true | Номера в плейлисте |
+| `auto_skip_intro` | false | Пропускать заставку и пересказ без кнопки (отрезки из Intent `segments`), один раз за видео; титры - всегда кнопкой |
 | `saved_playlists` | — | Плейлисты по ссылке на стартовом экране (JSON: id, name, url). Прежний `startup_playlist_uri` переносится сюда один раз и удаляется |
 | `smb_servers` | — | Сетевые папки SMB стартового экрана (JSON: id, name, address, user, password, domain) |
 | `watch_history` | — | История «Продолжить просмотр» (JSON, до 30 записей, одна на источник: папку или плейлист) |
