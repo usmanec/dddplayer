@@ -93,6 +93,9 @@
     <string name="menu_main_title">Настройки</string>
     <string name="menu_audio_title">Аудиодорожка (%d)</string>
     <string name="menu_subtitle_title">Субтитры (%d)</string>
+    <string name="menu_chapters_title">Главы (%d)</string>
+    <string name="chapter_next">Следующая глава</string>
+    <string name="chapter_prev">Предыдущая глава</string>
     <string name="menu_quick_settings_title">Панель настройки</string>
     <string name="menu_quick_settings_desc">3D, параллакс, очки…</string>
     <string name="menu_global_settings_title">Глобальные настройки</string>
@@ -205,6 +208,17 @@
     <string name="pref_ok_action_pause">Переключить паузу</string>
     <string name="pref_ok_action_pause_panel">Пауза + Панель</string>
     <string name="pref_ok_action_panel">Показать панель</string>
+    <string name="pref_page_up_action">Кнопка Page Up / Next Channel</string>
+    <string name="pref_page_up_action_desc">Что делать при нажатии этой кнопки в плеере</string>
+    <string name="pref_page_down_action">Кнопка Page Down / Previous Channel</string>
+    <string name="pref_page_down_action_desc">Что делать при нажатии этой кнопки в плеере</string>
+    <string name="page_action_none">Ничего не делать</string>
+    <string name="page_action_next_chapter">Следующая глава</string>
+    <string name="page_action_prev_chapter">Предыдущая глава</string>
+    <string name="page_action_next_video">Следующее видео</string>
+    <string name="page_action_prev_video">Предыдущее видео</string>
+    <string name="page_action_seek_forward">Перемотка вперёд</string>
+    <string name="page_action_seek_back">Перемотка назад</string>
     <string name="pref_remember_zoom">Запоминать масштабирование</string>
     <string name="pref_remember_zoom_desc">Применять последний выбранный режим масштабирования ко всем видео</string>
     <string name="pref_show_clock">Часы и их прозрачность</string>
@@ -220,7 +234,7 @@
     <string name="pref_back_button">Кнопка «Назад» на экране</string>
     <string name="pref_back_button_desc">Стрелка в инфопанели для выхода из плеера (для сенсорных экранов)</string>
     <string name="pref_control_buttons">Кнопки панели управления</string>
-    <string name="pref_control_buttons_desc">Скройте кнопки, которыми не пользуетесь. Аудио, субтитры, скорость и масштаб останутся в боковом меню</string>
+    <string name="pref_control_buttons_desc">Скройте кнопки, которыми не пользуетесь. Аудио, субтитры, скорость, масштаб и главы останутся в боковом меню</string>
     <string name="pref_control_buttons_value">%1$d из %2$d</string>
     <string name="button_label_quality">Качество видео</string>
     <string name="button_label_audio">Аудиодорожка</string>

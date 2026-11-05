@@ -77,6 +77,16 @@ class PlayerInputHandler(
         // 2. Навигация в плеере
         if (ui.controlsView.isVisible) onResetHideTimer()
 
+        // Настраиваемые кнопки Page Up / Next Channel и Page Down / Previous Channel
+        if (event.keyCode == KeyEvent.KEYCODE_PAGE_UP ||
+            event.keyCode == KeyEvent.KEYCODE_CHANNEL_UP) {
+            if (handlePageAction(repo.getPageUpAction())) return true
+        }
+        if (event.keyCode == KeyEvent.KEYCODE_PAGE_DOWN ||
+            event.keyCode == KeyEvent.KEYCODE_CHANNEL_DOWN) {
+            if (handlePageAction(repo.getPageDownAction())) return true
+        }
+
         // Эфирный режим: OK - плейлист, Влево/Вправо - каналы, Вверх - инфопанель
         val isLiveMode = viewModel.isOverallLiveMode()
         val isOkKey = event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER
@@ -113,7 +123,7 @@ class PlayerInputHandler(
                 // Если фокус на кнопках управления, переходим в плейлист
                 if (currentFocus?.id in listOf(
                         R.id.button_play_pause, R.id.button_rewind,
-                        R.id.button_ffwd, R.id.button_prev, R.id.button_next
+                        R.id.button_ffwd, R.id.button_chapter_prev, R.id.button_chapter_next
                     )
                 ) {
                     onShowPlaylist()
@@ -187,6 +197,21 @@ class PlayerInputHandler(
             }
         }
         return false
+    }
+
+    /** Runs the action assigned to a Page Up/Down key; false lets the key fall through. */
+    private fun handlePageAction(action: Int): Boolean {
+        when (action) {
+            SettingsRepository.PAGE_ACTION_NEXT_CHAPTER -> viewModel.nextChapter()
+            SettingsRepository.PAGE_ACTION_PREV_CHAPTER -> viewModel.previousChapter()
+            SettingsRepository.PAGE_ACTION_NEXT_VIDEO -> viewModel.nextTrack()
+            SettingsRepository.PAGE_ACTION_PREV_VIDEO -> viewModel.prevTrack()
+            SettingsRepository.PAGE_ACTION_SEEK_FORWARD -> viewModel.seekForward()
+            SettingsRepository.PAGE_ACTION_SEEK_BACK -> viewModel.seekBack()
+            else -> return false
+        }
+        onShowControls()
+        return true
     }
 
     private fun handleSeekBarSeek(keyCode: Int) {

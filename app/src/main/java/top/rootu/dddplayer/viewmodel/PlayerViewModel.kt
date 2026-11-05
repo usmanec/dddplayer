@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.AndroidViewModel
@@ -27,7 +28,10 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.dash.manifest.DashManifest
 import androidx.media3.exoplayer.hls.HlsManifest
 import androidx.media3.exoplayer.hls.playlist.HlsPlaylistTracker
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
 import top.rootu.dddplayer.data.VideoSettings
@@ -46,6 +50,10 @@ import top.rootu.dddplayer.model.ResizeMode
 import top.rootu.dddplayer.model.StereoInputType
 import top.rootu.dddplayer.model.StereoOutputMode
 import top.rootu.dddplayer.model.SubtitleItem
+import top.rootu.dddplayer.logic.Chapter
+import top.rootu.dddplayer.logic.ChapterLogic
+import top.rootu.dddplayer.logic.HomeLogic
+import top.rootu.dddplayer.player.ChapterLoader
 import top.rootu.dddplayer.player.PlayerManager
 import top.rootu.dddplayer.renderer.StereoRenderer
 import top.rootu.dddplayer.utils.MediaFormatHelper
@@ -154,6 +162,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     // Playlist State
     private val _currentPlaylist = MutableLiveData<List<MediaItem>>()
     val currentPlaylist: LiveData<List<MediaItem>> = _currentPlaylist
+
+    private val chapterLoader = ChapterLoader()
+    private val _chapters = MutableLiveData<List<Chapter>>(emptyList())
+    val chapters: LiveData<List<Chapter>> = _chapters
+    private var chaptersJob: kotlinx.coroutines.Job? = null
+    private var pendingChaptersUri: String? = null
     private val _playlistUiState = MutableLiveData(PlaylistUiState())
     val playlistUiState: LiveData<PlaylistUiState> = _playlistUiState
 
@@ -657,6 +671,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         player?.let { p ->
             val title = mediaItem?.mediaMetadata?.title?.toString()
             currentUri = mediaItem?.localConfiguration?.uri?.toString()
+            loadChapters(currentUri)
             _videoTitle.value = title ?: mediaItem?.localConfiguration?.uri?.lastPathSegment
 
             _hasPrevious.value = p.hasPreviousMediaItem()
@@ -1134,6 +1149,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
         resumePlayWhenReady = true // Новый плейлист всегда стартует
         val startItem = indexedItems.getOrNull(startIndex)
+        loadChapters(startItem?.uri?.toString())
         var startPos = startItem?.startPositionMs ?: 0L
         pendingExternalPosition = null
         sessionAudioSignature = null // Новый плейлист - выбор дорожки начинается заново
@@ -1447,6 +1463,124 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    /** Reads chapters from the container header; media3 exposes none. */
+    private fun loadChapters(uri: String?) {
+        if (uri.isNullOrBlank()) {
+            chaptersJob?.cancel()
+            pendingChaptersUri = null
+            _chapters.postValue(emptyList())
+            return
+        }
+        // Playlist load and the first item transition ask for the same URL.
+        if (pendingChaptersUri == uri && chaptersJob?.isActive == true) return
+
+        chaptersJob?.cancel()
+        pendingChaptersUri = uri
+        // ExoPlayer may only be touched from the main thread; the blocking HTTP
+        // fetch is moved to IO after the player reports READY.
+        chaptersJob = viewModelScope.launch {
+            val deadline = SystemClock.elapsedRealtime() + 20_000L
+            while (SystemClock.elapsedRealtime() < deadline) {
+                if (pendingChaptersUri != uri) return@launch
+                val p = player
+                if (p?.playbackState == Player.STATE_READY &&
+                    p.currentMediaItem?.localConfiguration?.uri?.toString() == uri
+                ) {
+                    break
+                }
+                delay(250L)
+            }
+            if (pendingChaptersUri != uri) return@launch
+
+            // Let the first frames settle before opening one more connection.
+            delay(500L)
+            if (pendingChaptersUri != uri) return@launch
+
+            val list = withContext(Dispatchers.IO) {
+                val started = SystemClock.elapsedRealtime()
+                val loaded = runCatching { chapterLoader.load(uri) }
+                    .onFailure { Log.e("ChapterLoader", "chapter load failed", it) }
+                    .getOrDefault(emptyList())
+                Log.d(
+                    "ChapterLoader",
+                    "loaded ${loaded.size} chapters in ${SystemClock.elapsedRealtime() - started} ms"
+                )
+                loaded
+            }
+            if (pendingChaptersUri == uri) _chapters.postValue(list)
+        }
+    }
+
+    fun getChapterMenuItems(context: Context): List<MenuItem> =
+        _chapters.value.orEmpty().mapIndexed { index, chapter ->
+            val label = if (chapter.title.isBlank()) {
+                HomeLogic.formatTime(chapter.startMs)
+            } else {
+                "${HomeLogic.formatTime(chapter.startMs)} · ${chapter.title}"
+            }
+            MenuItem(id = index.toString(), title = label)
+        }
+
+    fun chapterStartMs(index: Int): Long? = _chapters.value.orEmpty().getOrNull(index)?.startMs
+
+    /**
+     * Jumps to the next chapter. On the last chapter the same action means
+     * "next episode", matching the remote's next-chapter hotkey.
+     */
+    fun nextChapter() {
+        val position = player?.currentPosition ?: _currentPosition.value ?: 0L
+        val chapters = _chapters.value.orEmpty()
+        if (chapters.isEmpty()) {
+            val chunk = ChapterLogic.nextChunk(position, playbackDurationMs())
+            Log.d("ChapterLoader", "no chapters: $position -> chunk $chunk")
+            seekTo(chunk)
+            return
+        }
+
+        val start = ChapterLogic.nextChapterStart(chapters, position)
+        if (start != null) {
+            Log.d("ChapterLoader", "next chapter: $position -> $start")
+            seekTo(start)
+            return
+        }
+        if (player?.hasNextMediaItem() == true) {
+            Log.d("ChapterLoader", "last chapter: $position -> next episode")
+            nextTrack()
+        } else {
+            Log.d("ChapterLoader", "last chapter: $position -> no next episode")
+        }
+    }
+
+    /** Restarts the current chapter or jumps to the previous one at its start. */
+    fun previousChapter() {
+        val position = player?.currentPosition ?: _currentPosition.value ?: 0L
+        val chapters = _chapters.value.orEmpty()
+        if (chapters.isEmpty()) {
+            val chunk = ChapterLogic.previousChunk(position)
+            Log.d("ChapterLoader", "no chapters: $position -> chunk $chunk")
+            seekTo(chunk)
+            return
+        }
+
+        val start = ChapterLogic.previousChapterStart(chapters, position)
+        Log.d("ChapterLoader", "previous chapter: $position -> $start")
+        start?.let { seekTo(it) }
+    }
+
+    private fun playbackDurationMs(): Long {
+        val fromPlayer = player?.duration ?: 0L
+        if (fromPlayer > 0L && fromPlayer != C.TIME_UNSET) return fromPlayer
+        return _duration.value?.takeIf { it > 0L } ?: 0L
+    }
+
+    /** Title of the chapter playing at [positionMs], empty when there is none. */
+    private fun currentChapterLabel(positionMs: Long): String {
+        val list = _chapters.value.orEmpty()
+        if (list.isEmpty()) return ""
+        val chapter = list.lastOrNull { it.startMs <= positionMs } ?: return ""
+        return chapter.title
+    }
+
     fun getMainMenuItems(context: Context): List<MenuItem> {
         val currentAudioName = currentAudioTrack.value?.let { TrackLogic.buildTrackLabel(it, context) } ?: ""
         val currentSubtitleName = currentSubtitleTrack.value?.let { TrackLogic.buildTrackLabel(it, context) } ?: ""
@@ -1495,7 +1629,21 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 context.getString(R.string.menu_global_settings_desc),
                 R.drawable.ic_global_settings
             )
-        )
+        ).toMutableList().apply {
+            val chapterList = _chapters.value.orEmpty()
+            Log.d("ChapterLoader", "main menu: chapters=${chapterList.size}")
+            if (chapterList.isNotEmpty()) {
+                add(
+                    2, // right after audio and subtitles
+                    MenuItem(
+                        "chapters",
+                        context.getString(R.string.menu_chapters_title, chapterList.size),
+                        currentChapterLabel(_currentPosition.value ?: 0L),
+                        R.drawable.ic_playlist_play
+                    )
+                )
+            }
+        }
     }
 
     /**

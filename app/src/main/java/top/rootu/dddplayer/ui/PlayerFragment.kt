@@ -614,8 +614,8 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         ui.playPauseButton.setOnClickListener { viewModel.togglePlayPause() }
         ui.rewindButton.setOnClickListener { viewModel.seekBack() }
         ui.ffwdButton.setOnClickListener { viewModel.seekForward() }
-        ui.prevButton.setOnClickListener { viewModel.prevTrack() }
-        ui.nextButton.setOnClickListener { viewModel.nextTrack() }
+        ui.chapterPrevButton.setOnClickListener { viewModel.previousChapter() }
+        ui.chapterNextButton.setOnClickListener { viewModel.nextChapter() }
 
         ui.buttonSpeed.setOnClickListener {
             ui.hideControls()
@@ -692,6 +692,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
             when (selected.id) {
                 "audio" -> showAudioTrackMenu()
                 "subtitles" -> showSubtitlesMenu()
+                "chapters" -> showChaptersMenu()
                 "speed" -> showPlaybackSpeedMenu()
                 "resize" -> showResizeMenu()
                 "aspect" -> showAspectRatioMenu()
@@ -722,6 +723,22 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
                 showMainMenu("audio")
             } else {
                 selected.id.toIntOrNull()?.let { viewModel.selectTrackByIndex(C.TRACK_TYPE_AUDIO, it, fromUser = true) }
+                sideMenuDialog?.dismiss()
+            }
+        }
+    }
+
+    private fun showChaptersMenu() {
+        val items = viewModel.getChapterMenuItems(requireContext())
+        if (items.isEmpty()) return
+
+        showSideMenu(getString(R.string.menu_chapters_title, items.size), items) { selected ->
+            if (selected == null) {
+                showMainMenu("chapters")
+            } else {
+                selected.id.toIntOrNull()?.let { index ->
+                    viewModel.chapterStartMs(index)?.let { viewModel.seekTo(it) }
+                }
                 sideMenuDialog?.dismiss()
             }
         }
@@ -1127,6 +1144,10 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
 
         viewModel.duration.observe(viewLifecycleOwner) { duration ->
             ui.seekBar.max = duration.toInt()
+            ui.seekBar.setChapterStarts(
+                viewModel.chapters.value.orEmpty().map { it.startMs },
+                duration
+            )
             // Обновляем метки при изменении длительности
             val current = viewModel.currentPosition.value ?: 0L
             updateTimeLabelsUI(current)
@@ -1138,6 +1159,23 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
             }
         }
         viewModel.videoTitle.observe(viewLifecycleOwner) { refreshInfoPanelData() }
+
+        viewModel.chapters.observe(viewLifecycleOwner) { chapters ->
+            ui.seekBar.setChapterStarts(
+                chapters.map { it.startMs },
+                viewModel.duration.value ?: 0L
+            )
+            updateControlButtonsVisibility()
+
+            // Chapters load in the background; if the user opened the main menu
+            // before they arrived, rebuild it so the entry appears without reopening.
+            if (chapters.isEmpty()) return@observe
+            val header = sideMenuDialog?.findViewById<TextView>(R.id.menu_header)
+            if (sideMenuDialog?.isShowing == true &&
+                header?.text == getString(R.string.menu_main_title)) {
+                showMainMenu()
+            }
+        }
 
         // Инфопанель при смене элемента (по настройке или в эфирном режиме)
         viewModel.showInfoPanelEvent.observe(viewLifecycleOwner) { event ->
@@ -1161,12 +1199,6 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
             }
         }
 
-        viewModel.hasPrevious.observe(viewLifecycleOwner) {
-            ui.prevButton.alpha = if (it) 1.0f else 0.3f; ui.prevButton.isEnabled = it
-        }
-        viewModel.hasNext.observe(viewLifecycleOwner) {
-            ui.nextButton.alpha = if (it) 1.0f else 0.3f; ui.nextButton.isEnabled = it
-        }
         viewModel.playlistSize.observe(viewLifecycleOwner) { ui.buttonPlaylist.isVisible = it > 1 }
         viewModel.currentQualityName.observe(viewLifecycleOwner) { ui.buttonQuality.text = it }
         // Выбор качества и аудио - только если есть из чего выбирать, субтитры - если они есть
@@ -1684,6 +1716,11 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         ui.buttonQuality.isVisible = shown(SettingsRepository.BUTTON_QUALITY) && (counts == null || counts.video > 1)
         ui.buttonAudio.isVisible = shown(SettingsRepository.BUTTON_AUDIO) && (counts == null || counts.audio > 1)
         ui.buttonSubs.isVisible = shown(SettingsRepository.BUTTON_SUBTITLES) && (counts == null || counts.subtitles > 0)
+
+        // Keep them available even without chapters: in that case they jump in
+        // 5-minute blocks, matching Vimu's fallback.
+        ui.chapterPrevButton.isVisible = shown(SettingsRepository.BUTTON_CHAPTER_PREV)
+        ui.chapterNextButton.isVisible = shown(SettingsRepository.BUTTON_CHAPTER_NEXT)
     }
 
     private fun shouldAskExitConfirmation(): Boolean {

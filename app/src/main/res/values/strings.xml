@@ -100,6 +100,9 @@
     <string name="menu_main_title">Settings</string>
     <string name="menu_audio_title">Audio Track (%d)</string>
     <string name="menu_subtitle_title">Subtitles (%d)</string>
+    <string name="menu_chapters_title">Chapters (%d)</string>
+    <string name="chapter_next">Next chapter</string>
+    <string name="chapter_prev">Previous chapter</string>
     <string name="menu_quick_settings_title">Quick Settings Panel</string>
     <string name="menu_quick_settings_desc">3D, parallax, glasses…</string>
     <string name="menu_global_settings_title">Global Settings</string>
@@ -215,6 +218,17 @@
     <string name="pref_ok_action_pause">Toggle Pause</string>
     <string name="pref_ok_action_pause_panel">Pause + Panel</string>
     <string name="pref_ok_action_panel">Show Panel</string>
+    <string name="pref_page_up_action">Page Up / Next Channel</string>
+    <string name="pref_page_up_action_desc">What to do when this key is pressed in the player</string>
+    <string name="pref_page_down_action">Page Down / Previous Channel</string>
+    <string name="pref_page_down_action_desc">What to do when this key is pressed in the player</string>
+    <string name="page_action_none">Do nothing</string>
+    <string name="page_action_next_chapter">Next chapter</string>
+    <string name="page_action_prev_chapter">Previous chapter</string>
+    <string name="page_action_next_video">Next video</string>
+    <string name="page_action_prev_video">Previous video</string>
+    <string name="page_action_seek_forward">Seek forward</string>
+    <string name="page_action_seek_back">Seek back</string>
     <string name="pref_remember_zoom">Remember zoom</string>
     <string name="pref_remember_zoom_desc">Apply the last selected zoom mode to all videos</string>
     <string name="pref_show_clock">Clock &amp; Transparency</string>
@@ -230,7 +244,7 @@
     <string name="pref_back_button">Back button on screen</string>
     <string name="pref_back_button_desc">Arrow in the info panel to close the player (for touch screens)</string>
     <string name="pref_control_buttons">Control bar buttons</string>
-    <string name="pref_control_buttons_desc">Hide buttons you do not use. Audio, subtitles, speed and zoom stay in the side menu</string>
+    <string name="pref_control_buttons_desc">Hide buttons you do not use. Audio, subtitles, speed, zoom and chapters stay in the side menu</string>
     <string name="pref_control_buttons_value">%1$d of %2$d</string>
     <string name="button_label_quality">Video quality</string>
     <string name="button_label_audio">Audio track</string>

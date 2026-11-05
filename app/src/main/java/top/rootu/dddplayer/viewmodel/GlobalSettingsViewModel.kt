@@ -115,6 +115,12 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     private val _okButtonAction = MutableLiveData(repository.getOkButtonAction())
     val okButtonAction: LiveData<Int> = _okButtonAction
 
+    private val _pageUpAction = MutableLiveData(repository.getPageUpAction())
+    val pageUpAction: LiveData<Int> = _pageUpAction
+
+    private val _pageDownAction = MutableLiveData(repository.getPageDownAction())
+    val pageDownAction: LiveData<Int> = _pageDownAction
+
     private val _defaultPlaybackSpeed = MutableLiveData(repository.getDefaultPlaybackSpeed())
     val defaultPlaybackSpeed: LiveData<Float> = _defaultPlaybackSpeed
 
@@ -368,6 +374,16 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     fun setOkButtonAction(action: Int) {
         repository.setOkButtonAction(action)
         _okButtonAction.value = action
+    }
+
+    fun setPageUpAction(action: Int) {
+        repository.setPageUpAction(action)
+        _pageUpAction.value = action
+    }
+
+    fun setPageDownAction(action: Int) {
+        repository.setPageDownAction(action)
+        _pageDownAction.value = action
     }
 
     private val _isVolumeBrightnessGestures = MutableLiveData(repository.isVolumeBrightnessGesturesEnabled())

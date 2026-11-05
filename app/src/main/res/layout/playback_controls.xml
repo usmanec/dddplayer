@@ -15,7 +15,7 @@
     android:animateLayoutChanges="true">
 
     <!-- 1. SeekBar (Timeline) -->
-    <SeekBar
+    <top.rootu.dddplayer.ui.view.ChapterSeekBar
         android:id="@+id/seek_bar"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -113,12 +113,12 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- Prev -->
+        <!-- Previous chapter -->
         <ImageButton
-            android:id="@+id/button_prev"
+            android:id="@+id/button_chapter_prev"
             style="@style/PlayerSecondaryControlButton"
-            android:contentDescription="Prev"
-            android:src="@drawable/ic_skip_previous"
+            android:contentDescription="@string/chapter_prev"
+            android:src="@drawable/ic_chapter_prev"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             app:tint="@color/tv_white"
             android:padding="12dp"
@@ -167,12 +167,12 @@
             android:nextFocusUp="@id/seek_bar"
             tools:ignore="HardcodedText" />
 
-        <!-- Next -->
+        <!-- Next chapter -->
         <ImageButton
-            android:id="@+id/button_next"
+            android:id="@+id/button_chapter_next"
             style="@style/PlayerSecondaryControlButton"
-            android:contentDescription="Next"
-            android:src="@drawable/ic_skip_next"
+            android:contentDescription="@string/chapter_next"
+            android:src="@drawable/ic_chapter_next"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             app:tint="@color/tv_white"
             android:padding="12dp"
