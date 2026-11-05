@@ -56,6 +56,123 @@ class ChapterParserTest {
     }
 
     @Test
+    fun `seekhead points at chapters outside the header window`() {
+        val mkv = elemSized(
+            ChapterParser.ID_SEGMENT,
+            1L shl 30,
+            seekHead(seekEntry(ChapterParser.ID_CHAPTERS, 5_000_000L))
+        )
+
+        val expected = ChapterParser.segmentPayloadStart(mkv)!! + 5_000_000L
+        assertEquals(expected, ChapterParser.findChaptersOffset(mkv))
+    }
+
+    @Test
+    fun `chapters are loaded from the seekhead offset`() {
+        val chaptersAt = chapters(
+            edition(
+                atom(0L, "Intro"),
+                atom(60_000_000_000L, "Part 1")
+            )
+        )
+        val first = elemSized(
+            ChapterParser.ID_SEGMENT,
+            1L shl 30,
+            seekHead(seekEntry(ChapterParser.ID_CHAPTERS, 5_000_000L))
+        )
+        val offset = ChapterParser.segmentPayloadStart(first)!! + 5_000_000L
+
+        val loaded = ChapterParser.loadViaSeekHead(first) { at, _ ->
+            if (at == offset) chaptersAt else null
+        }
+
+        assertEquals(
+            listOf(Chapter(0, "Intro"), Chapter(60_000, "Part 1")),
+            loaded
+        )
+    }
+
+    @Test
+    fun `secondary seekhead is followed`() {
+        val chaptersAt = chapters(
+            edition(
+                atom(0L, "One"),
+                atom(90_000_000_000L, "Two")
+            )
+        )
+        val first = elemSized(
+            ChapterParser.ID_SEGMENT,
+            1L shl 30,
+            seekHead(seekEntry(ChapterParser.ID_SEEK_HEAD, 7_000_000L))
+        )
+        val segmentStart = ChapterParser.segmentPayloadStart(first)!!
+        val secondarySeekHead = seekHead(seekEntry(ChapterParser.ID_CHAPTERS, 9_000_000L))
+
+        val loaded = ChapterParser.loadViaSeekHead(first) { at, _ ->
+            when (at) {
+                segmentStart + 7_000_000L -> secondarySeekHead
+                segmentStart + 9_000_000L -> chaptersAt
+                else -> null
+            }
+        }
+
+        assertEquals(
+            listOf(Chapter(0, "One"), Chapter(90_000, "Two")),
+            loaded
+        )
+    }
+
+    @Test
+    fun `walking skips large elements when there is no seekhead`() {
+        val chaptersAt = chapters(
+            edition(
+                atom(0L, "Intro"),
+                atom(60_000_000_000L, "Part 1")
+            )
+        )
+        val info = elem(0x1549A966L, byteArrayOf())
+        val clusterHeader = elemSized(0x1F43B675L, 5_000_000L, byteArrayOf())
+        val first = elemSized(ChapterParser.ID_SEGMENT, 1L shl 30, info + clusterHeader)
+
+        val offset = ChapterParser.segmentPayloadStart(first)!! + info.size + clusterHeader.size + 5_000_000L
+        val loaded = ChapterParser.findChaptersByWalking(
+            first,
+            offset + chaptersAt.size
+        ) { at, _ ->
+            if (at == offset) chaptersAt else null
+        }
+
+        assertEquals(
+            listOf(Chapter(0, "Intro"), Chapter(60_000, "Part 1")),
+            loaded
+        )
+    }
+
+    @Test
+    fun `double encoded chapter titles are repaired`() {
+        val original = "　「黒髪の少女」"
+        val broken = mojibake(original)
+
+        assertEquals(original, ChapterParser.repairMojibake(broken))
+        assertEquals(
+            listOf(Chapter(0, original)),
+            ChapterParser.parse(segment(chapters(edition(atom(0L, broken)))))
+        )
+    }
+
+    @Test
+    fun `double encoded latin title is repaired`() {
+        assertEquals("Café", ChapterParser.repairMojibake(mojibake("Café")))
+    }
+
+    @Test
+    fun `normal accented titles are left alone`() {
+        assertEquals("São Paulo", ChapterParser.repairMojibake("São Paulo"))
+        assertEquals("Café — Chapter 1", ChapterParser.repairMojibake("Café — Chapter 1"))
+        assertEquals("Amélie", ChapterParser.repairMojibake("Amélie"))
+    }
+
+    @Test
     fun `mp4 chpl chapters are parsed`() {
         val mp4 = mp4WithChpl(
             listOf(
@@ -77,17 +194,24 @@ class ChapterParserTest {
 
     // ───────────────────────────── fixtures ─────────────────────────────
 
-    private fun segment(payload: ByteArray) = elem(0x18538067L, payload)
+    private fun segment(payload: ByteArray) = elem(ChapterParser.ID_SEGMENT, payload)
 
-    private fun chapters(payload: ByteArray) = elem(0x1043A770L, payload)
+    private fun chapters(payload: ByteArray) = elem(ChapterParser.ID_CHAPTERS, payload)
 
-    private fun edition(vararg atoms: ByteArray) = elem(0x45B9L, atoms.reduce { a, b -> a + b })
+    private fun seekHead(vararg entries: ByteArray) =
+        elem(ChapterParser.ID_SEEK_HEAD, concat(*entries))
+
+    private fun seekEntry(id: Long, position: Long) = elem(
+        0x4DBBL,
+        elem(0x53ABL, idToBytes(id)) + elem(0x53ACL, uintBytes(position, 4))
+    )
+
+    private fun edition(vararg atoms: ByteArray) = elem(0x45B9L, concat(*atoms))
 
     private fun atom(timeNs: Long, title: String, vararg children: ByteArray): ByteArray {
         val time = elem(0x91L, uintBytes(timeNs))
         val display = elem(0x80L, elem(0x85L, title.toByteArray(Charsets.UTF_8)))
-        val nested = children.reduceOrNull { a, b -> a + b } ?: byteArrayOf()
-        return elem(0xB6L, time + display + nested)
+        return elem(0xB6L, concat(time, display, *children))
     }
 
     private fun mp4WithChpl(entries: List<Pair<Long, String>>): ByteArray {
@@ -106,9 +230,61 @@ class ChapterParserTest {
         return byteArrayOf(0, 0, 0, 0) + atom
     }
 
-    private fun elem(id: Long, payload: ByteArray): ByteArray {
-        val idBytes = idToBytes(id)
-        return idBytes + sizeBytes(payload.size.toLong()) + payload
+    /** Emulates a muxer that decoded UTF-8 bytes as Windows-1252 and encoded them again. */
+    private fun mojibake(value: String): String {
+        val sb = StringBuilder()
+        for (b in value.toByteArray(Charsets.UTF_8)) {
+            val code = b.toInt() and 0xFF
+            sb.append(
+                when (code) {
+                    0x80 -> '\u20AC'
+                    0x82 -> '\u201A'
+                    0x83 -> '\u0192'
+                    0x84 -> '\u201E'
+                    0x85 -> '\u2026'
+                    0x86 -> '\u2020'
+                    0x87 -> '\u2021'
+                    0x88 -> '\u02C6'
+                    0x89 -> '\u2030'
+                    0x8A -> '\u0160'
+                    0x8B -> '\u2039'
+                    0x8C -> '\u0152'
+                    0x8E -> '\u017D'
+                    0x91 -> '\u2018'
+                    0x92 -> '\u2019'
+                    0x93 -> '\u201C'
+                    0x94 -> '\u201D'
+                    0x95 -> '\u2022'
+                    0x96 -> '\u2013'
+                    0x97 -> '\u2014'
+                    0x98 -> '\u02DC'
+                    0x99 -> '\u2122'
+                    0x9A -> '\u0161'
+                    0x9B -> '\u203A'
+                    0x9C -> '\u0153'
+                    0x9E -> '\u017E'
+                    0x9F -> '\u0178'
+                    else -> code.toChar()
+                }
+            )
+        }
+        return sb.toString()
+    }
+
+    private fun elem(id: Long, payload: ByteArray): ByteArray =
+        elemSized(id, payload.size.toLong(), payload)
+
+    private fun elemSized(id: Long, size: Long, payload: ByteArray): ByteArray =
+        idToBytes(id) + sizeBytes(size) + payload
+
+    private fun concat(vararg parts: ByteArray): ByteArray {
+        val out = ByteArray(parts.sumOf { it.size })
+        var pos = 0
+        for (part in parts) {
+            part.copyInto(out, pos)
+            pos += part.size
+        }
+        return out
     }
 
     private fun idToBytes(id: Long): ByteArray {

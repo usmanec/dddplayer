@@ -144,9 +144,11 @@ ParsingDataSource → PrefetchingDataSource → DefaultDataSource (file/content/
 
 Media3 не отдаёт главы контейнера, поэтому плеер читает их сам:
 
-- `logic/ChapterParser` — разбор Matroska (`Chapters`/`ChapterAtom`) и MP4 (`chpl`);
-- `player/ChapterLoader` — диапазонный запрос первых 6 МБ (или чтение локального файла), кэш по URL;
+- `logic/ChapterParser` — разбор Matroska (`Chapters`/`ChapterAtom`) и MP4 (`chpl`), навигация по `SeekHead` и восстановление дважды перекодированных названий;
+- `player/ChapterLoader` — диапазонный запрос первых 6 МБ (или чтение локального файла), затем `SeekHead`, а при его отсутствии — обход верхнеуровневых элементов с пропуском payload по размеру; кэш по URL;
 - `PlayerViewModel.chapters` — список подгружается асинхронно при старте и при смене элемента плейлиста;
 - в главном меню появляется пункт «Главы», переход выполняется через `seekTo`.
 
-Парсер покрыт юнит-тестами (`ChapterParserTest`), включая вложенные `ChapterAtom`.
+`Chapters` не всегда лежит в первых мегабайтах: в некоторых релизах он находится после кластеров (например, на 50-м МБ). `SeekHead` даёт точное смещение, а fallback-обход повторяет поведение полноценного EBML-парсера.
+
+Парсер покрыт юнит-тестами (`ChapterParserTest`): вложенные `ChapterAtom`, `SeekHead` за пределами окна, вторичный `SeekHead`, обход без `SeekHead`, mojibake и MP4 `chpl`.
