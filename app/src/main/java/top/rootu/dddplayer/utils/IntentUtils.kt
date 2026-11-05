@@ -87,7 +87,9 @@ object IntentUtils {
             startPositionMs = startPosition
         )
 
-        return Pair(listOf(item), 0)
+        // A single URL may point at an M3U list; keep the caller's start index
+        // so the expansion can begin at the requested episode.
+        return Pair(listOf(item), extras.getInt("start_index", 0))
     }
 
     private fun parseInternalPlaylist(
