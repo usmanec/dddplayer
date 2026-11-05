@@ -1109,7 +1109,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 // Последний канал восстанавливаем только по точному URI
                 val lastUri = repository.getLastPlayedChannelUri()
                 val lastIndex = if (lastUri != null) expanded.indexOfFirst { it.uri.toString() == lastUri } else -1
-                loadPlaylist(expanded, lastIndex.coerceAtLeast(0), isM3u = true)
+                // Honour start_index when there is no last-played channel to
+                // restore: a single .m3u/.m3u8 link always began at item 0.
+                val resumeIndex = if (lastIndex >= 0) lastIndex else startIndex
+                loadPlaylist(expanded, resumeIndex.coerceAtLeast(0), isM3u = true)
             } else {
                 loadPlaylist(items, startIndex)
             }
