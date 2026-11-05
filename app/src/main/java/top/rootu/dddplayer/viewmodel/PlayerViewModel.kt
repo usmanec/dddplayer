@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.AndroidViewModel
@@ -28,7 +29,9 @@ import androidx.media3.exoplayer.dash.manifest.DashManifest
 import androidx.media3.exoplayer.hls.HlsManifest
 import androidx.media3.exoplayer.hls.playlist.HlsPlaylistTracker
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
 import top.rootu.dddplayer.data.VideoSettings
@@ -162,6 +165,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private val chapterLoader = ChapterLoader()
     private val _chapters = MutableLiveData<List<Chapter>>(emptyList())
     val chapters: LiveData<List<Chapter>> = _chapters
+    private var chaptersJob: kotlinx.coroutines.Job? = null
+    private var pendingChaptersUri: String? = null
     private val _playlistUiState = MutableLiveData(PlaylistUiState())
     val playlistUiState: LiveData<PlaylistUiState> = _playlistUiState
 
@@ -1460,12 +1465,48 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     /** Reads chapters from the container header; media3 exposes none. */
     private fun loadChapters(uri: String?) {
         if (uri.isNullOrBlank()) {
+            chaptersJob?.cancel()
+            pendingChaptersUri = null
             _chapters.postValue(emptyList())
             return
         }
-        viewModelScope.launch(Dispatchers.IO) {
-            val list = chapterLoader.load(uri)
-            _chapters.postValue(list)
+        // Playlist load and the first item transition ask for the same URL.
+        if (pendingChaptersUri == uri && chaptersJob?.isActive == true) return
+
+        chaptersJob?.cancel()
+        pendingChaptersUri = uri
+        // ExoPlayer may only be touched from the main thread; the blocking HTTP
+        // fetch is moved to IO after the player reports READY.
+        chaptersJob = viewModelScope.launch {
+            val deadline = SystemClock.elapsedRealtime() + 20_000L
+            while (SystemClock.elapsedRealtime() < deadline) {
+                if (pendingChaptersUri != uri) return@launch
+                val p = player
+                if (p?.playbackState == Player.STATE_READY &&
+                    p.currentMediaItem?.localConfiguration?.uri?.toString() == uri
+                ) {
+                    break
+                }
+                delay(250L)
+            }
+            if (pendingChaptersUri != uri) return@launch
+
+            // Let the first frames settle before opening one more connection.
+            delay(500L)
+            if (pendingChaptersUri != uri) return@launch
+
+            val list = withContext(Dispatchers.IO) {
+                val started = SystemClock.elapsedRealtime()
+                val loaded = runCatching { chapterLoader.load(uri) }
+                    .onFailure { Log.e("ChapterLoader", "chapter load failed", it) }
+                    .getOrDefault(emptyList())
+                Log.d(
+                    "ChapterLoader",
+                    "loaded ${loaded.size} chapters in ${SystemClock.elapsedRealtime() - started} ms"
+                )
+                loaded
+            }
+            if (pendingChaptersUri == uri) _chapters.postValue(list)
         }
     }
 

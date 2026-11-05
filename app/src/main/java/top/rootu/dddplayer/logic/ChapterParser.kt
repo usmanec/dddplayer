@@ -42,8 +42,18 @@ object ChapterParser {
         if (data.isEmpty()) return emptyList()
         val matroska = parseMatroska(data)
         if (matroska.isNotEmpty()) return matroska
+        // Do not scan a Matroska header for MP4 `chpl`: it is a multi-megabyte
+        // byte search that can never find anything there.
+        if (isMatroska(data)) return emptyList()
         return parseMp4Chpl(data)
     }
+
+    private fun isMatroska(data: ByteArray): Boolean =
+        data.size >= 4 &&
+            data[0] == 0x1A.toByte() &&
+            data[1] == 0x45.toByte() &&
+            data[2] == 0xDF.toByte() &&
+            data[3] == 0xA3.toByte()
 
     // ───────────────────────────── Matroska ─────────────────────────────
 

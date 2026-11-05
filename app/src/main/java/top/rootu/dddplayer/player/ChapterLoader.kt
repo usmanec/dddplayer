@@ -1,6 +1,7 @@
 package top.rootu.dddplayer.player
 
 import android.net.Uri
+import android.os.SystemClock
 import android.util.Log
 import android.util.LruCache
 import okhttp3.OkHttpClient
@@ -27,6 +28,9 @@ class ChapterLoader {
     private val client = OkHttpClient.Builder()
         .connectTimeout(6, TimeUnit.SECONDS)
         .readTimeout(10, TimeUnit.SECONDS)
+        // A dead TorBox node must not keep the chapter request alive for tens
+        // of seconds while the player is trying to buffer the same file.
+        .callTimeout(MAX_LOAD_MS, TimeUnit.MILLISECONDS)
         .build()
 
     private val cache = object : LruCache<String, List<Chapter>>(16) {}
@@ -53,6 +57,7 @@ class ChapterLoader {
     }
 
     private fun loadUncached(url: String, isHttp: Boolean, headers: List<String>): List<Chapter> {
+        val started = SystemClock.elapsedRealtime()
         val first = read(url, isHttp, headers, 0, HEAD_BYTES)
         if (first == null || first.bytes.isEmpty()) {
             Log.d(TAG, "no header for $url")
@@ -60,10 +65,20 @@ class ChapterLoader {
         }
 
         val readAt: (Long, Long) -> ByteArray? = { offset, length ->
-            read(url, isHttp, headers, offset, length)?.bytes
+            if (SystemClock.elapsedRealtime() - started >= MAX_LOAD_MS) {
+                null
+            } else {
+                read(url, isHttp, headers, offset, length)?.bytes
+            }
         }
 
         var chapters = ChapterParser.parse(first.bytes)
+        if (chapters.isEmpty() && !isMatroska(first.bytes) &&
+            first.bytes.size < MP4_HEAD_BYTES) {
+            // MP4 keeps `chpl` in `udta`/`moov`, sometimes further into the file.
+            val larger = read(url, isHttp, headers, 0, MP4_HEAD_BYTES)
+            if (larger != null) chapters = ChapterParser.parse(larger.bytes)
+        }
         if (chapters.isEmpty() && isMatroska(first.bytes)) {
             chapters = ChapterParser.loadViaSeekHead(first.bytes, readAt)
         }
@@ -76,7 +91,10 @@ class ChapterLoader {
         }
 
         cache.put(url, chapters)
-        Log.d(TAG, "chapters=${chapters.size} for $url")
+        Log.d(
+            TAG,
+            "chapters=${chapters.size} in ${SystemClock.elapsedRealtime() - started} ms for $url"
+        )
         return chapters
     }
 
@@ -165,7 +183,17 @@ class ChapterLoader {
     private companion object {
         const val TAG = "ChapterLoader"
 
-        /** Header window: covers Matroska headers and MP4 `chpl` in the common case. */
-        const val HEAD_BYTES = 6L * 1024 * 1024
+        /** Hard cap for the whole chapter lookup; dead CDN nodes must fail fast. */
+        const val MAX_LOAD_MS = 8_000L
+
+        /**
+         * First window. Matroska keeps SeekHead in the first few hundred bytes,
+         * so 128 KB is enough to start navigation without competing with the
+         * player's initial buffering.
+         */
+        const val HEAD_BYTES = 128L * 1024
+
+        /** MP4 `chpl` may live further in `moov`; only non-Matroska files pay for this. */
+        const val MP4_HEAD_BYTES = 2L * 1024 * 1024
     }
 }
