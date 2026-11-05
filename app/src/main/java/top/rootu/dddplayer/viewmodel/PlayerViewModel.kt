@@ -27,6 +27,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.dash.manifest.DashManifest
 import androidx.media3.exoplayer.hls.HlsManifest
 import androidx.media3.exoplayer.hls.playlist.HlsPlaylistTracker
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
@@ -46,6 +47,9 @@ import top.rootu.dddplayer.model.ResizeMode
 import top.rootu.dddplayer.model.StereoInputType
 import top.rootu.dddplayer.model.StereoOutputMode
 import top.rootu.dddplayer.model.SubtitleItem
+import top.rootu.dddplayer.logic.Chapter
+import top.rootu.dddplayer.logic.HomeLogic
+import top.rootu.dddplayer.player.ChapterLoader
 import top.rootu.dddplayer.player.PlayerManager
 import top.rootu.dddplayer.renderer.StereoRenderer
 import top.rootu.dddplayer.utils.MediaFormatHelper
@@ -154,6 +158,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     // Playlist State
     private val _currentPlaylist = MutableLiveData<List<MediaItem>>()
     val currentPlaylist: LiveData<List<MediaItem>> = _currentPlaylist
+
+    private val chapterLoader = ChapterLoader()
+    private val _chapters = MutableLiveData<List<Chapter>>(emptyList())
+    val chapters: LiveData<List<Chapter>> = _chapters
     private val _playlistUiState = MutableLiveData(PlaylistUiState())
     val playlistUiState: LiveData<PlaylistUiState> = _playlistUiState
 
@@ -657,6 +665,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         player?.let { p ->
             val title = mediaItem?.mediaMetadata?.title?.toString()
             currentUri = mediaItem?.localConfiguration?.uri?.toString()
+            loadChapters(currentUri)
             _videoTitle.value = title ?: mediaItem?.localConfiguration?.uri?.lastPathSegment
 
             _hasPrevious.value = p.hasPreviousMediaItem()
@@ -1134,6 +1143,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
         resumePlayWhenReady = true // Новый плейлист всегда стартует
         val startItem = indexedItems.getOrNull(startIndex)
+        loadChapters(startItem?.uri?.toString())
         var startPos = startItem?.startPositionMs ?: 0L
         pendingExternalPosition = null
         sessionAudioSignature = null // Новый плейлист - выбор дорожки начинается заново
@@ -1447,6 +1457,38 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    /** Reads chapters from the container header; media3 exposes none. */
+    private fun loadChapters(uri: String?) {
+        if (uri.isNullOrBlank()) {
+            _chapters.postValue(emptyList())
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val list = chapterLoader.load(uri)
+            _chapters.postValue(list)
+        }
+    }
+
+    fun getChapterMenuItems(context: Context): List<MenuItem> =
+        _chapters.value.orEmpty().mapIndexed { index, chapter ->
+            val label = if (chapter.title.isBlank()) {
+                HomeLogic.formatTime(chapter.startMs)
+            } else {
+                "${HomeLogic.formatTime(chapter.startMs)} · ${chapter.title}"
+            }
+            MenuItem(id = index.toString(), title = label)
+        }
+
+    fun chapterStartMs(index: Int): Long? = _chapters.value.orEmpty().getOrNull(index)?.startMs
+
+    /** Title of the chapter playing at [positionMs], empty when there is none. */
+    private fun currentChapterLabel(positionMs: Long): String {
+        val list = _chapters.value.orEmpty()
+        if (list.isEmpty()) return ""
+        val chapter = list.lastOrNull { it.startMs <= positionMs } ?: return ""
+        return chapter.title
+    }
+
     fun getMainMenuItems(context: Context): List<MenuItem> {
         val currentAudioName = currentAudioTrack.value?.let { TrackLogic.buildTrackLabel(it, context) } ?: ""
         val currentSubtitleName = currentSubtitleTrack.value?.let { TrackLogic.buildTrackLabel(it, context) } ?: ""
@@ -1495,7 +1537,20 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 context.getString(R.string.menu_global_settings_desc),
                 R.drawable.ic_global_settings
             )
-        )
+        ).toMutableList().apply {
+            val chapterList = _chapters.value.orEmpty()
+            if (chapterList.isNotEmpty()) {
+                add(
+                    2, // right after audio and subtitles
+                    MenuItem(
+                        "chapters",
+                        context.getString(R.string.menu_chapters_title, chapterList.size),
+                        currentChapterLabel(_currentPosition.value ?: 0L),
+                        R.drawable.ic_playlist_play
+                    )
+                )
+            }
+        }
     }
 
     /**

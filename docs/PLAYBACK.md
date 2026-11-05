@@ -138,3 +138,15 @@ ParsingDataSource → PrefetchingDataSource → DefaultDataSource (file/content/
 
 `UpdateManager` читает `https://api.github.com/repos/usmanec/dddplayer/releases`, сравнивает версии,
 скачивает APK и запускает установку (`REQUEST_INSTALL_PACKAGES`, `FileProvider`).
+
+
+## Главы
+
+Media3 не отдаёт главы контейнера, поэтому плеер читает их сам:
+
+- `logic/ChapterParser` — разбор Matroska (`Chapters`/`ChapterAtom`) и MP4 (`chpl`);
+- `player/ChapterLoader` — диапазонный запрос первых 6 МБ (или чтение локального файла), кэш по URL;
+- `PlayerViewModel.chapters` — список подгружается асинхронно при старте и при смене элемента плейлиста;
+- в главном меню появляется пункт «Главы», переход выполняется через `seekTo`.
+
+Парсер покрыт юнит-тестами (`ChapterParserTest`), включая вложенные `ChapterAtom`.

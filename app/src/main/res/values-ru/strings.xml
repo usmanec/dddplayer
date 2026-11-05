@@ -93,6 +93,7 @@
     <string name="menu_main_title">Настройки</string>
     <string name="menu_audio_title">Аудиодорожка (%d)</string>
     <string name="menu_subtitle_title">Субтитры (%d)</string>
+    <string name="menu_chapters_title">Главы (%d)</string>
     <string name="menu_quick_settings_title">Панель настройки</string>
     <string name="menu_quick_settings_desc">3D, параллакс, очки…</string>
     <string name="menu_global_settings_title">Глобальные настройки</string>

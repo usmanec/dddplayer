@@ -692,6 +692,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
             when (selected.id) {
                 "audio" -> showAudioTrackMenu()
                 "subtitles" -> showSubtitlesMenu()
+                "chapters" -> showChaptersMenu()
                 "speed" -> showPlaybackSpeedMenu()
                 "resize" -> showResizeMenu()
                 "aspect" -> showAspectRatioMenu()
@@ -722,6 +723,22 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
                 showMainMenu("audio")
             } else {
                 selected.id.toIntOrNull()?.let { viewModel.selectTrackByIndex(C.TRACK_TYPE_AUDIO, it, fromUser = true) }
+                sideMenuDialog?.dismiss()
+            }
+        }
+    }
+
+    private fun showChaptersMenu() {
+        val items = viewModel.getChapterMenuItems(requireContext())
+        if (items.isEmpty()) return
+
+        showSideMenu(getString(R.string.menu_chapters_title, items.size), items) { selected ->
+            if (selected == null) {
+                showMainMenu("chapters")
+            } else {
+                selected.id.toIntOrNull()?.let { index ->
+                    viewModel.chapterStartMs(index)?.let { viewModel.seekTo(it) }
+                }
                 sideMenuDialog?.dismiss()
             }
         }
