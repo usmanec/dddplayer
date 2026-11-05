@@ -980,6 +980,52 @@
                         tools:text="Pause + Panel" />
                 </LinearLayout>
 
+                <!-- Page Up / Next Channel -->
+                <LinearLayout
+                    android:id="@+id/item_page_up_action"
+                    style="@style/SettingsItemContainer">
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:duplicateParentState="true"
+                        android:orientation="vertical">
+                        <TextView
+                            style="@style/SettingsItemTitle"
+                            android:text="@string/pref_page_up_action" />
+                        <TextView
+                            style="@style/SettingsItemDesc"
+                            android:text="@string/pref_page_up_action_desc" />
+                    </LinearLayout>
+                    <TextView
+                        android:id="@+id/text_page_up_action_value"
+                        style="@style/SettingsItemValue"
+                        tools:text="Next chapter" />
+                </LinearLayout>
+
+                <!-- Page Down / Previous Channel -->
+                <LinearLayout
+                    android:id="@+id/item_page_down_action"
+                    style="@style/SettingsItemContainer">
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:duplicateParentState="true"
+                        android:orientation="vertical">
+                        <TextView
+                            style="@style/SettingsItemTitle"
+                            android:text="@string/pref_page_down_action" />
+                        <TextView
+                            style="@style/SettingsItemDesc"
+                            android:text="@string/pref_page_down_action_desc" />
+                    </LinearLayout>
+                    <TextView
+                        android:id="@+id/text_page_down_action_value"
+                        style="@style/SettingsItemValue"
+                        tools:text="Previous chapter" />
+                </LinearLayout>
+
                 <!-- Confirm exit -->
                 <LinearLayout
                     android:id="@+id/item_confirm_exit"

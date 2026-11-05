@@ -50,6 +50,15 @@ class SettingsRepository private constructor(context: Context) {
         const val OK_ACTION_PAUSE_PANEL = 1
         const val OK_ACTION_PANEL = 2
 
+        // Действие кнопки Page Up / Next Channel (PAGE_ACTION_*)
+        const val PAGE_ACTION_NONE = 0
+        const val PAGE_ACTION_NEXT_CHAPTER = 1
+        const val PAGE_ACTION_PREV_CHAPTER = 2
+        const val PAGE_ACTION_NEXT_VIDEO = 3
+        const val PAGE_ACTION_PREV_VIDEO = 4
+        const val PAGE_ACTION_SEEK_FORWARD = 5
+        const val PAGE_ACTION_SEEK_BACK = 6
+
         // Горизонтальный свайп
         const val SWIPE_NONE = 0
         const val SWIPE_SEEK = 1
@@ -63,7 +72,12 @@ class SettingsRepository private constructor(context: Context) {
         const val BUTTON_QUALITY = "quality"
         const val BUTTON_AUDIO = "audio"
         const val BUTTON_SUBTITLES = "subtitles"
-        val HIDEABLE_BUTTONS = listOf(BUTTON_SPEED, BUTTON_RESIZE, BUTTON_PIP, BUTTON_QUALITY, BUTTON_AUDIO, BUTTON_SUBTITLES)
+        const val BUTTON_CHAPTER_PREV = "chapter_prev"
+        const val BUTTON_CHAPTER_NEXT = "chapter_next"
+        val HIDEABLE_BUTTONS = listOf(
+            BUTTON_SPEED, BUTTON_RESIZE, BUTTON_PIP, BUTTON_QUALITY,
+            BUTTON_AUDIO, BUTTON_SUBTITLES, BUTTON_CHAPTER_PREV, BUTTON_CHAPTER_NEXT
+        )
 
         // Прозрачность часов: -1 = часы выключены, 0..80 = прозрачность в %
         const val CLOCK_OFF = -1
@@ -529,6 +543,13 @@ class SettingsRepository private constructor(context: Context) {
     // Действие кнопки "OK" (OK_ACTION_*). По умолчанию - пауза + панель (текущее поведение)
     fun getOkButtonAction(): Int = prefs.getInt("ok_button_action", OK_ACTION_PAUSE_PANEL)
     fun setOkButtonAction(action: Int) = prefs.edit { putInt("ok_button_action", action) }
+
+    // Действие кнопок Page Up / Next Channel и Page Down / Previous Channel (PAGE_ACTION_*)
+    fun getPageUpAction(): Int = prefs.getInt("page_up_action", PAGE_ACTION_NEXT_CHAPTER)
+    fun setPageUpAction(action: Int) = prefs.edit { putInt("page_up_action", action) }
+
+    fun getPageDownAction(): Int = prefs.getInt("page_down_action", PAGE_ACTION_PREV_CHAPTER)
+    fun setPageDownAction(action: Int) = prefs.edit { putInt("page_down_action", action) }
     // Горизонтальный свайп ( 0 = None, 1 = Seek, 2 = Playlist)
     // Линзы анаглиф-очков переставлены (например, голубая слева): матрицы глаз меняются местами
     fun isAnaglyphLensSwapped(): Boolean = prefs.getBoolean("anaglyph_lens_swap", false)

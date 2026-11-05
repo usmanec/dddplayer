@@ -1716,6 +1716,11 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         ui.buttonQuality.isVisible = shown(SettingsRepository.BUTTON_QUALITY) && (counts == null || counts.video > 1)
         ui.buttonAudio.isVisible = shown(SettingsRepository.BUTTON_AUDIO) && (counts == null || counts.audio > 1)
         ui.buttonSubs.isVisible = shown(SettingsRepository.BUTTON_SUBTITLES) && (counts == null || counts.subtitles > 0)
+
+        // Keep them available even without chapters: in that case they jump in
+        // 5-minute blocks, matching Vimu's fallback.
+        ui.chapterPrevButton.isVisible = shown(SettingsRepository.BUTTON_CHAPTER_PREV)
+        ui.chapterNextButton.isVisible = shown(SettingsRepository.BUTTON_CHAPTER_NEXT)
     }
 
     private fun shouldAskExitConfirmation(): Boolean {

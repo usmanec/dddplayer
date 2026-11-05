@@ -127,6 +127,10 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var textUpActionValue: TextView
     private lateinit var itemOkAction: LinearLayout
     private lateinit var textOkActionValue: TextView
+    private lateinit var itemPageUpAction: LinearLayout
+    private lateinit var textPageUpActionValue: TextView
+    private lateinit var itemPageDownAction: LinearLayout
+    private lateinit var textPageDownActionValue: TextView
     private lateinit var itemDefaultSpeed: LinearLayout
     private lateinit var textDefaultSpeedValue: TextView
     private lateinit var itemResumeAction: LinearLayout
@@ -388,6 +392,10 @@ class GlobalSettingsActivity : AppCompatActivity() {
         textUpActionValue = findViewById(R.id.text_up_action_value)
         itemOkAction = findViewById(R.id.item_ok_action)
         textOkActionValue = findViewById(R.id.text_ok_action_value)
+        itemPageUpAction = findViewById(R.id.item_page_up_action)
+        textPageUpActionValue = findViewById(R.id.text_page_up_action_value)
+        itemPageDownAction = findViewById(R.id.item_page_down_action)
+        textPageDownActionValue = findViewById(R.id.text_page_down_action_value)
         itemDefaultSpeed = findViewById(R.id.item_default_speed)
         textDefaultSpeedValue = findViewById(R.id.text_default_speed_value)
         itemResumeAction = findViewById(R.id.item_resume_mode)
@@ -589,6 +597,19 @@ class GlobalSettingsActivity : AppCompatActivity() {
             showSingleChoiceDialog(getString(R.string.pref_ok_action), options, settingsViewModel.okButtonAction.value ?: SettingsRepository.OK_ACTION_PAUSE_PANEL) {
                 settingsViewModel.setOkButtonAction(it)
             }
+        }
+
+        itemPageUpAction.setOnClickListener {
+            showPageActionDialog(
+                R.string.pref_page_up_action,
+                settingsViewModel.pageUpAction.value ?: SettingsRepository.PAGE_ACTION_NEXT_CHAPTER
+            ) { settingsViewModel.setPageUpAction(it) }
+        }
+        itemPageDownAction.setOnClickListener {
+            showPageActionDialog(
+                R.string.pref_page_down_action,
+                settingsViewModel.pageDownAction.value ?: SettingsRepository.PAGE_ACTION_PREV_CHAPTER
+            ) { settingsViewModel.setPageDownAction(it) }
         }
         itemGestureVolume.setOnClickListener {
             settingsViewModel.toggleVolumeBrightnessGestures(!switchGestureVolume.isChecked)
@@ -798,6 +819,13 @@ class GlobalSettingsActivity : AppCompatActivity() {
             }
         }
 
+        settingsViewModel.pageUpAction.observe(this) { action ->
+            textPageUpActionValue.text = pageActionLabel(action)
+        }
+        settingsViewModel.pageDownAction.observe(this) { action ->
+            textPageDownActionValue.text = pageActionLabel(action)
+        }
+
         settingsViewModel.isVolumeBrightnessGestures.observe(this) { switchGestureVolume.isChecked = it }
         settingsViewModel.horizontalSwipeAction.observe(this) { action ->
             textSwipeActionValue.text = when (action) {
@@ -975,6 +1003,36 @@ class GlobalSettingsActivity : AppCompatActivity() {
         }
     )
 
+    private fun showPageActionDialog(titleRes: Int, current: Int, onSelected: (Int) -> Unit) {
+        val actions = listOf(
+            SettingsRepository.PAGE_ACTION_NONE,
+            SettingsRepository.PAGE_ACTION_NEXT_CHAPTER,
+            SettingsRepository.PAGE_ACTION_PREV_CHAPTER,
+            SettingsRepository.PAGE_ACTION_NEXT_VIDEO,
+            SettingsRepository.PAGE_ACTION_PREV_VIDEO,
+            SettingsRepository.PAGE_ACTION_SEEK_FORWARD,
+            SettingsRepository.PAGE_ACTION_SEEK_BACK
+        )
+        val index = actions.indexOf(current).coerceAtLeast(0)
+        showSingleChoiceDialog(
+            getString(titleRes),
+            actions.map { pageActionLabel(it) },
+            index
+        ) {
+            onSelected(actions[it])
+        }
+    }
+
+    private fun pageActionLabel(action: Int): String = when (action) {
+        SettingsRepository.PAGE_ACTION_NEXT_CHAPTER -> getString(R.string.page_action_next_chapter)
+        SettingsRepository.PAGE_ACTION_PREV_CHAPTER -> getString(R.string.page_action_prev_chapter)
+        SettingsRepository.PAGE_ACTION_NEXT_VIDEO -> getString(R.string.page_action_next_video)
+        SettingsRepository.PAGE_ACTION_PREV_VIDEO -> getString(R.string.page_action_prev_video)
+        SettingsRepository.PAGE_ACTION_SEEK_FORWARD -> getString(R.string.page_action_seek_forward)
+        SettingsRepository.PAGE_ACTION_SEEK_BACK -> getString(R.string.page_action_seek_back)
+        else -> getString(R.string.page_action_none)
+    }
+
     private fun getControlButtonLabel(key: String): String = when (key) {
         SettingsRepository.BUTTON_SPEED -> getString(R.string.playback_speed)
         SettingsRepository.BUTTON_RESIZE -> getString(R.string.playback_zoom)
@@ -982,6 +1040,8 @@ class GlobalSettingsActivity : AppCompatActivity() {
         SettingsRepository.BUTTON_QUALITY -> getString(R.string.button_label_quality)
         SettingsRepository.BUTTON_AUDIO -> getString(R.string.button_label_audio)
         SettingsRepository.BUTTON_SUBTITLES -> getString(R.string.button_label_subtitles)
+        SettingsRepository.BUTTON_CHAPTER_PREV -> getString(R.string.chapter_prev)
+        SettingsRepository.BUTTON_CHAPTER_NEXT -> getString(R.string.chapter_next)
         else -> key
     }
 
