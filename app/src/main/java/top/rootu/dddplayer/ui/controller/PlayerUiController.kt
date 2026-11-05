@@ -12,7 +12,6 @@ import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.ProgressBar
-import android.widget.SeekBar
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toDrawable
@@ -36,6 +35,7 @@ import top.rootu.dddplayer.ui.PosterCard
 import top.rootu.dddplayer.ui.SubtitleStyleOptions
 import top.rootu.dddplayer.ui.adapter.OptionsAdapter
 import top.rootu.dddplayer.ui.adapter.PlaylistAdapter
+import top.rootu.dddplayer.ui.view.ChapterSeekBar
 import top.rootu.dddplayer.ui.widget.CenterLayoutManager
 import top.rootu.dddplayer.ui.widget.OutlineTextView
 import top.rootu.dddplayer.viewmodel.SettingType
@@ -89,9 +89,9 @@ class PlayerUiController(private val rootView: View) {
     val playPauseButton: ImageButton = controlsView.findViewById(R.id.button_play_pause)
     val rewindButton: ImageButton = controlsView.findViewById(R.id.button_rewind)
     val ffwdButton: ImageButton = controlsView.findViewById(R.id.button_ffwd)
-    val prevButton: ImageButton = controlsView.findViewById(R.id.button_prev)
-    val nextButton: ImageButton = controlsView.findViewById(R.id.button_next)
-    val seekBar: SeekBar = controlsView.findViewById(R.id.seek_bar)
+    val chapterPrevButton: ImageButton = controlsView.findViewById(R.id.button_chapter_prev)
+    val chapterNextButton: ImageButton = controlsView.findViewById(R.id.button_chapter_next)
+    val seekBar: ChapterSeekBar = controlsView.findViewById(R.id.seek_bar)
     val bufferingValueTextView: TextView = controlsView.findViewById(R.id.buffering_value)
     val timeCurrentTextView: TextView = controlsView.findViewById(R.id.time_current)
     val timeDurationTextView: TextView = controlsView.findViewById(R.id.time_duration)

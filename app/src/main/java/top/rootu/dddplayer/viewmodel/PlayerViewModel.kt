@@ -51,6 +51,7 @@ import top.rootu.dddplayer.model.StereoInputType
 import top.rootu.dddplayer.model.StereoOutputMode
 import top.rootu.dddplayer.model.SubtitleItem
 import top.rootu.dddplayer.logic.Chapter
+import top.rootu.dddplayer.logic.ChapterLogic
 import top.rootu.dddplayer.logic.HomeLogic
 import top.rootu.dddplayer.player.ChapterLoader
 import top.rootu.dddplayer.player.PlayerManager
@@ -1522,6 +1523,56 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun chapterStartMs(index: Int): Long? = _chapters.value.orEmpty().getOrNull(index)?.startMs
 
+    /**
+     * Jumps to the next chapter. On the last chapter the same action means
+     * "next episode", matching the remote's next-chapter hotkey.
+     */
+    fun nextChapter() {
+        val position = player?.currentPosition ?: _currentPosition.value ?: 0L
+        val chapters = _chapters.value.orEmpty()
+        if (chapters.isEmpty()) {
+            val chunk = ChapterLogic.nextChunk(position, playbackDurationMs())
+            Log.d("ChapterLoader", "no chapters: $position -> chunk $chunk")
+            seekTo(chunk)
+            return
+        }
+
+        val start = ChapterLogic.nextChapterStart(chapters, position)
+        if (start != null) {
+            Log.d("ChapterLoader", "next chapter: $position -> $start")
+            seekTo(start)
+            return
+        }
+        if (player?.hasNextMediaItem() == true) {
+            Log.d("ChapterLoader", "last chapter: $position -> next episode")
+            nextTrack()
+        } else {
+            Log.d("ChapterLoader", "last chapter: $position -> no next episode")
+        }
+    }
+
+    /** Restarts the current chapter or jumps to the previous one at its start. */
+    fun previousChapter() {
+        val position = player?.currentPosition ?: _currentPosition.value ?: 0L
+        val chapters = _chapters.value.orEmpty()
+        if (chapters.isEmpty()) {
+            val chunk = ChapterLogic.previousChunk(position)
+            Log.d("ChapterLoader", "no chapters: $position -> chunk $chunk")
+            seekTo(chunk)
+            return
+        }
+
+        val start = ChapterLogic.previousChapterStart(chapters, position)
+        Log.d("ChapterLoader", "previous chapter: $position -> $start")
+        start?.let { seekTo(it) }
+    }
+
+    private fun playbackDurationMs(): Long {
+        val fromPlayer = player?.duration ?: 0L
+        if (fromPlayer > 0L && fromPlayer != C.TIME_UNSET) return fromPlayer
+        return _duration.value?.takeIf { it > 0L } ?: 0L
+    }
+
     /** Title of the chapter playing at [positionMs], empty when there is none. */
     private fun currentChapterLabel(positionMs: Long): String {
         val list = _chapters.value.orEmpty()
@@ -1580,6 +1631,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             )
         ).toMutableList().apply {
             val chapterList = _chapters.value.orEmpty()
+            Log.d("ChapterLoader", "main menu: chapters=${chapterList.size}")
             if (chapterList.isNotEmpty()) {
                 add(
                     2, // right after audio and subtitles

@@ -101,6 +101,8 @@
     <string name="menu_audio_title">Audio Track (%d)</string>
     <string name="menu_subtitle_title">Subtitles (%d)</string>
     <string name="menu_chapters_title">Chapters (%d)</string>
+    <string name="chapter_next">Next chapter</string>
+    <string name="chapter_prev">Previous chapter</string>
     <string name="menu_quick_settings_title">Quick Settings Panel</string>
     <string name="menu_quick_settings_desc">3D, parallax, glasses…</string>
     <string name="menu_global_settings_title">Global Settings</string>
