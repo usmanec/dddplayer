@@ -117,6 +117,26 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private val hlsFallbackTried = mutableSetOf<String>()
     private val MAX_IO_RETRIES = 3
 
+    // TorBox CDN nodes are interchangeable for the same /dld/<id>?token=... path.
+    // When the node assigned to the current stream dies mid-playback, retry the
+    // same file on another node instead of failing the whole playback.
+    private val TB_CDN_HOSTS = listOf(
+        "nexus-316.ceur.tb-cdn.st",
+        "nexus-319.ceur.tb-cdn.st",
+        "nexus-321.ceur.tb-cdn.st",
+        "nexus-322.ceur.tb-cdn.st",
+        "nexus-324.ceur.tb-cdn.st",
+        "nexus-326.ceur.tb-cdn.st",
+        "nexus-328.ceur.tb-cdn.st",
+        "nexus-329.ceur.tb-cdn.st",
+        "nexus-330.ceur.tb-cdn.st",
+        "nexus-331.ceur.tb-cdn.st"
+    )
+    private val tbCdnHostRegex = Regex("^nexus-\\d+\\.ceur\\.tb-cdn\\.st$", RegexOption.IGNORE_CASE)
+    private val failedCdnHosts = mutableSetOf<String>()
+    private var cdnFailoverCount = 0
+    private val MAX_CDN_FAILOVERS = 6
+
     // true, пока плейлист перезагружается для восстановления после ошибки.
     // В этот момент onMediaItemTransition приходит с тем же видео, и сбрасывать
     // счетчик повторов и настройки видео нельзя.
@@ -385,6 +405,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             _isBuffering.value = (playbackState == Player.STATE_BUFFERING)
             if (playbackState == Player.STATE_READY) {
                 ioRetryCount = 0 // Сброс счетчика, если видео успешно заиграло
+                cdnFailoverCount = 0
                 _duration.value = player?.duration
                 // После буферизации или старта обновляем инфо
                 player?.videoFormat?.let { updateVideoInfoBadge(it) }
@@ -504,10 +525,61 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    private fun isIoNetworkError(error: PlaybackException): Boolean =
+        error.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED ||
+            error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
+            error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
+
+    /**
+     * TorBox CDN nodes can die while the stream is already playing. The path and
+     * token are node-independent, so rewrite the host and reopen the same item
+     * at the current position.
+     */
+    private fun trySwitchCdnHost(error: PlaybackException, p: ExoPlayer): Boolean {
+        if (!isIoNetworkError(error)) return false
+        if (cdnFailoverCount >= MAX_CDN_FAILOVERS) return false
+
+        val current = p.currentMediaItem ?: return false
+        val uri = current.localConfiguration?.uri ?: return false
+        val oldHost = uri.host ?: return false
+        if (!tbCdnHostRegex.matches(oldHost)) return false
+
+        failedCdnHosts.add(oldHost)
+        val newHost = TB_CDN_HOSTS.firstOrNull { it !in failedCdnHosts } ?: return false
+        val newUri = uri.buildUpon().authority(newHost).build()
+
+        val newItems = (0 until p.mediaItemCount).map { index ->
+            val item = p.getMediaItemAt(index)
+            val itemUri = item.localConfiguration?.uri
+            if (itemUri?.host.equals(oldHost, ignoreCase = true)) {
+                item.buildUpon()
+                    .setUri(itemUri!!.buildUpon().authority(newHost).build())
+                    .build()
+            } else {
+                item
+            }
+        }
+
+        val currentIndex = p.currentMediaItemIndex
+        val currentPos = p.currentPosition
+        cdnFailoverCount++
+        ioRetryCount = 0
+        isRecoveringFromError = true
+        currentUri = newUri.toString()
+        Log.w(
+            "tryRecoverFromError",
+            "CDN host $oldHost failed, switching to $newHost (${cdnFailoverCount}/$MAX_CDN_FAILOVERS)"
+        )
+        playerManager.reloadMediaItems(newItems, currentIndex, currentPos)
+        return true
+    }
+
     private fun tryRecoverFromError(error: PlaybackException): Boolean {
         val p = player ?: return false
         val cause = error.cause
         val TAG = "tryRecoverFromError"
+
+        if (trySwitchCdnHost(error, p)) return true
 
         // Перехват застрявшего HLS плейлиста
         if (cause is HlsPlaylistTracker.PlaylistStuckException) {
@@ -527,9 +599,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
 
         // Универсальный перехват IO и сетевых ошибок (MKV/MP4/HLS)
-        if (error.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED ||
-            error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
-            error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT) {
+        if (isIoNetworkError(error)) {
 
             if (ioRetryCount < MAX_IO_RETRIES) {
                 ioRetryCount++
@@ -641,6 +711,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun handleMediaItemTransition(mediaItem: Media3MediaItem?) {
+        // A real item change starts with a fresh CDN failover budget; the
+        // playlist reload used for a host switch keeps its failed-host set.
+        val newUri = mediaItem?.localConfiguration?.uri?.toString()
+        if (newUri != currentUri) {
+            failedCdnHosts.clear()
+            cdnFailoverCount = 0
+        }
         afrAppliedForCurrentItem = false
         fpsDetector.stop(player)
         fpsDetector.reset() // Сброс для нового видео
@@ -1119,6 +1196,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     fun loadPlaylist(items: List<MediaItem>, startIndex: Int, isM3u: Boolean = false) {
         val indexedItems = items.mapIndexed { index, item -> item.copy(absoluteIndex = index) }
         hlsFallbackTried.clear()
+        failedCdnHosts.clear()
+        cdnFailoverCount = 0
         _currentPlaylist.value = indexedItems
         _isM3uPlaylist.value = isM3u
         _isSessionLive.value = false
