@@ -138,6 +138,8 @@ To pass a playlist, use the `video_list` extra (ParcelableArray of URIs) along w
 
 `ddd_quality` / `quality` in playlist mode is applied only to the start item: the qualities belong to the current episode, not to the whole list.
 
+If the calling app can only pass HTTP headers (for example, Lampa Android), use the `X-DDD-Quality` header with the same JSON. It is stripped before the video request.
+
 **Playlist Subtitles Structure:**
 The `video_list.subtitles` extra is an `ArrayList` where each `Bundle` corresponds to a video at the same index.
 Inside each Bundle:

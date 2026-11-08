@@ -55,6 +55,10 @@ HLS (`application/vnd.apple.mpegurl`, `application/x-mpegURL`), `application/das
 `ddd_quality` / `quality` в режиме `video_list` применяется только к стартовому элементу: качества относятся к текущей
 серии, а не ко всему плейлисту.
 
+Запасной транспорт для приложений, которые пробрасывают только HTTP-заголовки (например, Lampa Android):
+`X-DDD-Quality: [{"name":"1080p","url":"..."}]`. Заголовок разбирается как качества и удаляется из headers, чтобы не
+уходить на сервер видео.
+
 Массивы строк читает `getSmartStringArray`: подходят `String[]`, `ArrayList<String>`, `CharSequence[]`
 и `ArrayList<CharSequence>`.
 

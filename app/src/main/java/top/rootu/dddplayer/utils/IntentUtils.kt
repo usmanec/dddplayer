@@ -79,16 +79,19 @@ object IntentUtils {
         // Single Video Subtitles
         val singleSubs = parseSubtitles(extras, "subs")
 
+        val headers = parseHeaders(extras)
+        val urlQualities = parseUrlQualities(extras).ifEmpty { parseUrlQualitiesFromHeaders(headers) }
+
         val item = MediaItem(
             uri = uri,
             title = title,
             filename = filename,
             posterUri = singlePoster?.toUri(),
-            headers = parseHeaders(extras),
+            headers = stripQualityHeaders(headers),
             // Если субтитры не переданы, ищем рядом с файлом (movie.mkv -> movie.srt)
             subtitles = singleSubs.ifEmpty { SubtitleFinder.findSidecarSubtitles(uri) },
             startPositionMs = startPosition,
-            urlQualities = parseUrlQualities(extras)
+            urlQualities = urlQualities
         )
 
         return Pair(listOf(item), 0)
@@ -104,8 +107,9 @@ object IntentUtils {
         val posters = getSmartStringArray(extras, "video_list.thumbnail")
         val playlistSubsBundles = getParcelableArrayListCompat<Bundle>(extras, "video_list.subtitles")
 
-        val headersMap = parseHeaders(extras)
-        val urlQualities = parseUrlQualities(extras)
+        val headers = parseHeaders(extras)
+        val urlQualities = parseUrlQualities(extras).ifEmpty { parseUrlQualitiesFromHeaders(headers) }
+        val cleanHeaders = stripQualityHeaders(headers)
 
         val playlist = mutableListOf<MediaItem>()
         // Видео плейлиста обычно лежат в одной папке: читаем ее для поиска субтитров один раз
@@ -136,7 +140,7 @@ object IntentUtils {
                     title = title,
                     filename = filenames?.getOrNull(i),
                     posterUri = posters?.getOrNull(i)?.takeIf { it.isNotEmpty() }?.toUri(),
-                    headers = headersMap,
+                    headers = cleanHeaders,
                     subtitles = itemSubs.ifEmpty { SubtitleFinder.findSidecarSubtitles(uri, listDir) },
                     startPositionMs = pos
                 )
@@ -180,6 +184,25 @@ object IntentUtils {
         }
 
         return result
+    }
+
+    /**
+     * Запасной транспорт для приложений, которые не пробрасывают произвольные
+     * extras, но пробрасывают HTTP-заголовки (Lampa Android -> DDD):
+     * X-DDD-Quality: [{"name":"1080p","url":"..."}]
+     */
+    private fun parseUrlQualitiesFromHeaders(headers: Map<String, String>): List<UrlQuality> {
+        val raw = headers.entries
+            .firstOrNull { it.key.equals("X-DDD-Quality", ignoreCase = true) }
+            ?.value
+            ?: return emptyList()
+
+        return parseUrlQualitiesJson(raw)
+    }
+
+    /** Служебный заголовок не должен уходить на сервер видео. */
+    private fun stripQualityHeaders(headers: Map<String, String>): Map<String, String> {
+        return headers.filterKeys { !it.equals("X-DDD-Quality", ignoreCase = true) }
     }
 
     private fun parseUrlQualitiesJson(raw: String): List<UrlQuality> {

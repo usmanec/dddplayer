@@ -129,6 +129,28 @@ class IntentUtilsTest {
     }
 
     @Test
+    fun `single file reads ddd_quality from the X-DDD-Quality header`() {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(Uri.parse("http://example.com/video.mp4"), "video/*")
+            putExtra(
+                "headers",
+                arrayOf(
+                    "X-DDD-Quality",
+                    """[{"name":"1080p","url":"http://example.com/1080.mp4"},{"name":"360p","url":"http://example.com/360.mp4"}]""",
+                    "Referer",
+                    "http://example.com/"
+                )
+            )
+        }
+
+        val item = IntentUtils.parseIntent(context, intent).first.single()
+
+        assertEquals(2, item.urlQualities.size)
+        assertEquals("1080p", item.urlQualities[0].name)
+        assertEquals(mapOf("Referer" to "http://example.com/"), item.headers)
+    }
+
+    @Test
     fun `playlist applies ddd_quality only to the start item`() {
         val intent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(videos[1], "video/*")
