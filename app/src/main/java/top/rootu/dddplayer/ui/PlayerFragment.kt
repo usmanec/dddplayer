@@ -1172,6 +1172,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         // Выбор качества и аудио - только если есть из чего выбирать, субтитры - если они есть
         // (загрузка субтитров из файла остается в боковом меню)
         viewModel.trackCounts.observe(viewLifecycleOwner) { updateControlButtonsVisibility() }
+        viewModel.urlQualityOptions.observe(viewLifecycleOwner) { updateControlButtonsVisibility() }
 
         viewModel.videoResolution.observe(viewLifecycleOwner) { updateVideoBadge() }
         viewModel.tunnelingActive.observe(viewLifecycleOwner) { updateVideoBadge() }
@@ -1657,6 +1658,23 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
     }
 
     private fun showQualityPopup() {
+        val urlOptions = viewModel.urlQualityOptions.value.orEmpty()
+
+        if (urlOptions.size > 1) {
+            timerController.stopControlsTimer()
+
+            val wrapper = ContextThemeWrapper(context, R.style.DarkPopupContext)
+            val popup = PopupMenu(wrapper, ui.buttonQuality)
+            urlOptions.forEachIndexed { index, option -> popup.menu.add(0, index, 0, option.name) }
+            popup.setOnMenuItemClickListener { item ->
+                viewModel.setUrlQuality(urlOptions[item.itemId])
+                true
+            }
+            popup.setOnDismissListener { timerController.resetControlsTimer() }
+            popup.show()
+            return
+        }
+
         val options = viewModel.videoQualityOptions.value ?: return
         if (options.isEmpty()) return
         timerController.stopControlsTimer()
@@ -1681,7 +1699,9 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         ui.buttonResize.isVisible = shown(SettingsRepository.BUTTON_RESIZE)
         ui.buttonPip.isVisible = shown(SettingsRepository.BUTTON_PIP) &&
             (activity as? PlayerActivity)?.supportsPictureInPicture == true
-        ui.buttonQuality.isVisible = shown(SettingsRepository.BUTTON_QUALITY) && (counts == null || counts.video > 1)
+        val urlQualityCount = viewModel.urlQualityOptions.value?.size ?: 0
+        ui.buttonQuality.isVisible = shown(SettingsRepository.BUTTON_QUALITY) &&
+            (counts == null || counts.video > 1 || urlQualityCount > 1)
         ui.buttonAudio.isVisible = shown(SettingsRepository.BUTTON_AUDIO) && (counts == null || counts.audio > 1)
         ui.buttonSubs.isVisible = shown(SettingsRepository.BUTTON_SUBTITLES) && (counts == null || counts.subtitles > 0)
     }
