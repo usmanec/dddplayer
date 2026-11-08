@@ -91,4 +91,59 @@ class IntentUtilsTest {
         val (items, _) = IntentUtils.parseIntent(context, intent)
         assertEquals(listOf("first.mp4", "second.mp4", "third.mp4"), items.map { it.title })
     }
+
+    @Test
+    fun `single file parses ddd_quality json array`() {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(Uri.parse("http://example.com/video.mp4"), "video/*")
+            putExtra(
+                "ddd_quality",
+                """[{"name":"1080p","url":"http://example.com/1080.mp4"},{"name":"360p","url":"http://example.com/360.mp4"}]"""
+            )
+        }
+
+        val item = IntentUtils.parseIntent(context, intent).first.single()
+
+        assertEquals(2, item.urlQualities.size)
+        assertEquals("1080p", item.urlQualities[0].name)
+        assertEquals("http://example.com/1080.mp4", item.urlQualities[0].url)
+        assertEquals("360p", item.urlQualities[1].name)
+    }
+
+    @Test
+    fun `single file parses ddd_quality json object`() {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(Uri.parse("http://example.com/video.mp4"), "video/*")
+            putExtra(
+                "ddd_quality",
+                """{"1080p":"http://example.com/1080.mp4","360p":"http://example.com/360.mp4"}"""
+            )
+        }
+
+        val item = IntentUtils.parseIntent(context, intent).first.single()
+
+        assertEquals(
+            setOf("1080p" to "http://example.com/1080.mp4", "360p" to "http://example.com/360.mp4"),
+            item.urlQualities.map { it.name to it.url }.toSet()
+        )
+    }
+
+    @Test
+    fun `playlist applies ddd_quality only to the start item`() {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(videos[1], "video/*")
+            putExtra("video_list", videos)
+            putExtra(
+                "ddd_quality",
+                """[{"name":"1080p","url":"http://example.com/1080.mp4"},{"name":"360p","url":"http://example.com/360.mp4"}]"""
+            )
+        }
+
+        val (items, startIndex) = IntentUtils.parseIntent(context, intent)
+
+        assertEquals(1, startIndex)
+        assertEquals(2, items[startIndex].urlQualities.size)
+        assertEquals(0, items[0].urlQualities.size)
+        assertEquals(0, items[2].urlQualities.size)
+    }
 }

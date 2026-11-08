@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import androidx.core.net.toUri
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
@@ -46,6 +47,7 @@ import top.rootu.dddplayer.model.ResizeMode
 import top.rootu.dddplayer.model.StereoInputType
 import top.rootu.dddplayer.model.StereoOutputMode
 import top.rootu.dddplayer.model.SubtitleItem
+import top.rootu.dddplayer.model.UrlQuality
 import top.rootu.dddplayer.player.PlayerManager
 import top.rootu.dddplayer.renderer.StereoRenderer
 import top.rootu.dddplayer.utils.MediaFormatHelper
@@ -195,6 +197,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     val aspectRatioMode: LiveData<AspectRatioMode> = _aspectRatioMode
     private val _videoQualityOptions = MutableLiveData<List<VideoQualityOption>>()
     val videoQualityOptions: LiveData<List<VideoQualityOption>> = _videoQualityOptions
+
+    // URL-качества текущего видео (Lampa quality map / ddd_quality из intent)
+    private val _urlQualityOptions = MutableLiveData<List<UrlQuality>>(emptyList())
+    val urlQualityOptions: LiveData<List<UrlQuality>> = _urlQualityOptions
 
     /** Число дорожек видео/аудио/субтитров (без "Авто" и "Выкл") - для скрытия лишних кнопок панели */
     data class TrackCounts(val video: Int, val audio: Int, val subtitles: Int)
@@ -664,6 +670,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             _playlistSize.value = p.mediaItemCount
             _currentWindowIndex.value = p.currentMediaItemIndex
 
+            val currentItem = _currentPlaylist.value?.find { it.uuid == mediaItem?.mediaId }
+            val urlQualities = currentItem?.urlQualities ?: emptyList()
+            _urlQualityOptions.value = urlQualities
+            _currentQualityName.value = urlQualities.firstOrNull { it.url == currentUri }?.name ?: "Auto"
+
             isSettingsLoadedFromDb = false
             _inputType.value = StereoInputType.NONE
 
@@ -1122,6 +1133,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         _currentPlaylist.value = indexedItems
         _isM3uPlaylist.value = isM3u
         _isSessionLive.value = false
+
+        val initialItem = indexedItems.getOrNull(startIndex)
+        _urlQualityOptions.value = initialItem?.urlQualities ?: emptyList()
+        _currentQualityName.value = "Auto"
+
         stopZap()
 
         val groups = indexedItems.mapNotNull { it.group }.distinct()
@@ -1864,6 +1880,45 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             p.trackSelectionParameters = builder.build()
             _currentQualityName.value = option.name
         }
+    }
+
+    /**
+     * Переключение между отдельными URL одного видео (Lampa quality map).
+     * Позиция сохраняется, дорожки/субтитры не сбрасываются.
+     */
+    fun setUrlQuality(option: UrlQuality) {
+        val p = player ?: return
+        val playlist = _currentPlaylist.value ?: return
+        val playingId = p.currentMediaItem?.mediaId ?: return
+        val index = playlist.indexOfFirst { it.uuid == playingId }
+        if (index == -1) return
+
+        val item = playlist[index]
+        val newUri = option.url.toUri()
+
+        if (item.uri == newUri) {
+            _currentQualityName.value = option.name
+            return
+        }
+
+        val position = p.currentPosition
+        val updated = item.copy(uri = newUri, startPositionMs = position)
+        val newPlaylist = playlist.toMutableList().apply { set(index, updated) }
+
+        _currentPlaylist.value = newPlaylist
+        _playlistUiState.value?.let { state ->
+            _playlistUiState.value = state.copy(
+                items = state.items.map { if (it.uuid == updated.uuid) updated else it }
+            )
+        }
+
+        _urlQualityOptions.value = updated.urlQualities
+        _currentQualityName.value = option.name
+
+        // Считаем это тем же видео: onMediaItemTransition не должен сбрасывать настройки.
+        currentUri = option.url
+        isRecoveringFromError = true
+        playerManager.reloadPlaylistItems(newPlaylist, p.currentMediaItemIndex, position)
     }
 
     private fun showAutoDetectToast(type: StereoInputType) {

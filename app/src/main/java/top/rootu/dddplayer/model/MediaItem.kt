@@ -14,8 +14,15 @@ data class MediaItem(
     val subtitles: List<SubtitleItem> = emptyList(),
     val startPositionMs: Long = 0,
     val stereoType: StereoInputType = StereoInputType.NONE,
+    // Альтернативные URL одного видео (Lampa quality map / DDD intent extra)
+    val urlQualities: List<UrlQuality> = emptyList(),
     // Уникальный ID для DiffUtil, генерируется автоматически при создании объекта
     val uuid: String = UUID.randomUUID().toString()
+)
+
+data class UrlQuality(
+    val name: String,
+    val url: String
 )
 
 data class SubtitleItem(

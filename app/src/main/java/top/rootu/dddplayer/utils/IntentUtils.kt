@@ -9,9 +9,12 @@ import android.os.Bundle
 import android.os.Parcelable
 import android.provider.OpenableColumns
 import androidx.core.net.toUri
+import org.json.JSONArray
+import org.json.JSONObject
 import top.rootu.dddplayer.model.HistorySource
 import top.rootu.dddplayer.model.MediaItem
 import top.rootu.dddplayer.model.SubtitleItem
+import top.rootu.dddplayer.model.UrlQuality
 
 object IntentUtils {
 
@@ -84,7 +87,8 @@ object IntentUtils {
             headers = parseHeaders(extras),
             // Если субтитры не переданы, ищем рядом с файлом (movie.mkv -> movie.srt)
             subtitles = singleSubs.ifEmpty { SubtitleFinder.findSidecarSubtitles(uri) },
-            startPositionMs = startPosition
+            startPositionMs = startPosition,
+            urlQualities = parseUrlQualities(extras)
         )
 
         return Pair(listOf(item), 0)
@@ -101,6 +105,7 @@ object IntentUtils {
         val playlistSubsBundles = getParcelableArrayListCompat<Bundle>(extras, "video_list.subtitles")
 
         val headersMap = parseHeaders(extras)
+        val urlQualities = parseUrlQualities(extras)
 
         val playlist = mutableListOf<MediaItem>()
         // Видео плейлиста обычно лежат в одной папке: читаем ее для поиска субтитров один раз
@@ -138,7 +143,93 @@ object IntentUtils {
             )
         }
         startIndex = startIndex.coerceIn(0, (playlist.size - 1).coerceAtLeast(0))
+
+        // Качества относятся к текущей серии, а не ко всему плейлисту.
+        if (urlQualities.isNotEmpty() && playlist.isNotEmpty()) {
+            playlist[startIndex] = playlist[startIndex].copy(urlQualities = urlQualities)
+        }
+
         return Pair(playlist, startIndex)
+    }
+
+    /**
+     * URL-качества одного видео.
+     *
+     * Поддерживаются:
+     *  - ddd_quality: JSON-строка [{"name":"1080p","url":"..."}] или {"1080p":"..."};
+     *  - quality: JSON-строка или Bundle (на случай, если Lampa передаст карту как Bundle).
+     */
+    private fun parseUrlQualities(extras: Bundle): List<UrlQuality> {
+        extras.getString("ddd_quality")?.let { return parseUrlQualitiesJson(it) }
+        extras.getString("quality")?.let { return parseUrlQualitiesJson(it) }
+
+        val qualityBundle = extras.getBundle("quality") ?: return emptyList()
+        val result = mutableListOf<UrlQuality>()
+
+        for (key in qualityBundle.keySet()) {
+            when (val value = qualityBundle.get(key)) {
+                is String -> if (value.isNotBlank()) result.add(UrlQuality(key, value))
+                is Bundle -> {
+                    val url = value.getString("url") ?: value.getString("link") ?: continue
+                    if (url.isNotBlank()) {
+                        val label = value.getString("label")?.takeIf { it.isNotBlank() } ?: key
+                        result.add(UrlQuality(label, url))
+                    }
+                }
+            }
+        }
+
+        return result
+    }
+
+    private fun parseUrlQualitiesJson(raw: String): List<UrlQuality> {
+        val text = raw.trim()
+        if (text.isEmpty()) return emptyList()
+
+        val result = mutableListOf<UrlQuality>()
+
+        try {
+            if (text.startsWith("[")) {
+                val array = JSONArray(text)
+                for (i in 0 until array.length()) {
+                    when (val value = array.opt(i)) {
+                        is JSONObject -> {
+                            val url = value.optString("url").ifBlank { value.optString("link") }
+                            if (url.isBlank()) continue
+                            val name = value.optString("name").ifBlank {
+                                value.optString("label").ifBlank { "Quality ${result.size + 1}" }
+                            }
+                            result.add(UrlQuality(name, url))
+                        }
+                        is String -> if (value.isNotBlank()) {
+                            result.add(UrlQuality("Quality ${result.size + 1}", value))
+                        }
+                    }
+                }
+            } else if (text.startsWith("{")) {
+                val obj = JSONObject(text)
+                val keys = obj.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    val value = obj.opt(key)
+                    val url = when (value) {
+                        is String -> value
+                        is JSONObject -> value.optString("url").ifBlank { value.optString("link") }
+                        else -> ""
+                    }
+                    if (url.isBlank()) continue
+                    val label = if (value is JSONObject) {
+                        value.optString("label").ifBlank { key }
+                    } else key
+                    result.add(UrlQuality(label, url))
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        val seen = mutableSetOf<String>()
+        return result.filter { seen.add(it.url) }
     }
 
     // Заголовки передаются массивом ["Имя", "Значение", "Имя", "Значение", ...]

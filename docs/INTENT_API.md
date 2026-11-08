@@ -34,6 +34,7 @@ HLS (`application/vnd.apple.mpegurl`, `application/x-mpegURL`), `application/das
 | `thumbnail` | String | `posterUri` |
 | `headers` | String[] / ArrayList<String> | `headers` (пары имя-значение) |
 | `subs`, `subs.name`, `subs.filename` | Uri[] (или ArrayList), String[] | `subtitles`. Если не переданы, для `file://` ищутся файлы рядом с видео (`SubtitleFinder`) |
+| `ddd_quality` / `quality` | String (JSON) или Bundle | Альтернативные URL одного видео: `[{"name":"1080p","url":"..."}]` или `{"1080p":"..."}`. Кнопка качества показывается, если вариантов больше одного |
 
 ### Плейлист
 
@@ -50,6 +51,9 @@ HLS (`application/vnd.apple.mpegurl`, `application/x-mpegURL`), `application/das
 
 Стартовый элемент — тот, чей URI совпадает с `intent.data` (основной способ). `start_index` используется, только если
 `intent.data` не задана или не найдена в списке; без обоих стартует первый элемент.
+
+`ddd_quality` / `quality` в режиме `video_list` применяется только к стартовому элементу: качества относятся к текущей
+серии, а не ко всему плейлисту.
 
 Массивы строк читает `getSmartStringArray`: подходят `String[]`, `ArrayList<String>`, `CharSequence[]`
 и `ArrayList<CharSequence>`.

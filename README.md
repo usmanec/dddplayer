@@ -101,6 +101,7 @@ A single link to an `.m3u`/`.m3u8` file is checked automatically: an M3U channel
 | `position` | Long / Int / String | Start position in milliseconds. Depending on the "Position from another app" setting it is applied immediately (default) or offered in the resume dialog. |
 | `headers` | String[] | HTTP headers as an array: `["Key1", "Val1", "Key2", "Val2"]`. |
 | `return_result`| Boolean | If true, the player returns the playback result to the calling app (see below). |
+| `ddd_quality` | String (JSON) | Alternative URLs for the same video. Format: `[{"name":"1080p","url":"..."}]` or `{"1080p":"..."}`. When more than one option is present, the player shows a quality button. `quality` (JSON string or Bundle) is also accepted. |
 
 #### Subtitles (Single Video)
 To add external subtitles to a single video, use the following extras:
@@ -134,6 +135,8 @@ To pass a playlist, use the `video_list` extra (ParcelableArray of URIs) along w
 | `position` | Long / Int / String | Start position for the item whose URI equals the intent data. |
 
 **Start item:** playback starts from the item whose URI equals the intent data (`setDataAndType`). `start_index` is only a fallback for when the data is not set or not found in the list; if neither is given, the first item is played.
+
+`ddd_quality` / `quality` in playlist mode is applied only to the start item: the qualities belong to the current episode, not to the whole list.
 
 **Playlist Subtitles Structure:**
 The `video_list.subtitles` extra is an `ArrayList` where each `Bundle` corresponds to a video at the same index.
