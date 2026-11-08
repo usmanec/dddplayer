@@ -140,6 +140,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     // --- LiveData ---
     private val _isPlaying = MutableLiveData<Boolean>()
     val isPlaying: LiveData<Boolean> = _isPlaying
+    // Значок кнопки "плей/пауза" - намерение пользователя (playWhenReady), а не isPlaying: тот гаснет на каждой
+    // буферизации, и при колеблющемся буфере значок мигал. Во время буферизации можно поставить на паузу
+    private val _playIntent = MutableLiveData(false)
+    val playIntent: LiveData<Boolean> = _playIntent
     private val _afrTriggerEvent = MutableLiveData<Format>()
     val afrTriggerEvent: LiveData<Format> = _afrTriggerEvent
 
@@ -450,10 +454,23 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         _bufferedPercentage.value = percent
     }
 
+    /** Пользователь хочет, чтобы видео шло: play нажат, и видео не закончилось и не остановлено ошибкой. */
+    private fun isPlayIntent(p: Player): Boolean =
+        p.playWhenReady && p.playbackState != Player.STATE_ENDED && p.playbackState != Player.STATE_IDLE
+
+    private fun updatePlayIntent() {
+        val intent = player?.let { isPlayIntent(it) } ?: false
+        if (_playIntent.value != intent) _playIntent.value = intent
+    }
+
     private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             _isPlaying.value = isPlaying
             updateProgressUpdaterState()
+        }
+
+        override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+            updatePlayIntent()
         }
 
         // На паузе буфер продолжает загружаться: обновляем его, пока идет загрузка
@@ -463,6 +480,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
         override fun onPlaybackStateChanged(playbackState: Int) {
             _isBuffering.value = (playbackState == Player.STATE_BUFFERING)
+            updatePlayIntent()
             logBuffering(playbackState)
             if (playbackState == Player.STATE_READY) {
                 ioRetryCount = 0 // Сброс счетчика, если видео успешно заиграло
@@ -488,6 +506,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             }
             _fatalError.postValue(error)
             _isPlaying.postValue(false)
+            _playIntent.postValue(false)
         }
 
         override fun onMediaItemTransition(mediaItem: Media3MediaItem?, reason: Int) {
@@ -541,6 +560,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             _playerRecreatedEvent.postValue(newPlayer)
             // Принудительно обновляем UI состояние
             _isPlaying.postValue(newPlayer.isPlaying)
+            _playIntent.postValue(isPlayIntent(newPlayer))
             _duration.postValue(newPlayer.duration)
         }
 
