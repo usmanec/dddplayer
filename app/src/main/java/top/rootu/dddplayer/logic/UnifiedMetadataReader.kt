@@ -14,7 +14,7 @@ object UnifiedMetadataReader {
     )
 
     fun parse(inputStream: InputStream): List<TrackInfo> {
-        // Читаем заголовок (8 байт достаточно для MKV и MP4 ftyp)
+        // Читаем заголовок (8 байт достаточно для MP4 ftyp)
         val header = ByteArray(8)
 
         // Важно: используем read, который гарантированно читает или возвращает -1
@@ -33,11 +33,7 @@ object UnifiedMetadataReader {
 
         return try {
             when {
-                // MKV Header: 1A 45 DF A3
-//                header.take(4).toByteArray().contentEquals(byteArrayOf(0x1A, 0x45, 0xDF.toByte(), 0xA3.toByte())) -> {
-//                    MatroskaMetadataReader.parse(pushbackStream)
-//                }
-
+                // У MKV названия дорожек отдает сам плеер (Format.label), отдельно их не читаем
                 // MP4 ftyp (обычно с 4-го байта)
                 // ftyp сигнатура: 4 байта размер, 4 байта 'ftyp'
                 bytesRead >= 8 && String(header, 4, 4, Charsets.US_ASCII) == "ftyp" -> {

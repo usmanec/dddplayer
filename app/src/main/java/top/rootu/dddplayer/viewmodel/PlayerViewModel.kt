@@ -466,7 +466,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
 
         playerManager.onMetadataAvailable = {
-            // Метаданные из файла (MKV/MP4) готовы. Обновляем треки.
+            // Метаданные из файла (MP4) готовы. Обновляем треки.
             handler.post {
                 player?.currentTracks?.let { updateTracksInfo(it) }
             }

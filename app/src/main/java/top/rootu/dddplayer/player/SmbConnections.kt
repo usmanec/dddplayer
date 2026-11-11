@@ -63,8 +63,8 @@ object SmbConnections {
         val user = server?.user.orEmpty()
         val shareKey = "${address.host}:${address.port}|$user|${address.share}".lowercase()
         val sessionKey = "${address.host}:${address.port}|$user".lowercase()
-        synchronized(locks.getOrPut(sessionKey) { Any() }) {
-            shares[shareKey]?.takeIf { it.isConnected }?.let { return it }
+        return synchronized(locks.getOrPut(sessionKey) { Any() }) {
+            shares[shareKey]?.takeIf { it.isConnected }?.let { return@synchronized it }
 
             val session = sessions[sessionKey]?.takeIf { it.connection.isConnected } ?: run {
                 // Оборванное подключение закрываем, иначе оно остается висеть до выхода из приложения
@@ -81,7 +81,7 @@ object SmbConnections {
             }
             val share = session.connectShare(address.share) as DiskShare
             shares[shareKey] = share
-            return share
+            share
         }
     }
 
