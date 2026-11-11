@@ -34,10 +34,13 @@ import top.rootu.dddplayer.BuildConfig
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
 import top.rootu.dddplayer.logic.AudioMixerLogic
+import top.rootu.dddplayer.logic.AudioPassthroughLogic
+import top.rootu.dddplayer.logic.AudioProfileLogic
 import top.rootu.dddplayer.logic.OpenSourceLicenses
 import top.rootu.dddplayer.logic.UpdateInfo
 import top.rootu.dddplayer.model.MenuItem
 import top.rootu.dddplayer.model.PlaybackSpeed
+import top.rootu.dddplayer.player.AudioOutputCapabilities
 import top.rootu.dddplayer.player.DoviBridge
 import top.rootu.dddplayer.ui.adapter.SideMenuAdapter
 import top.rootu.dddplayer.ui.calibration.CalibrationWizardActivity
@@ -86,6 +89,31 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var switchHdr10Plus: SwitchCompat
     private lateinit var itemTunneling: LinearLayout
     private lateinit var switchTunneling: SwitchCompat
+    private lateinit var switchAudioExpert: SwitchCompat
+    private lateinit var groupAudioExpert: LinearLayout
+    private lateinit var itemAudioSystem: LinearLayout
+    private lateinit var itemVoiceBoost: LinearLayout
+    private lateinit var itemSpeedPassthroughAuto: LinearLayout
+    private lateinit var itemAudioPassthrough: LinearLayout
+    private lateinit var switchAudioPassthrough: SwitchCompat
+    private lateinit var textAudioPassthroughFormats: TextView
+    private lateinit var itemPassthroughFormats: LinearLayout
+    private lateinit var textPassthroughFormatsValue: TextView
+    private lateinit var itemAudioTranscode: LinearLayout
+    private lateinit var textAudioTranscodeDesc: TextView
+    private lateinit var textAudioTranscodeValue: TextView
+    private lateinit var itemAudioOutputChannels: LinearLayout
+    private lateinit var textAudioOutputChannelsDesc: TextView
+    private lateinit var textAudioOutputChannelsValue: TextView
+    private lateinit var itemAudioUpmix: LinearLayout
+    private lateinit var switchAudioUpmix: SwitchCompat
+    private lateinit var itemAudioGenerateLfe: LinearLayout
+    private lateinit var switchAudioGenerateLfe: SwitchCompat
+    private lateinit var switchSpeedPassthroughAuto: SwitchCompat
+    private lateinit var itemZoomTunnelingAuto: LinearLayout
+    private lateinit var switchZoomTunnelingAuto: SwitchCompat
+    // Что выход принимает битстримом; обновляется при открытии экрана и переключении несущей IEC
+    private var devicePassthroughFormats: Set<String> = emptySet()
     private lateinit var itemHdAudioIec: LinearLayout
     private lateinit var switchHdAudioIec: SwitchCompat
     private lateinit var itemDv: LinearLayout
@@ -120,8 +148,6 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var textDefault3dModeValue: TextView
     private lateinit var itemCalibrateVr: LinearLayout
     private lateinit var itemCalibrateAnaglyph: LinearLayout
-    private lateinit var itemDownmix: LinearLayout
-    private lateinit var switchDownmix: SwitchCompat
     private lateinit var itemDownmixConfig: LinearLayout
     private lateinit var itemUpAction: LinearLayout
     private lateinit var textUpActionValue: TextView
@@ -148,6 +174,8 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var switchShowIndex: SwitchCompat
     private lateinit var itemConfirmExit: LinearLayout
     private lateinit var switchConfirmExit: SwitchCompat
+    private lateinit var itemSwipeEdge: LinearLayout
+    private lateinit var switchSwipeEdge: SwitchCompat
     private lateinit var itemBackButton: LinearLayout
     private lateinit var switchBackButton: SwitchCompat
     private lateinit var itemControlButtons: LinearLayout
@@ -347,6 +375,29 @@ class GlobalSettingsActivity : AppCompatActivity() {
         switchHdr10Plus = findViewById(R.id.switch_hdr10plus)
         itemTunneling = findViewById(R.id.item_tunneling)
         switchTunneling = findViewById(R.id.switch_tunneling)
+        switchAudioExpert = findViewById(R.id.switch_audio_expert)
+        groupAudioExpert = findViewById(R.id.group_audio_expert)
+        itemAudioSystem = findViewById(R.id.item_audio_system)
+        itemVoiceBoost = findViewById(R.id.item_voice_boost)
+        itemSpeedPassthroughAuto = findViewById(R.id.item_speed_passthrough_auto)
+        itemAudioPassthrough = findViewById(R.id.item_audio_passthrough)
+        switchAudioPassthrough = findViewById(R.id.switch_audio_passthrough)
+        textAudioPassthroughFormats = findViewById(R.id.text_audio_passthrough_formats)
+        itemPassthroughFormats = findViewById(R.id.item_passthrough_formats)
+        textPassthroughFormatsValue = findViewById(R.id.text_passthrough_formats_value)
+        itemAudioTranscode = findViewById(R.id.item_audio_transcode)
+        textAudioTranscodeDesc = findViewById(R.id.text_audio_transcode_desc)
+        textAudioTranscodeValue = findViewById(R.id.text_audio_transcode_value)
+        itemAudioOutputChannels = findViewById(R.id.item_audio_output_channels)
+        textAudioOutputChannelsDesc = findViewById(R.id.text_audio_output_channels_desc)
+        textAudioOutputChannelsValue = findViewById(R.id.text_audio_output_channels_value)
+        itemAudioUpmix = findViewById(R.id.item_audio_upmix)
+        switchAudioUpmix = findViewById(R.id.switch_audio_upmix)
+        itemAudioGenerateLfe = findViewById(R.id.item_audio_generate_lfe)
+        switchAudioGenerateLfe = findViewById(R.id.switch_audio_generate_lfe)
+        switchSpeedPassthroughAuto = findViewById(R.id.switch_speed_passthrough_auto)
+        itemZoomTunnelingAuto = findViewById(R.id.item_zoom_tunneling_auto)
+        switchZoomTunnelingAuto = findViewById(R.id.switch_zoom_tunneling_auto)
         itemHdAudioIec = findViewById(R.id.item_hd_audio_iec)
         switchHdAudioIec = findViewById(R.id.switch_hd_audio_iec)
         itemDv = findViewById(R.id.item_dv)
@@ -381,8 +432,6 @@ class GlobalSettingsActivity : AppCompatActivity() {
         textDefault3dModeValue = findViewById(R.id.text_default_3d_mode_value)
         itemCalibrateVr = findViewById(R.id.item_calibrate_vr)
         itemCalibrateAnaglyph = findViewById(R.id.item_calibrate_anaglyph)
-        itemDownmix = findViewById(R.id.item_downmix)
-        switchDownmix = findViewById(R.id.switch_downmix)
         itemDownmixConfig = findViewById(R.id.item_downmix_config)
         itemUpAction = findViewById(R.id.item_up_action)
         textUpActionValue = findViewById(R.id.text_up_action_value)
@@ -409,6 +458,8 @@ class GlobalSettingsActivity : AppCompatActivity() {
         switchShowIndex = findViewById(R.id.switch_show_index)
         itemConfirmExit = findViewById(R.id.item_confirm_exit)
         switchConfirmExit = findViewById(R.id.switch_confirm_exit)
+        itemSwipeEdge = findViewById(R.id.item_swipe_edge)
+        switchSwipeEdge = findViewById(R.id.switch_swipe_edge)
         itemBackButton = findViewById(R.id.item_back_button)
         switchBackButton = findViewById(R.id.switch_back_button)
         itemControlButtons = findViewById(R.id.item_control_buttons)
@@ -437,6 +488,11 @@ class GlobalSettingsActivity : AppCompatActivity() {
 
         findViewById<View>(R.id.item_reset_settings).setOnClickListener { showResetSettingsDialog() }
         findViewById<View>(R.id.item_licenses).setOnClickListener { showLicensesDialog() }
+        // LeakCanary подключен только в debug (debugImplementation): в релизе пункта нет
+        findViewById<View>(R.id.item_leaks).apply {
+            visibility = if (BuildConfig.DEBUG) View.VISIBLE else View.GONE
+            setOnClickListener { openLeakCanary() }
+        }
         findViewById<View>(R.id.item_diagnostics).setOnClickListener {
             startActivity(Intent(this, DeviceInfoActivity::class.java))
         }
@@ -451,10 +507,7 @@ class GlobalSettingsActivity : AppCompatActivity() {
             settingsViewModel.toggleAutoPip(!switchAutoPip.isChecked)
         }
 
-        // Downmix
-        itemDownmix.setOnClickListener {
-            settingsViewModel.toggleStereoDownmix(!switchDownmix.isChecked)
-        }
+        // Пресет микшера
         itemDownmixConfig.setOnClickListener {
             settingsViewModel.refreshCustomMixParams()
             showAudioMixDialog()
@@ -469,6 +522,51 @@ class GlobalSettingsActivity : AppCompatActivity() {
             settingsViewModel.toggleTunneling(!switchTunneling.isChecked)
         }
 
+        // Проброс, форматы, перекодирование, каналы микшера
+        itemAudioPassthrough.setOnClickListener {
+            settingsViewModel.toggleAudioPassthrough(!switchAudioPassthrough.isChecked)
+        }
+        itemPassthroughFormats.setOnClickListener { showPassthroughFormatsDialog() }
+        itemAudioTranscode.setOnClickListener {
+            val codecs = transcodeOptions()
+            val current = codecs.indexOf(settingsViewModel.audioTranscode.value ?: SettingsRepository.AUDIO_TRANSCODE_OFF)
+            showSingleChoiceDialog(getString(R.string.pref_audio_transcode), codecs.map { transcodeLabel(it) }, current) {
+                settingsViewModel.setAudioTranscode(codecs[it])
+            }
+        }
+        itemAudioOutputChannels.setOnClickListener {
+            val current = settingsViewModel.audioOutputChannels.value ?: AudioMixerLogic.CHANNELS_20
+            showSingleChoiceDialog(getString(R.string.pref_audio_output_channels), outputChannelsLabels(), current) {
+                settingsViewModel.setAudioOutputChannels(it)
+            }
+        }
+        itemAudioUpmix.setOnClickListener { settingsViewModel.toggleAudioUpmix(!switchAudioUpmix.isChecked) }
+        // Режим настроек звука, аудиосистема и усиление голоса (простой режим)
+        findViewById<View>(R.id.item_audio_expert).setOnClickListener {
+            settingsViewModel.toggleAudioExpertMode(!switchAudioExpert.isChecked)
+        }
+        itemAudioSystem.setOnClickListener {
+            val current = settingsViewModel.audioSystem.value ?: AudioProfileLogic.SYSTEM_STEREO
+            showSingleChoiceDialog(getString(R.string.pref_audio_system), audioSystemLabels(), current) {
+                settingsViewModel.setAudioSystem(it)
+            }
+        }
+        itemVoiceBoost.setOnClickListener {
+            val steps = AudioProfileLogic.VOICE_BOOST_STEPS
+            val current = steps.indexOf(settingsViewModel.voiceBoostDb.value ?: 0)
+            showSingleChoiceDialog(getString(R.string.pref_voice_boost), steps.map { voiceBoostLabel(it) }, current) {
+                settingsViewModel.setVoiceBoostDb(steps[it])
+            }
+        }
+        itemSpeedPassthroughAuto.setOnClickListener {
+            settingsViewModel.toggleSpeedPassthroughAuto(!switchSpeedPassthroughAuto.isChecked)
+        }
+        itemZoomTunnelingAuto.setOnClickListener {
+            settingsViewModel.toggleZoomTunnelingAuto(!switchZoomTunnelingAuto.isChecked)
+        }
+        itemAudioGenerateLfe.setOnClickListener {
+            settingsViewModel.toggleAudioGenerateLfe(!switchAudioGenerateLfe.isChecked)
+        }
         // HD-звук через IEC 61937
         itemHdAudioIec.setOnClickListener {
             settingsViewModel.toggleHdAudioIec(!switchHdAudioIec.isChecked)
@@ -605,6 +703,9 @@ class GlobalSettingsActivity : AppCompatActivity() {
                 settingsViewModel.setHorizontalSwipeAction(it)
             }
         }
+        itemSwipeEdge.setOnClickListener {
+            settingsViewModel.toggleSwipeEdgeExclusion(!switchSwipeEdge.isChecked)
+        }
         itemBackButton.setOnClickListener {
             settingsViewModel.toggleBackButton(!switchBackButton.isChecked)
         }
@@ -641,7 +742,7 @@ class GlobalSettingsActivity : AppCompatActivity() {
         itemRememberAudio.setOnClickListener {
             // Порядок пунктов совпадает с SettingsRepository.AUDIO_MEMORY_*
             val options = listOf(getString(R.string.audio_memory_off), getString(R.string.audio_memory_playlist), getString(R.string.audio_memory_all))
-            showSingleChoiceDialog(getString(R.string.pref_remember_audio), options, settingsViewModel.audioTrackMemoryMode.value ?: SettingsRepository.AUDIO_MEMORY_OFF) {
+            showSingleChoiceDialog(getString(R.string.pref_remember_audio), options, settingsViewModel.audioTrackMemoryMode.value ?: SettingsRepository.AUDIO_MEMORY_PLAYLIST) {
                 settingsViewModel.setAudioTrackMemoryMode(it)
             }
         }
@@ -701,9 +802,59 @@ class GlobalSettingsActivity : AppCompatActivity() {
             findViewById<TextView>(R.id.text_audio_decoder_value).text = settingsViewModel.getDecoderValueString(mode)
             findViewById<TextView>(R.id.text_audio_decoder_desc).setText(settingsViewModel.getDecoderDescResId(mode, video = false))
         }
-        settingsViewModel.isTunnelingEnabled.observe(this) { switchTunneling.isChecked = it }
+        settingsViewModel.isTunnelingEnabled.observe(this) {
+            switchTunneling.isChecked = it
+            // Вопрос о масштабе бывает только при туннелировании
+            itemZoomTunnelingAuto.visibility = if (it) View.VISIBLE else View.GONE
+        }
+        settingsViewModel.isZoomTunnelingAuto.observe(this) { switchZoomTunnelingAuto.isChecked = it }
+        settingsViewModel.isSpeedPassthroughAuto.observe(this) { switchSpeedPassthroughAuto.isChecked = it }
         settingsViewModel.isHdr10PlusEnabled.observe(this) { switchHdr10Plus.isChecked = it }
-        settingsViewModel.isHdAudioIecEnabled.observe(this) { switchHdAudioIec.isChecked = it }
+        settingsViewModel.isAudioExpertMode.observe(this) { expert ->
+            switchAudioExpert.isChecked = expert
+            groupAudioExpert.visibility = if (expert) View.VISIBLE else View.GONE
+            itemAudioSystem.visibility = if (expert) View.GONE else View.VISIBLE
+            itemVoiceBoost.visibility = if (expert) View.GONE else View.VISIBLE
+            // Несущая IEC 61937 есть только в экспертном режиме: список форматов выхода зависит от режима
+            refreshDeviceAudioFormats()
+        }
+        settingsViewModel.audioSystem.observe(this) { system ->
+            findViewById<TextView>(R.id.text_audio_system_value).text = audioSystemLabels().getOrElse(system) { "" }
+            updateAudioOutputDescriptions()
+        }
+        settingsViewModel.voiceBoostDb.observe(this) { db ->
+            findViewById<TextView>(R.id.text_voice_boost_value).text = voiceBoostLabel(db)
+            updateAudioOutputDescriptions()
+        }
+        settingsViewModel.isAudioPassthroughEnabled.observe(this) { enabled ->
+            switchAudioPassthrough.isChecked = enabled
+            // Форматы и несущая - часть проброса
+            val visibility = if (enabled) View.VISIBLE else View.GONE
+            itemPassthroughFormats.visibility = visibility
+            itemHdAudioIec.visibility = visibility
+            updateAudioOutputDescriptions()
+        }
+        settingsViewModel.passthroughFormats.observe(this) { updateAudioOutputDescriptions() }
+        settingsViewModel.audioTranscode.observe(this) { codec ->
+            textAudioTranscodeValue.text = transcodeLabel(codec)
+            updateAudioOutputDescriptions()
+        }
+        settingsViewModel.audioOutputChannels.observe(this) { channels ->
+            textAudioOutputChannelsValue.text = outputChannelsLabels().getOrElse(channels) { "" }
+            // "Как в источнике" расширять некуда
+            itemAudioUpmix.visibility = if (channels == AudioMixerLogic.CHANNELS_SOURCE) View.GONE else View.VISIBLE
+            updateGenerateLfeVisibility()
+            updateAudioOutputDescriptions()
+        }
+        settingsViewModel.isAudioUpmixEnabled.observe(this) {
+            switchAudioUpmix.isChecked = it
+            updateGenerateLfeVisibility()
+        }
+        settingsViewModel.isAudioGenerateLfeEnabled.observe(this) { switchAudioGenerateLfe.isChecked = it }
+        settingsViewModel.isHdAudioIecEnabled.observe(this) {
+            switchHdAudioIec.isChecked = it
+            refreshDeviceAudioFormats()
+        }
         settingsViewModel.dvMode.observe(this) { mode ->
             textDvValue.text = when (mode) {
                 SettingsRepository.DV_MODE_OFF -> getString(R.string.dv_mode_off)
@@ -747,12 +898,6 @@ class GlobalSettingsActivity : AppCompatActivity() {
                 getString(R.string.track_off)
             else
                 getString(R.string.loudness_boost_format, boost / 100)
-        }
-
-        // Downmix
-        settingsViewModel.isStereoDownmixEnabled.observe(this) { enabled ->
-            switchDownmix.isChecked = enabled
-            itemDownmixConfig.visibility = if (enabled) View.VISIBLE else View.GONE
         }
 
         // Languages
@@ -807,6 +952,7 @@ class GlobalSettingsActivity : AppCompatActivity() {
                 else -> getString(R.string.swipe_action_none)
             }
         }
+        settingsViewModel.isSwipeEdgeExclusionEnabled.observe(this) { switchSwipeEdge.isChecked = it }
         settingsViewModel.isBackButtonEnabled.observe(this) { switchBackButton.isChecked = it }
         settingsViewModel.hiddenControlButtons.observe(this) { hidden ->
             val total = SettingsRepository.HIDEABLE_BUTTONS.size
@@ -985,6 +1131,146 @@ class GlobalSettingsActivity : AppCompatActivity() {
         else -> key
     }
 
+    // Индексы совпадают с AudioMixerLogic.CHANNELS_*
+    private fun outputChannelsLabels() = listOf(getString(R.string.audio_channels_source), "7.1", "5.1", "4.0", "2.0")
+
+    private fun transcodeLabel(codec: Int): String = when (codec) {
+        SettingsRepository.AUDIO_TRANSCODE_AC3 -> getString(R.string.audio_output_ac3)
+        SettingsRepository.AUDIO_TRANSCODE_EAC3 -> getString(R.string.audio_output_eac3)
+        else -> getString(R.string.audio_transcode_off)
+    }
+
+    /** Варианты перекодирования: только то, что выход примет битстримом (и выбранное раньше). */
+    private fun transcodeOptions(): List<Int> {
+        val current = settingsViewModel.audioTranscode.value ?: SettingsRepository.AUDIO_TRANSCODE_OFF
+        val encoder = AudioOutputCapabilities.isEncoderAvailable
+        return listOfNotNull(
+            SettingsRepository.AUDIO_TRANSCODE_OFF,
+            SettingsRepository.AUDIO_TRANSCODE_AC3.takeIf {
+                it == current || (encoder && AudioPassthroughLogic.AC3 in devicePassthroughFormats)
+            },
+            SettingsRepository.AUDIO_TRANSCODE_EAC3.takeIf {
+                it == current || (encoder && AudioPassthroughLogic.EAC3 in devicePassthroughFormats)
+            }
+        )
+    }
+
+    /** Форматы, которые выход принимает битстримом (с несущей IEC 61937, если она включена). */
+    private fun refreshDeviceAudioFormats() {
+        devicePassthroughFormats = AudioOutputCapabilities.passthroughFormats(
+            this, settingsViewModel.isAudioExpertMode.value == true && settingsViewModel.isHdAudioIecEnabled.value == true
+        )
+        updateAudioOutputDescriptions()
+    }
+
+    /** Пробрасываемые форматы: неподдерживаемые выходом выключены и не выбираются. */
+    private fun showPassthroughFormatsDialog() {
+        val keys = AudioPassthroughLogic.ALL_FORMATS
+        val selected = settingsViewModel.passthroughFormats.value ?: keys.toSet()
+        val labels = keys.map { key ->
+            if (key in devicePassthroughFormats) AudioPassthroughLogic.label(key)
+            else getString(R.string.passthrough_format_unsupported, AudioPassthroughLogic.label(key))
+        }
+        val enabled = BooleanArray(keys.size) { keys[it] in devicePassthroughFormats }
+        val checked = BooleanArray(keys.size) { keys[it] in selected && enabled[it] }
+        ChoiceDialog.showMulti(this, getString(R.string.pref_passthrough_formats), labels, checked, enabled) { result ->
+            // Неподдерживаемые выходом форматы остаются выбранными: их все равно не пробросить,
+            // зато при подключении другого ресивера заработают без перенастройки
+            val chosen = keys.filterIndexed { i, key -> result[i] || key !in devicePassthroughFormats }.toSet()
+            settingsViewModel.setPassthroughFormats(chosen)
+        }
+    }
+
+    /** LFE собирается только при апмиксе и раскладке с сабвуфером (5.1, 7.1). */
+    private fun updateGenerateLfeVisibility() {
+        val channels = settingsViewModel.audioOutputChannels.value ?: AudioMixerLogic.CHANNELS_20
+        val visible = settingsViewModel.isAudioUpmixEnabled.value == true &&
+            (channels == AudioMixerLogic.CHANNELS_51 || channels == AudioMixerLogic.CHANNELS_71)
+        itemAudioGenerateLfe.visibility = if (visible) View.VISIBLE else View.GONE
+    }
+
+    // Индексы совпадают с AudioProfileLogic.SYSTEM_*
+    private fun audioSystemLabels() = listOf(getString(R.string.audio_system_stereo), getString(R.string.audio_system_multichannel))
+
+    private fun voiceBoostLabel(db: Int): String =
+        if (db == 0) getString(R.string.track_off) else getString(R.string.mix_db_format, "+$db")
+
+    /**
+     * Описание аудиосистемы простого режима: что пробрасывается и во что перекодируется (по возможностям выхода).
+     * "Менять скорость без вопроса" нужно только там, где звук идет битстримом: многоканальная система или экспертный режим.
+     */
+    private fun updateSimpleAudioDescriptions() {
+        val expert = settingsViewModel.isAudioExpertMode.value == true
+        val multichannel = settingsViewModel.audioSystem.value == AudioProfileLogic.SYSTEM_MULTICHANNEL
+        itemSpeedPassthroughAuto.visibility = if (expert || multichannel) View.VISIBLE else View.GONE
+        val voice = (settingsViewModel.voiceBoostDb.value ?: 0) > 0
+        val encoder = AudioOutputCapabilities.isEncoderAvailable
+        val codec = when {
+            encoder && AudioPassthroughLogic.AC3 in devicePassthroughFormats -> "AC3"
+            encoder && AudioPassthroughLogic.EAC3 in devicePassthroughFormats -> "E-AC3"
+            else -> null
+        }
+        val supported = AudioPassthroughLogic.ALL_FORMATS.filter { it in devicePassthroughFormats }
+            .joinToString(", ") { AudioPassthroughLogic.label(it) }
+        findViewById<TextView>(R.id.text_audio_system_desc).text = when {
+            !multichannel -> getString(R.string.audio_system_stereo_desc)
+            codec == null -> getString(R.string.audio_system_multichannel_pcm_desc)
+            voice -> getString(R.string.audio_system_multichannel_voice_desc, codec)
+            supported.isEmpty() -> getString(R.string.audio_system_multichannel_transcode_desc, codec)
+            else -> getString(R.string.audio_system_multichannel_desc, supported, codec)
+        }
+        findViewById<TextView>(R.id.text_voice_boost_desc).text = if (multichannel && codec != null) {
+            getString(R.string.pref_voice_boost_multichannel_desc, codec)
+        } else {
+            getString(R.string.pref_voice_boost_desc)
+        }
+    }
+
+    /** Описания проброса и микшера по текущим настройкам: что пробрасывается и к чему применяется микшер. */
+    private fun updateAudioOutputDescriptions() {
+        updateSimpleAudioDescriptions()
+        val supported = AudioPassthroughLogic.ALL_FORMATS.filter { it in devicePassthroughFormats }
+        textAudioPassthroughFormats.text = if (supported.isEmpty()) {
+            getString(R.string.passthrough_device_none)
+        } else {
+            getString(R.string.passthrough_device_formats, supported.joinToString(", ") { AudioPassthroughLogic.label(it) })
+        }
+        val selected = settingsViewModel.passthroughFormats.value ?: AudioPassthroughLogic.ALL_FORMATS.toSet()
+        val active = supported.filter { it in selected }
+        textPassthroughFormatsValue.text = when {
+            supported.isEmpty() -> "—"
+            active.size == supported.size -> getString(R.string.passthrough_formats_all)
+            else -> "${active.size}/${supported.size}"
+        }
+
+        val transcode = settingsViewModel.audioTranscode.value ?: SettingsRepository.AUDIO_TRANSCODE_OFF
+        textAudioTranscodeDesc.setText(
+            if (transcode == SettingsRepository.AUDIO_TRANSCODE_OFF) R.string.pref_audio_transcode_off_desc
+            else R.string.pref_audio_transcode_desc
+        )
+
+        val channels = settingsViewModel.audioOutputChannels.value ?: AudioMixerLogic.CHANNELS_20
+        val pcmLabel = outputChannelsLabels().getOrElse(channels) { "" }
+        textAudioOutputChannelsDesc.text = if (transcode == SettingsRepository.AUDIO_TRANSCODE_OFF) {
+            getString(R.string.pref_audio_output_channels_pcm, pcmLabel)
+        } else {
+            // AC3/E-AC3 не больше 5.1, стерео не перекодируется
+            val encoded = if (AudioMixerLogic.channelLimit(channels) > 6) "5.1" else pcmLabel
+            getString(R.string.pref_audio_output_channels_transcode, transcodeLabel(transcode), encoded)
+        }
+    }
+
+    /** Экран LeakCanary. Класс задается строкой: в релизной сборке библиотеки нет. */
+    private fun openLeakCanary() {
+        val intent = Intent().setClassName(packageName, "leakcanary.internal.activity.LeakActivity")
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            Toast.makeText(this, e.message, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private fun showSingleChoiceDialog(title: String, items: List<String>, currentIndex: Int, onSelected: (Int) -> Unit) {
         ChoiceDialog.show(this, title, items, currentIndex, onSelected)
     }
@@ -1111,23 +1397,29 @@ class GlobalSettingsActivity : AppCompatActivity() {
         val btnReset = dialog.findViewById<Button>(R.id.btn_reset)
         val btnClose = dialog.findViewById<Button>(R.id.btn_close)
 
+        // Ползунки в дБ (хранится множитель): "Выкл", затем -24...+12 дБ
         fun updateText(view: TextView, progress: Int) {
-            view.text = getString(R.string.percentage_int_format, progress)
+            val db = AudioMixerLogic.sliderToDb(progress)
+            view.text = when {
+                db == null -> getString(R.string.track_off)
+                db > 0 -> getString(R.string.mix_db_format, "+$db")
+                else -> getString(R.string.mix_db_format, db.toString())
+            }
         }
 
         var isUpdatingUiFromCode = false
 
         fun updateSeekBars(params: AudioMixerLogic.MixParams) {
             isUpdatingUiFromCode = true
-            seekFront.progress = (params.front * 100).toInt()
+            seekFront.progress = AudioMixerLogic.gainToSlider(params.front)
             updateText(valFront, seekFront.progress)
-            seekCenter.progress = (params.center * 100).toInt()
+            seekCenter.progress = AudioMixerLogic.gainToSlider(params.center)
             updateText(valCenter, seekCenter.progress)
-            seekRear.progress = (params.rear * 100).toInt()
+            seekRear.progress = AudioMixerLogic.gainToSlider(params.rear)
             updateText(valRear, seekRear.progress)
-            seekMiddle.progress = (params.middle * 100).toInt()
+            seekMiddle.progress = AudioMixerLogic.gainToSlider(params.middle)
             updateText(valMiddle, seekMiddle.progress)
-            seekLfe.progress = (params.lfe * 100).toInt()
+            seekLfe.progress = AudioMixerLogic.gainToSlider(params.lfe)
             updateText(valLfe, seekLfe.progress)
             isUpdatingUiFromCode = false
         }
@@ -1150,11 +1442,12 @@ class GlobalSettingsActivity : AppCompatActivity() {
         }
 
         fun initSeek(seekBar: SeekBar, textView: TextView, type: String) {
+            seekBar.max = AudioMixerLogic.SLIDER_MAX
             seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
                     updateText(textView, progress)
                     if (fromUser && !isUpdatingUiFromCode) {
-                        settingsViewModel.updateCustomMixParam(type, progress / 100f)
+                        settingsViewModel.updateCustomMixParam(type, AudioMixerLogic.sliderToGain(progress))
                     }
                 }
                 override fun onStartTrackingTouch(sb: SeekBar?) {}

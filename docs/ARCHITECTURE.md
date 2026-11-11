@@ -24,7 +24,11 @@ SurfaceView (2D/HDR)  или  StereoGLSurfaceView ─► StereoRenderer (GLSL)
   PiP (`closeFromPictureInPicture`), а открытие приложения снаружи (лаунчер, «Недавние», `PipReturnCallbacks`)
   разворачивает его повторным запуском той же активити (стартовый экран, открытый иконкой, при этом сразу
   закрывается и не показывается) (`restorePictureInPicture`, SystemUI считает это
-  возвратом из PiP). В `finish()` (`prepareFinish`) формируется результат для вызывающего приложения (`return_result`). Нажатия клавиш передаются в
+  возвратом из PiP). Плеер, свернутый кнопкой «Домой» (не в PiP), `PipReturnCallbacks` при старте стартового
+  экрана поднимает вместе с его задачей (`restorePlayer` → `ActivityManager.moveTaskToFront`, разрешение
+  `REORDER_TASKS`): плеер живет в своей задаче или в задаче вызвавшего приложения (TorrServe, Lampa), и лаунчер
+  его не находит. Экраны, открытые из самого плеера (настройки), это не задевает: плеер в этот момент еще запущен.
+  В `finish()` (`prepareFinish`) формируется результат для вызывающего приложения (`return_result`). Нажатия клавиш передаются в
   `PlayerFragment.handleKeyEvent` через `dispatchKeyEvent`.
 - **`PlayerFragment`** — экран плеера. Создает GL-поверхность (выбор ES 2/3), подписывается на LiveData
   (`observeViewModel`), показывает меню, диалоги (продолжение просмотра, плейлист, группы,

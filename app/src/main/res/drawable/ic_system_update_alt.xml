@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Material Symbols Outlined: system_update_alt (FILL 0, wght 400, GRAD 0, 24), Apache-2.0 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+    <!-- Координаты Material Symbols заданы в рамке 0,-960..960,0 -->
+    <group android:translateY="960">
+        <path
+            android:fillColor="@color/tv_white"
+            android:pathData="M480,-360L280,-560L322,-602L450,-474L450,-800L510,-800L510,-474L638,-602L680,-560L480,-360ZM140,-160Q116,-160 98,-178Q80,-196 80,-220L80,-740Q80,-764 98,-782Q116,-800 140,-800L390,-800L390,-740L140,-740L140,-220L820,-220L820,-740L570,-740L570,-800L820,-800Q844,-800 862,-782Q880,-764 880,-740L880,-220Q880,-196 862,-178Q844,-160 820,-160L140,-160Z" />
+    </group>
+</vector>

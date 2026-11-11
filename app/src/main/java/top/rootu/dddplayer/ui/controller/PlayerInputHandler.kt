@@ -19,7 +19,9 @@ class PlayerInputHandler(
     private val onShowControls: () -> Unit,
     private val onHideControls: () -> Unit,
     private val onResetHideTimer: () -> Unit,
-    private val onShowPlaylist: () -> Unit
+    private val onShowPlaylist: () -> Unit,
+    // "Вниз" на кнопке скорости: своя скорость <-> 1.00x
+    private val onToggleCustomSpeed: () -> Unit
 ) {
 
     private var seekAccelerationCount = 0
@@ -108,6 +110,12 @@ class PlayerInputHandler(
             KeyEvent.KEYCODE_DPAD_DOWN -> {
                 if (!ui.controlsView.isVisible) {
                     onShowControls()
+                    return true
+                }
+                // Кнопка скорости: "Вниз" переключает свою скорость и 1.00x
+                if (currentFocus?.id == R.id.button_speed) {
+                    onToggleCustomSpeed()
+                    onResetHideTimer()
                     return true
                 }
                 // Если фокус на кнопках управления, переходим в плейлист

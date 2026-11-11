@@ -33,6 +33,48 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
 
     private val _isHdr10PlusEnabled = MutableLiveData(repository.isHdr10PlusEnabled())
     val isHdr10PlusEnabled: LiveData<Boolean> = _isHdr10PlusEnabled
+    // --- Режим настроек звука: простой (аудиосистема, усиление голоса) или экспертный ---
+    private val _isAudioExpertMode = MutableLiveData(repository.isAudioExpertMode())
+    val isAudioExpertMode: LiveData<Boolean> = _isAudioExpertMode
+    private val _audioSystem = MutableLiveData(repository.getAudioSystem())
+    val audioSystem: LiveData<Int> = _audioSystem
+    private val _voiceBoostDb = MutableLiveData(repository.getVoiceBoostDb())
+    val voiceBoostDb: LiveData<Int> = _voiceBoostDb
+
+    fun toggleAudioExpertMode(enabled: Boolean) {
+        repository.setAudioExpertMode(enabled)
+        _isAudioExpertMode.value = enabled
+    }
+
+    fun setAudioSystem(system: Int) {
+        repository.setAudioSystem(system)
+        _audioSystem.value = system
+    }
+
+    fun setVoiceBoostDb(db: Int) {
+        repository.setVoiceBoostDb(db)
+        _voiceBoostDb.value = db
+    }
+
+    // --- Вывод звука: проброс, перекодирование, каналы микшера ---
+    private val _isAudioPassthroughEnabled = MutableLiveData(repository.isAudioPassthroughEnabled())
+    val isAudioPassthroughEnabled: LiveData<Boolean> = _isAudioPassthroughEnabled
+    private val _passthroughFormats = MutableLiveData(repository.getAudioPassthroughFormats())
+    val passthroughFormats: LiveData<Set<String>> = _passthroughFormats
+    private val _audioTranscode = MutableLiveData(repository.getAudioTranscode())
+    val audioTranscode: LiveData<Int> = _audioTranscode
+    private val _audioOutputChannels = MutableLiveData(repository.getAudioOutputChannels())
+    val audioOutputChannels: LiveData<Int> = _audioOutputChannels
+    private val _isAudioUpmixEnabled = MutableLiveData(repository.isAudioUpmixEnabled())
+    val isAudioUpmixEnabled: LiveData<Boolean> = _isAudioUpmixEnabled
+    private val _isAudioGenerateLfeEnabled = MutableLiveData(repository.isAudioGenerateLfeEnabled())
+    val isAudioGenerateLfeEnabled: LiveData<Boolean> = _isAudioGenerateLfeEnabled
+    // "Больше не показывать" в вопросах о сеансе плеера
+    private val _isSpeedPassthroughAuto = MutableLiveData(repository.isSpeedPassthroughAutoEnabled())
+    val isSpeedPassthroughAuto: LiveData<Boolean> = _isSpeedPassthroughAuto
+    private val _isZoomTunnelingAuto = MutableLiveData(repository.isZoomTunnelingAutoEnabled())
+    val isZoomTunnelingAuto: LiveData<Boolean> = _isZoomTunnelingAuto
+
     private val _isHdAudioIecEnabled = MutableLiveData(repository.isHdAudioIecEnabled())
     val isHdAudioIecEnabled: LiveData<Boolean> = _isHdAudioIecEnabled
 
@@ -67,9 +109,6 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     val loudnessBoost: LiveData<Int> = _loudnessBoost
 
     // --- Audio Mix Settings ---
-    private val _isStereoDownmixEnabled = MutableLiveData(repository.isStereoDownmixEnabled())
-    val isStereoDownmixEnabled: LiveData<Boolean> = _isStereoDownmixEnabled
-
     private val _mixPresetId = MutableLiveData(repository.getMixPreset())
     val mixPresetId: LiveData<Int> = _mixPresetId
 
@@ -120,6 +159,9 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
 
     private val _horizontalSwipeAction = MutableLiveData(repository.getHorizontalSwipeAction())
     val horizontalSwipeAction: LiveData<Int> = _horizontalSwipeAction
+
+    private val _isSwipeEdgeExclusionEnabled = MutableLiveData(repository.isSwipeEdgeExclusionEnabled())
+    val isSwipeEdgeExclusionEnabled: LiveData<Boolean> = _isSwipeEdgeExclusionEnabled
 
     private val _isBackButtonEnabled = MutableLiveData(repository.isBackButtonEnabled())
     val isBackButtonEnabled: LiveData<Boolean> = _isBackButtonEnabled
@@ -267,6 +309,50 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
         _isTunnelingEnabled.value = enabled
     }
 
+    fun toggleAudioPassthrough(enabled: Boolean) {
+        repository.setAudioPassthroughEnabled(enabled)
+        _isAudioPassthroughEnabled.value = enabled
+    }
+
+    fun setPassthroughFormats(formats: Set<String>) {
+        repository.setAudioPassthroughFormats(formats)
+        _passthroughFormats.value = formats
+    }
+
+    fun setAudioTranscode(codec: Int) {
+        repository.setAudioTranscode(codec)
+        _audioTranscode.value = codec
+        // Стерео не перекодируется: при 2.0 на выходе перекодирование включаем вместе с "как в источнике"
+        if (codec != SettingsRepository.AUDIO_TRANSCODE_OFF && _audioOutputChannels.value == AudioMixerLogic.CHANNELS_20) {
+            setAudioOutputChannels(AudioMixerLogic.CHANNELS_SOURCE)
+        }
+    }
+
+    fun toggleAudioUpmix(enabled: Boolean) {
+        repository.setAudioUpmixEnabled(enabled)
+        _isAudioUpmixEnabled.value = enabled
+    }
+
+    fun toggleSpeedPassthroughAuto(enabled: Boolean) {
+        repository.setSpeedPassthroughAutoEnabled(enabled)
+        _isSpeedPassthroughAuto.value = enabled
+    }
+
+    fun toggleZoomTunnelingAuto(enabled: Boolean) {
+        repository.setZoomTunnelingAutoEnabled(enabled)
+        _isZoomTunnelingAuto.value = enabled
+    }
+
+    fun toggleAudioGenerateLfe(enabled: Boolean) {
+        repository.setAudioGenerateLfeEnabled(enabled)
+        _isAudioGenerateLfeEnabled.value = enabled
+    }
+
+    fun setAudioOutputChannels(channels: Int) {
+        repository.setAudioOutputChannels(channels)
+        _audioOutputChannels.value = channels
+    }
+
     fun toggleHdAudioIec(enabled: Boolean) {
         repository.setHdAudioIecEnabled(enabled)
         _isHdAudioIecEnabled.value = enabled
@@ -390,6 +476,11 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
         _horizontalSwipeAction.value = action
     }
 
+    fun toggleSwipeEdgeExclusion(enabled: Boolean) {
+        repository.setSwipeEdgeExclusionEnabled(enabled)
+        _isSwipeEdgeExclusionEnabled.value = enabled
+    }
+
     fun toggleBackButton(enabled: Boolean) {
         repository.setBackButtonEnabled(enabled)
         _isBackButtonEnabled.value = enabled
@@ -401,11 +492,6 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     }
 
     // --- Downmix Logic ---
-
-    fun toggleStereoDownmix(enabled: Boolean) {
-        repository.setStereoDownmixEnabled(enabled)
-        _isStereoDownmixEnabled.value = enabled
-    }
 
     fun setMixPreset(presetId: Int) {
         repository.setMixPreset(presetId)

@@ -36,15 +36,25 @@ object ChoiceDialog {
         return dialog
     }
 
-    /** Флажки применяются сразу при переключении, диалог закрывается кнопкой "Назад". */
-    fun showMulti(context: Context, title: String, items: List<String>, checked: BooleanArray, onChanged: (BooleanArray) -> Unit): Dialog {
+    /**
+     * Флажки применяются сразу при переключении, диалог закрывается кнопкой "Назад".
+     * [enabled] - false у пунктов, которые нельзя переключить.
+     */
+    fun showMulti(
+        context: Context,
+        title: String,
+        items: List<String>,
+        checked: BooleanArray,
+        enabled: BooleanArray? = null,
+        onChanged: (BooleanArray) -> Unit
+    ): Dialog {
         val dialog = Dialog(context, R.style.Theme_App_Dialog)
         dialog.setContentView(R.layout.dialog_list_choice)
         dialog.findViewById<TextView>(R.id.dialog_title).text = title
 
         val recycler = dialog.findViewById<RecyclerView>(R.id.dialog_recycler_view)
         recycler.layoutManager = LinearLayoutManager(context)
-        recycler.adapter = MultiChoiceAdapter(items, checked.copyOf(), onChanged)
+        recycler.adapter = MultiChoiceAdapter(items, checked.copyOf(), enabled, onChanged)
 
         dialog.show()
         recycler.post {

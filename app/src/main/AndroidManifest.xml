@@ -28,6 +28,8 @@
         tools:ignore="ScopedStorage" />
 
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Возврат в свернутый плеер из его задачи при открытии приложения (moveTaskToFront) -->
+    <uses-permission android:name="android.permission.REORDER_TASKS" />
 
     <application
         android:name=".App"

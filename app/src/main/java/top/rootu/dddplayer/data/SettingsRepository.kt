@@ -8,6 +8,9 @@ import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import top.rootu.dddplayer.logic.AnaglyphLogic
+import top.rootu.dddplayer.logic.AudioMixerLogic
+import top.rootu.dddplayer.logic.AudioPassthroughLogic
+import top.rootu.dddplayer.logic.AudioProfileLogic
 import top.rootu.dddplayer.logic.HomeLogic
 import top.rootu.dddplayer.model.AnaglyphCalibration
 import top.rootu.dddplayer.model.AudioTrackStat
@@ -53,6 +56,11 @@ class SettingsRepository private constructor(context: Context) {
         const val UP_ACTION_OSD = 1
         const val UP_ACTION_MENU = 2
         const val UP_ACTION_INFO = 3
+
+        // Перекодирование декодированного звука для проброса
+        const val AUDIO_TRANSCODE_OFF = 0
+        const val AUDIO_TRANSCODE_AC3 = 1
+        const val AUDIO_TRANSCODE_EAC3 = 2
 
         // Действие кнопки "OK" при скрытой панели
         const val OK_ACTION_PAUSE = 0
@@ -369,9 +377,143 @@ class SettingsRepository private constructor(context: Context) {
     fun isHdAudioIecEnabled(): Boolean = prefs.getBoolean("hd_audio_iec", false)
     fun setHdAudioIecEnabled(enabled: Boolean) = prefs.edit { putBoolean("hd_audio_iec", enabled) }
 
-    // Принудительный Downmix в стерео
-    fun isStereoDownmixEnabled(): Boolean = prefs.getBoolean("stereo_downmix", true)
-    fun setStereoDownmixEnabled(enabled: Boolean) = prefs.edit { putBoolean("stereo_downmix", enabled) }
+    // Проброс (битстрим) сжатого звука на ресивер, не зависит от приоритета декодеров
+    fun isAudioPassthroughEnabled(): Boolean {
+        migrateAudioOutput()
+        return prefs.getBoolean("audio_passthrough", false)
+    }
+    fun setAudioPassthroughEnabled(enabled: Boolean) = prefs.edit { putBoolean("audio_passthrough", enabled) }
+
+    // Пробрасываемые форматы (AudioPassthroughLogic.*). Пока не заданы - все
+    fun getAudioPassthroughFormats(): Set<String> =
+        prefs.getStringSet("audio_passthrough_formats", null)?.toSet() ?: AudioPassthroughLogic.ALL_FORMATS.toSet()
+    fun setAudioPassthroughFormats(formats: Set<String>) = prefs.edit { putStringSet("audio_passthrough_formats", formats) }
+
+    // Перекодирование декодированного звука в AC3/E-AC3 для проброса (AUDIO_TRANSCODE_*)
+    fun getAudioTranscode(): Int {
+        migrateAudioOutput()
+        return prefs.getInt("audio_transcode", AUDIO_TRANSCODE_OFF)
+    }
+    fun setAudioTranscode(codec: Int) = prefs.edit { putInt("audio_transcode", codec) }
+
+    // Каналы на выходе микшера (AudioMixerLogic.CHANNELS_*). По умолчанию стерео, как прежний даунмикс
+    fun getAudioOutputChannels(): Int {
+        migrateAudioOutput()
+        return prefs.getInt("audio_output_channels", AudioMixerLogic.CHANNELS_20)
+    }
+    fun setAudioOutputChannels(channels: Int) = prefs.edit { putInt("audio_output_channels", channels) }
+
+    // Расширять звук с меньшим числом каналов до выбранной раскладки (матричный апмикс). По умолчанию выкл
+    fun isAudioUpmixEnabled(): Boolean = prefs.getBoolean("audio_upmix", false)
+    fun setAudioUpmixEnabled(enabled: Boolean) = prefs.edit { putBoolean("audio_upmix", enabled) }
+
+    // При апмиксе собирать LFE (сабвуфер) из других каналов через ФНЧ. По умолчанию выкл
+    fun isAudioGenerateLfeEnabled(): Boolean = prefs.getBoolean("audio_generate_lfe", false)
+    fun setAudioGenerateLfeEnabled(enabled: Boolean) = prefs.edit { putBoolean("audio_generate_lfe", enabled) }
+
+    /**
+     * Перенос прежних настроек звука, чтобы поведение не поменялось:
+     * - проброс был, когда декодеры устройства стояли раньше FFmpeg (приоритет аудио не "Сначала встроенный");
+     * - "Даунмикс в стерео" (stereo_downmix) -> каналы 2.0, выключен -> как в источнике;
+     * - перекодирование (audio_output_codec, audio_output_layout) -> audio_transcode и каналы.
+     * Усиление центра (center_gain_db) не переносится: его заменяет пресет микшера.
+     */
+    private fun migrateAudioOutput() {
+        if (prefs.contains("audio_passthrough")) return
+        val passthrough = getAudioDecoderPriority() != DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
+        val oldCodec = prefs.getInt("audio_output_codec", AUDIO_TRANSCODE_OFF)
+            .takeIf { it in AUDIO_TRANSCODE_OFF..AUDIO_TRANSCODE_EAC3 } ?: AUDIO_TRANSCODE_OFF
+        val channels = when {
+            oldCodec != AUDIO_TRANSCODE_OFF -> when (prefs.getInt("audio_output_layout", 0)) {
+                1 -> AudioMixerLogic.CHANNELS_51
+                2 -> AudioMixerLogic.CHANNELS_40
+                3 -> AudioMixerLogic.CHANNELS_20
+                else -> AudioMixerLogic.CHANNELS_SOURCE
+            }
+            prefs.getBoolean("stereo_downmix", true) -> AudioMixerLogic.CHANNELS_20
+            else -> AudioMixerLogic.CHANNELS_SOURCE
+        }
+        prefs.edit {
+            putBoolean("audio_passthrough", passthrough)
+            putInt("audio_transcode", oldCodec)
+            putInt("audio_output_channels", channels)
+            remove("stereo_downmix")
+            remove("audio_output_codec")
+            remove("audio_output_layout")
+            remove("center_gain_db")
+        }
+    }
+
+    // --- Режимы настроек звука: простой (аудиосистема и усиление голоса) и экспертный (все вручную) ---
+
+    fun isAudioExpertMode(): Boolean {
+        migrateAudioMode()
+        return prefs.getBoolean("audio_expert_mode", false)
+    }
+    fun setAudioExpertMode(enabled: Boolean) = prefs.edit { putBoolean("audio_expert_mode", enabled) }
+
+    // Аудиосистема простого режима (AudioProfileLogic.SYSTEM_*)
+    fun getAudioSystem(): Int {
+        migrateAudioMode()
+        return prefs.getInt("audio_system", AudioProfileLogic.SYSTEM_STEREO)
+    }
+    fun setAudioSystem(system: Int) = prefs.edit { putInt("audio_system", system) }
+
+    // Усиление голоса (центра) простого режима, дБ: 0 - выкл
+    fun getVoiceBoostDb(): Int {
+        migrateAudioMode()
+        return prefs.getInt("voice_boost_db", 0)
+    }
+    fun setVoiceBoostDb(db: Int) = prefs.edit { putInt("voice_boost_db", db) }
+
+    /** Ручные (экспертные) настройки звука. */
+    fun getExpertAudioConfig(): AudioProfileLogic.AudioConfig {
+        val upmix = isAudioUpmixEnabled()
+        return AudioProfileLogic.AudioConfig(
+            decoderPriority = getAudioDecoderPriority(),
+            passthrough = isAudioPassthroughEnabled(),
+            passthroughFormats = getAudioPassthroughFormats(),
+            hdAudioIec = isHdAudioIecEnabled(),
+            transcode = getAudioTranscode(),
+            outputChannels = getAudioOutputChannels(),
+            upmix = upmix,
+            generateLfe = upmix && isAudioGenerateLfeEnabled(),
+            mixParams = AudioMixerLogic.currentParams(this)
+        )
+    }
+
+    /**
+     * Настройки звука, по которым собирается плеер: ручные в экспертном режиме, иначе профиль аудиосистемы.
+     * @param canAc3 / [canEac3] выход принимает AC3 / E-AC3 битстримом (для перекодирования в простом режиме)
+     */
+    fun getAudioConfig(canAc3: Boolean, canEac3: Boolean): AudioProfileLogic.AudioConfig =
+        if (isAudioExpertMode()) getExpertAudioConfig()
+        else AudioProfileLogic.simpleConfig(getAudioSystem(), getVoiceBoostDb(), canAc3, canEac3)
+
+    /**
+     * Переход на режимы настроек звука: если ручные настройки совпадают с простым профилем (в том числе у новой
+     * установки), включается простой режим с этим профилем, иначе экспертный - чтобы поведение не поменялось.
+     */
+    private fun migrateAudioMode() {
+        if (prefs.contains("audio_expert_mode")) return
+        val standardPreset = getMixPreset() == AudioMixerLogic.MixPreset.STANDARD.id
+        val profile = AudioProfileLogic.matchSimpleProfile(getExpertAudioConfig(), standardPreset)
+        prefs.edit {
+            putBoolean("audio_expert_mode", profile == null)
+            if (profile != null) {
+                putInt("audio_system", profile.first)
+                putInt("voice_boost_db", profile.second)
+            }
+        }
+    }
+
+    // Скорость при битстриме: не спрашивать, а сразу выключать проброс до конца сеанса плеера
+    fun isSpeedPassthroughAutoEnabled(): Boolean = prefs.getBoolean("speed_passthrough_auto", false)
+    fun setSpeedPassthroughAutoEnabled(enabled: Boolean) = prefs.edit { putBoolean("speed_passthrough_auto", enabled) }
+
+    // Ручное увеличение при туннелировании: не спрашивать, а сразу выключать туннелирование до конца сеанса
+    fun isZoomTunnelingAutoEnabled(): Boolean = prefs.getBoolean("zoom_tunneling_auto", false)
+    fun setZoomTunnelingAutoEnabled(enabled: Boolean) = prefs.edit { putBoolean("zoom_tunneling_auto", enabled) }
 
     fun getMixPreset(): Int = prefs.getInt("mix_preset", 0)
     fun setMixPreset(id: Int) = prefs.edit { putInt("mix_preset", id) }
@@ -454,8 +596,9 @@ class SettingsRepository private constructor(context: Context) {
     fun getAppLanguage(): String = prefs.getString("app_language", LANG_SYSTEM_DEFAULT) ?: LANG_SYSTEM_DEFAULT
     fun setAppLanguage(langCode: String) = prefs.edit { putString("app_language", langCode) }
 
-    // Запоминание аудиодорожки (AUDIO_MEMORY_*): в плейлисте и (экспериментально) между разными видео
-    fun getAudioTrackMemoryMode(): Int = prefs.getInt("audio_track_memory", AUDIO_MEMORY_OFF)
+    // Запоминание аудиодорожки (AUDIO_MEMORY_*): в плейлисте и (экспериментально) между разными видео.
+    // По умолчанию - в пределах плейлиста: озвучка, выбранная в первой серии, остается в следующих
+    fun getAudioTrackMemoryMode(): Int = prefs.getInt("audio_track_memory", AUDIO_MEMORY_PLAYLIST)
     fun setAudioTrackMemoryMode(mode: Int) = prefs.edit { putInt("audio_track_memory", mode) }
 
     /**
@@ -670,6 +813,10 @@ class SettingsRepository private constructor(context: Context) {
 
     // Кнопка выхода (стрелка) в инфопанели для сенсорных экранов
     fun isBackButtonEnabled(): Boolean = prefs.getBoolean("show_back_button", false)
+
+    // Горизонтальный свайп не начинается в зоне системного жеста "Назад" (по умолчанию включено)
+    fun isSwipeEdgeExclusionEnabled(): Boolean = prefs.getBoolean("swipe_edge_exclusion", true)
+    fun setSwipeEdgeExclusionEnabled(enabled: Boolean) = prefs.edit { putBoolean("swipe_edge_exclusion", enabled) }
     fun setBackButtonEnabled(enabled: Boolean) = prefs.edit { putBoolean("show_back_button", enabled) }
 
     // Скрытые пользователем кнопки нижней панели. Храним скрытые, чтобы новые кнопки по умолчанию были видны
@@ -695,8 +842,10 @@ class SettingsRepository private constructor(context: Context) {
     // Сигнатура настроек, требующих полного перезапуска плеера
     fun getHardSettingsSignature(): String {
         val videoParams = "${getVideoDecoderPriority()}_${getAudioDecoderPriority()}_${isTunnelingEnabled()}_${getDvMode()}_${isHdAudioIecEnabled()}_${isHdr10PlusEnabled()}"
-        val audioDownmix = "${isStereoDownmixEnabled()}_${getMixPreset()}_${getMixFront()}_${getMixCenter()}_${getMixRear()}_${getMixMiddle()}_${getMixLfe()}"
-        return "${videoParams}_${audioDownmix}_${getTargetBufferCorrectMB()}"
+        val audioMix = "${getAudioOutputChannels()}_${isAudioUpmixEnabled()}_${isAudioGenerateLfeEnabled()}_${getMixPreset()}_${getMixFront()}_${getMixCenter()}_${getMixRear()}_${getMixMiddle()}_${getMixLfe()}"
+        val audioOutput = "${isAudioPassthroughEnabled()}_${getAudioPassthroughFormats().sorted()}_${getAudioTranscode()}" +
+            "_${isAudioExpertMode()}_${getAudioSystem()}_${getVoiceBoostDb()}"
+        return "${videoParams}_${audioMix}_${audioOutput}_${getTargetBufferCorrectMB()}"
     }
 
     // --- Global Preferences Helpers ---

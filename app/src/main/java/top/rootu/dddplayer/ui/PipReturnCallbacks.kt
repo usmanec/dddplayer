@@ -3,10 +3,9 @@ package top.rootu.dddplayer.ui
 import android.app.Activity
 import android.app.Application
 import android.os.Bundle
-import android.util.Log
 
 /**
- * Возврат видео из окна PiP, когда приложение открывают снаружи (лаунчер, "Недавние").
+ * Возврат видео из окна PiP или свернутого плеера, когда приложение открывают снаружи (лаунчер, "Недавние").
  * Лаунчер поднимает прежнюю задачу приложения (стартовый экран, настройки), а плеер в PiP живет
  * в отдельной задаче - без этого видео осталось бы в углу. Переходы между своими экранами не считаются:
  * новый экран запускается раньше, чем останавливается прежний.
@@ -18,8 +17,9 @@ class PipReturnCallbacks : Application.ActivityLifecycleCallbacks {
 
     override fun onActivityStarted(activity: Activity) {
         if (activity is PlayerActivity) return
-        Log.i("PlayerPip", "started ${activity.javaClass.simpleName} task=${activity.taskId} screens=$startedScreens")
-        if (startedScreens == 0) PlayerActivity.restorePictureInPicture()
+        // Плеер, свернутый кнопкой "Домой", тоже возвращаем. Если экран открыт из плеера (настройки),
+        // плеер в этот момент еще запущен (останавливается после старта нового экрана) - его не трогаем
+        if (startedScreens == 0) PlayerActivity.restorePlayer(activity)
         startedScreens++
     }
 

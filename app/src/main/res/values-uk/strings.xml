@@ -123,10 +123,8 @@
     <string name="decoder_only_device">Тільки декодери пристрою</string>
     <string name="pref_audio_decoder_sw_desc">Кодеки FFmpeg: vorbis, opus, flac, alac, pcm_mulaw, pcm_alaw, mp3, amrnb, amrwb, aac, ac3, eac3, dca (DTS), mlp, truehd</string>
     <string name="pref_auto_pip_desc">Автоматично відкривати невелике вікно з відео під час згортання застосунку, коли триває відтворення.</string>
-    <string name="pref_downmix">Downmix у стерео</string>
-    <string name="pref_downmix_desc">При використанні SW декодера, дозволяє перетворити багатоканальний звук у правильно¹ зміксоване стерео, що вирішує проблему з відсутністю голосу/перекладу (зазвичай на центральному каналі).\n¹ - Матриці для downmix розраховані аналогічно RFC 7845 (Section 5.1.1.5).</string>
-    <string name="pref_downmix_config">Корекція Downmix</string>
-    <string name="pref_downmix_config_desc">Ви можете змінити налаштування гучності аудіоканалів (фронт, центр, тили, бічні, сабвуфер) при downmix на свій смак.</string>
+    <string name="pref_downmix_config">Пресет мікшера</string>
+    <string name="pref_downmix_config_desc">Гучність каналів (фронт, центр, тили, бічні, сабвуфер): посилення голосу, нічний режим або свій варіант</string>
     <string name="pref_downmix_preset">Пресет:</string>
     <string name="pref_downmix_front">Фронт (L/R)</string>
     <string name="pref_downmix_center">Центр (Голос)</string>
@@ -199,6 +197,8 @@
     <string name="swipe_action_seek">Перемотування</string>
     <string name="swipe_action_playlist">Вихід або Попер./Наст.</string>
     <string name="swipe_action_exit_next">Вихід або Наст.</string>
+    <string name="pref_swipe_edge">Не починати свайп біля краю екрана</string>
+    <string name="pref_swipe_edge_desc">Горизонтальний свайп не починається в зоні системного жесту «Назад». Вимкніть, якщо свайп від краю не спрацьовує</string>
     <string name="pref_back_button">Кнопка «Назад» на екрані</string>
     <string name="pref_back_button_desc">Стрілка в інфопанелі для виходу з плеєра (для сенсорних екранів)</string>
     <string name="pref_control_buttons">Кнопки панелі керування</string>
@@ -460,12 +460,13 @@
     </string-array>
     <!-- Диагностика устройства -->
     <string name="pref_diagnostics">Діагностика пристрою</string>
-    <string name="pref_diagnostics_desc">Екран, HDR, аудіовихід і декодери. Звіт можна скопіювати для повідомлення про помилку</string>
+    <string name="pref_diagnostics_desc">Екран, HDR, аудіовихід, декодери та свіжий лог застосунку. Відкрийте одразу після проблеми й вивантажте: посилання чи QR можна додати до повідомлення про помилку</string>
     <string name="diag_sec_device">Пристрій</string>
     <string name="diag_sec_display">Екран</string>
     <string name="diag_sec_audio_out">Аудіовихід</string>
     <string name="diag_sec_video_dec">Відеодекодери</string>
     <string name="diag_sec_audio_dec">Аудіодекодери</string>
+    <string name="diag_sec_app_log">Лог застосунку (останні рядки)</string>
     <string name="diag_model">Модель</string>
     <string name="diag_app_version">Версія плеєра</string>
     <string name="diag_abi">Архітектура</string>
@@ -498,4 +499,58 @@
     <string name="pref_skip_silence_off">Відтворювати як є</string>
     <string name="pref_skip_silence_on">Пропускати фрагменти з тишею в аудіопотоці</string>
     <string name="pref_update_check">Перевірити оновлення</string>
+    <string name="audio_output_ac3">AC3 (Dolby Digital)</string>
+    <string name="audio_output_eac3">E-AC3 (Dolby Digital Plus)</string>
+    <string name="pref_leaks">Витоки пам\'яті (LeakCanary)</string>
+    <string name="pref_leaks_desc">Лише у налагоджувальній збірці: витоки, знайдені LeakCanary</string>
+    <!-- Вывод звука: проброс, перекодирование, микшер -->
+    <string name="audio_route_passthrough">пряма передача</string>
+    <string name="pref_group_passthrough">Пряма передача на ресивер</string>
+    <string name="pref_audio_passthrough">Пряма передача (бітстрім)</string>
+    <string name="pref_audio_passthrough_desc">Стиснений звук (AC3, DTS…) іде на ТВ або ресивер без змін і декодується там. Швидкість відтворення і мікшер до нього не застосовуються</string>
+    <string name="passthrough_device_formats">Вихід приймає: %1$s</string>
+    <string name="passthrough_device_none">Поточний вихід не повідомляє про підтримку бітстріму</string>
+    <string name="pref_passthrough_formats">Формати для прямої передачі</string>
+    <string name="pref_passthrough_formats_desc">Невідмічені формати декодує плеєр</string>
+    <string name="passthrough_format_unsupported">%1$s (вихід не підтримує)</string>
+    <string name="passthrough_formats_all">Усі</string>
+    <string name="pref_audio_transcode">Перекодувати для прямої передачі</string>
+    <string name="pref_audio_transcode_off_desc">Ні: декодований звук виводиться в PCM. AC3 або E-AC3: декодований багатоканальний звук перекодовується і йде бітстрімом, для ТВ і саундбарів через ARC та оптику (до 5.1)</string>
+    <string name="pref_audio_transcode_desc">Декодований багатоканальний звук перекодовується і йде бітстрімом, до 5.1. Стерео залишається в PCM. Швидкість відтворення не застосовується</string>
+    <string name="audio_transcode_off">Ні (PCM)</string>
+    <string name="pref_group_mixer">Мікшер</string>
+    <string name="pref_mixer_note">Працює лише для звуку, який декодує плеєр: вивід у PCM і перекодування в AC3/E-AC3. Формати для прямої передачі йдуть на ресивер без змін</string>
+    <string name="pref_audio_output_channels">Канали на виході</string>
+    <string name="audio_channels_source">Як у джерелі</string>
+    <string name="pref_audio_output_channels_pcm">Зараз: PCM до %1$s. Зайві канали зводяться, 2.0 — стерео за RFC 7845</string>
+    <string name="pref_audio_output_channels_transcode">Зараз: багатоканальний звук у %1$s до %2$s, стерео в PCM</string>
+    <string name="pref_audio_upmix">Розширювати до вибраної розкладки</string>
+    <string name="pref_audio_upmix_desc">Звук із меншою кількістю каналів розноситься на всі колонки: центр із фронтів, тили з фронтів або сусідніх каналів. Проста матриця, не Dolby Pro Logic</string>
+    <string name="pref_audio_generate_lfe">Створювати канал сабвуфера (LFE)</string>
+    <string name="pref_audio_generate_lfe_desc">Створює канал сабвуфера, лише якщо його немає в джерелі: під час розширення до 5.1/7.1 бас усіх каналів нижче 120 Гц іде й у сабвуфер. LFE джерела залишається як є. Рівень — повзунок LFE у пресеті мікшера</string>
+    <string name="mix_db_format">%1$s дБ</string>
+    <string name="pref_audio_expert">Експертні налаштування звуку</string>
+    <string name="pref_audio_expert_desc">Вручну: декодер, пряма передача і формати, перекодування, канали й мікшер. Вимк — достатньо вибрати аудіосистему</string>
+    <string name="pref_audio_system">Аудіосистема</string>
+    <string name="audio_system_stereo">Стерео</string>
+    <string name="audio_system_multichannel">Багатоканальна</string>
+    <string name="audio_system_stereo_desc">ТВ, навушники, саундбар 2.0: звук декодує плеєр, багатоканальний зводиться в стерео</string>
+    <string name="audio_system_multichannel_desc">Ресивер або саундбар 5.1+ через HDMI. Формати, які приймає вихід (%1$s), ідуть на нього без змін, решта багатоканального звуку перекодовується в %2$s, стерео — у PCM</string>
+    <string name="audio_system_multichannel_transcode_desc">Ресивер або саундбар 5.1+ через HDMI. Увесь багатоканальний звук перекодовується в %1$s, стерео — у PCM</string>
+    <string name="audio_system_multichannel_voice_desc">Ресивер або саундбар 5.1+ через HDMI. З посиленням голосу весь багатоканальний звук перекодовується в %1$s 5.1, без змін на ресивер нічого не йде</string>
+    <string name="audio_system_multichannel_pcm_desc">Ресивер або саундбар 5.1+ через HDMI. Вихід не приймає AC3 і E-AC3: формати, які він приймає, ідуть без змін, решта — у PCM</string>
+    <string name="pref_voice_boost">Посилення голосу</string>
+    <string name="pref_voice_boost_desc">Гучніший центральний канал: діалоги й переклад</string>
+    <string name="pref_voice_boost_multichannel_desc">Гучніший центральний канал: діалоги й переклад. Увімкнено — весь багатоканальний звук перекодовується в %1$s</string>
+    <string name="pref_audio_decoder_passthrough_note">На пряму передачу не впливає: визначає, хто декодує те, що не передається напряму</string>
+    <!-- Выключение проброса и туннелирования на сеанс плеера -->
+    <string name="dont_show_again">Більше не показувати (вимикати одразу)</string>
+    <string name="session_speed_title">Швидкість і пряма передача</string>
+    <string name="session_speed_message">Звук іде на ресивер бітстрімом (пряма передача або AC3/E-AC3), а бітстрім не можна прискорити чи сповільнити. Щоб змінити швидкість, пряма передача вимкнеться до виходу з плеєра, а звук буде перетворено на стерео (PCM 2.0). Скасування залишить 1.00x.</string>
+    <string name="session_zoom_title">Масштаб і тунелювання</string>
+    <string name="session_zoom_message">Відео йде через тунелювання: кадр виводить сама система, і ручне збільшення не застосовується. Щоб масштаб запрацював, тунелювання вимкнеться до виходу з плеєра (плеєр перезапуститься з того ж місця). Скасування поверне попередній режим.</string>
+    <string name="pref_speed_passthrough_auto">Змінювати швидкість без запитання</string>
+    <string name="pref_speed_passthrough_auto_desc">Вимк: питати. Увімк: зміна швидкості під час прямої передачі або виводу в AC3/E-AC3 одразу вимикає пряму передачу до виходу з плеєра, звук перетворюється на стерео (PCM 2.0)</string>
+    <string name="pref_zoom_tunneling_auto">Масштабувати без запитання</string>
+    <string name="pref_zoom_tunneling_auto_desc">Вимк: питати. Увімк: ручне збільшення одразу вимикає тунелювання до виходу з плеєра (плеєр перезапуститься з того ж місця)</string>
 </resources>

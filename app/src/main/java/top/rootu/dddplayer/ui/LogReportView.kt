@@ -3,7 +3,6 @@ package top.rootu.dddplayer.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.graphics.BitmapFactory
 import android.util.Log
 import android.view.View
 import android.widget.Button
@@ -18,13 +17,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.logic.LogUploadCache
+import top.rootu.dddplayer.utils.QrBitmap
 import java.io.OutputStreamWriter
 import java.net.Socket
-import java.net.URL
-import java.net.URLEncoder
 
 /**
- * Экран лога (layout dialog_error_log): текст, выгрузка на termbin.com со ссылкой и QR-кодом
+ * Экран лога (layout dialog_error_log): текст, выгрузка на termbin.com со ссылкой и QR-кодом (QR рисуется локально, QrBitmap)
  * (удобно на ТВ: сфотографировать телефоном), копирование долгим нажатием.
  * Последняя выгрузка кешируется (LogUploadCache): тот же текст сразу показывает прошлую ссылку и QR.
  * Используется экраном фатальной ошибки (CrashActivity) и диагностикой устройства (DeviceInfoActivity).
@@ -143,12 +141,10 @@ class LogReportView(
 
     private fun loadQrCode(content: String) {
         activity.lifecycleScope.launch {
-            val bitmap = withContext(Dispatchers.IO) {
+            // QR рисуем сами: внешний сервис не нужен, и ссылка на лог никуда не уходит
+            val bitmap = withContext(Dispatchers.Default) {
                 try {
-                    val data = URLEncoder.encode(content, "UTF-8")
-                    URL("https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=$data").openStream().use {
-                        BitmapFactory.decodeStream(it)
-                    }
+                    QrBitmap.create(content)
                 } catch (e: Exception) {
                     Log.w(TAG, "QR code failed", e)
                     null

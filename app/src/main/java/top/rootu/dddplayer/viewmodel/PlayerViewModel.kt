@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.AndroidViewModel
@@ -81,6 +82,9 @@ data class VideoQualityOption(
     val isAuto: Boolean = false
 )
 
+/** Вопрос "выключить на этот сеанс плеера": скорость при битстриме, масштаб при туннелировании. */
+enum class SessionPrompt { SPEED_BITSTREAM, ZOOM_TUNNELING }
+
 // Обертка для одноразовых событий LiveData
 open class Event<out T>(private val content: T) {
     var hasBeenHandled = false
@@ -108,6 +112,12 @@ const val SUBTITLE_MENU_LOAD_FILE = "load_file"
 // Пункт "Своя скорость" в меню скорости
 const val SPEED_MENU_CUSTOM = "custom_speed"
 
+// Сторож зависшей загрузки: сколько ждать роста буфера и сколько раз переподключаться подряд
+private const val STALL_TIMEOUT_MS = 20_000L
+private const val MAX_STALL_RECONNECTS = 3
+// Данных впереди больше - буферизация не из-за сети (медленный декодер), переподключение не поможет
+private const val STALL_MAX_BUFFERED_AHEAD_MS = 5_000L
+
 class PlayerViewModel(application: Application) : AndroidViewModel(application) {
 
     private var ioRetryCount = 0
@@ -128,6 +138,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     // --- LiveData ---
     private val _isPlaying = MutableLiveData<Boolean>()
     val isPlaying: LiveData<Boolean> = _isPlaying
+    // Значок кнопки "плей/пауза" - намерение пользователя (playWhenReady), а не isPlaying: тот гаснет на каждой
+    // буферизации, и при колеблющемся буфере значок мигал. Во время буферизации можно поставить на паузу
+    private val _playIntent = MutableLiveData(false)
+    val playIntent: LiveData<Boolean> = _playIntent
     private val _afrTriggerEvent = MutableLiveData<Format>()
     val afrTriggerEvent: LiveData<Format> = _afrTriggerEvent
 
@@ -185,6 +199,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     val videoResolution: LiveData<String> = _videoResolution
     private val _tunnelingActive = MutableLiveData(false)
     val tunnelingActive: LiveData<Boolean> = _tunnelingActive
+    // Вопрос о выключении проброса или туннелирования на сеанс; null - диалога нет
+    private val _sessionPrompt = MutableLiveData<SessionPrompt?>()
+    val sessionPrompt: LiveData<SessionPrompt?> = _sessionPrompt
+    // Режим масштаба до ручного увеличения: к нему возвращаемся, если туннелирование оставили
+    private var zoomRevertMode = ResizeMode.FIT
     // Соотношение сторон для отображения: принудительное (если выбрано) или из видео
     private val _videoAspectRatio = MutableLiveData(1.777f)
     val videoAspectRatio: LiveData<Float> = _videoAspectRatio
@@ -274,6 +293,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private var audioChoicePendingStat = false
     // Дорожка, выбранная пользователем в текущем плейлисте (для следующих элементов)
     private var sessionAudioSignature: String? = null
+    // Субтитры (или "выключены"), выбранные пользователем в текущем плейлисте: для следующих элементов
+    private var sessionSubtitleSignature: String? = null
     // Дорожка для текущего видео уже определена (сохраненная, выбранная или найденная среди последних)
     private var audioTrackResolved = false
     // Субтитры для текущего видео уже выбраны (сохраненные, пользователем или автовключением)
@@ -331,9 +352,72 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     // Храним хэш настроек при старте
     private var lastSettingsHash = repository.getHardSettingsSignature()
 
+    // Сторож зависшей загрузки: буфер не растет при буферизации - переоткрываем соединение
+    private var stallBufferedPos = -1L
+    private var stallSinceMs = 0L
+    private var stallReconnects = 0
+
+    // Диагностика буферизации для лога: когда началась и сколько данных было впереди
+    private var bufferingSinceMs = 0L
+    private var bufferingStartBufferedPos = 0L
+
+    /**
+     * После долгой паузы сервер (TorrServer) или роутер молча закрывает соединение, и плеер ждет данных
+     * из мертвого сокета до тайм-аута чтения (120 с), а то и дольше. Помогала только перемотка за буфер.
+     * Если при буферизации буфер не растет [STALL_TIMEOUT_MS], перезагружаем видео с текущей позиции,
+     * как при сетевой ошибке. Перемотка на текущую позицию не помогает: она остается внутри буфера,
+     * и загрузчик продолжает ждать на старом соединении.
+     * Только при пустом буфере впереди: если данные есть, а плеер ждет декодер (программный AV1
+     * после перемотки декодирует от ключевого кадра), перемотка сбросила бы буфер и начала все заново.
+     */
+    private fun checkLoadingStall(p: Player) {
+        val stalled = p.playbackState == Player.STATE_BUFFERING && p.playWhenReady && !p.isCurrentMediaItemLive &&
+            p.currentMediaItem?.localConfiguration?.uri?.scheme?.startsWith("http") == true &&
+            p.bufferedPosition - p.currentPosition < STALL_MAX_BUFFERED_AHEAD_MS
+        val now = SystemClock.elapsedRealtime()
+        if (!stalled) {
+            stallBufferedPos = -1L
+            if (p.playbackState == Player.STATE_READY) stallReconnects = 0
+            return
+        }
+        if (p.bufferedPosition != stallBufferedPos) {
+            stallBufferedPos = p.bufferedPosition
+            stallSinceMs = now
+            return
+        }
+        if (now - stallSinceMs < STALL_TIMEOUT_MS || stallReconnects >= MAX_STALL_RECONNECTS) return
+        stallReconnects++
+        stallSinceMs = now
+        Log.w("PlayerViewModel", "Loading stalled for ${STALL_TIMEOUT_MS / 1000}s, reconnecting ($stallReconnects/$MAX_STALL_RECONNECTS)")
+        val items = (0 until p.mediaItemCount).map { p.getMediaItemAt(it) }
+        // То же видео перезагружается: настройки и счетчики не сбрасываем
+        isRecoveringFromError = true
+        keepTracksAcrossReload()
+        playerManager.reloadMediaItems(items, p.currentMediaItemIndex, p.currentPosition)
+    }
+
+    /**
+     * Строка в лог приложения о каждой буферизации: сколько длилась, сколько данных было впереди и сколько
+     * догрузилось. По ней видно, ждал ли плеер сеть (буфер не рос - мертвое соединение, рос медленно -
+     * медленный источник, например TorrServer после паузы) или декодер (данные были).
+     */
+    private fun logBuffering(playbackState: Int) {
+        val p = player ?: return
+        val now = SystemClock.elapsedRealtime()
+        if (playbackState == Player.STATE_BUFFERING && bufferingSinceMs == 0L) {
+            bufferingSinceMs = now
+            bufferingStartBufferedPos = p.bufferedPosition
+            Log.i("PlayerViewModel", "Buffering at ${p.currentPosition / 1000} s, ahead ${(p.bufferedPosition - p.currentPosition) / 1000} s, loading=${p.isLoading}")
+        } else if (playbackState != Player.STATE_BUFFERING && bufferingSinceMs != 0L) {
+            Log.i("PlayerViewModel", "Buffering ended after ${(now - bufferingSinceMs) / 1000} s, loaded +${(p.bufferedPosition - bufferingStartBufferedPos) / 1000} s")
+            bufferingSinceMs = 0L
+        }
+    }
+
     private val progressUpdater = object : Runnable {
         override fun run() {
             val p = playerManager.exoPlayer ?: return
+            checkLoadingStall(p)
             if (p.isPlaying || p.isLoading) {
                 if (!isUserInteracting) {
                     _currentPosition.value = p.currentPosition
@@ -368,10 +452,23 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         _bufferedPercentage.value = percent
     }
 
+    /** Пользователь хочет, чтобы видео шло: play нажат, и видео не закончилось и не остановлено ошибкой. */
+    private fun isPlayIntent(p: Player): Boolean =
+        p.playWhenReady && p.playbackState != Player.STATE_ENDED && p.playbackState != Player.STATE_IDLE
+
+    private fun updatePlayIntent() {
+        val intent = player?.let { isPlayIntent(it) } ?: false
+        if (_playIntent.value != intent) _playIntent.value = intent
+    }
+
     private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             _isPlaying.value = isPlaying
             updateProgressUpdaterState()
+        }
+
+        override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+            updatePlayIntent()
         }
 
         // На паузе буфер продолжает загружаться: обновляем его, пока идет загрузка
@@ -381,6 +478,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
         override fun onPlaybackStateChanged(playbackState: Int) {
             _isBuffering.value = (playbackState == Player.STATE_BUFFERING)
+            updatePlayIntent()
+            logBuffering(playbackState)
             if (playbackState == Player.STATE_READY) {
                 ioRetryCount = 0 // Сброс счетчика, если видео успешно заиграло
                 _duration.value = player?.duration
@@ -405,6 +504,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             }
             _fatalError.postValue(error)
             _isPlaying.postValue(false)
+            _playIntent.postValue(false)
         }
 
         override fun onMediaItemTransition(mediaItem: Media3MediaItem?, reason: Int) {
@@ -440,7 +540,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         ) {
             if (reason == Player.DISCONTINUITY_REASON_SEEK) {
                 // При перемотке просто останавливаем текущий процесс детекции, если он был запущен.
-                fpsDetector.stop(player)
+                fpsDetector.stop()
             }
         }
     }
@@ -458,6 +558,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             _playerRecreatedEvent.postValue(newPlayer)
             // Принудительно обновляем UI состояние
             _isPlaying.postValue(newPlayer.isPlaying)
+            _playIntent.postValue(isPlayIntent(newPlayer))
             _duration.postValue(newPlayer.duration)
         }
 
@@ -474,8 +575,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
         playerManager.onAudioOutputFormatChanged = { info ->
             _audioOutputInfo.postValue(info)
+            // Скорость по умолчанию не 1x, а дорожка пошла битстримом
+            handler.post { checkSessionConflicts() }
         }
-        playerManager.onTunnelingChanged = { _tunnelingActive.postValue(it) }
+        playerManager.onTunnelingChanged = {
+            _tunnelingActive.postValue(it)
+            handler.post { checkSessionConflicts() }
+        }
         playerManager.onStopRequested = { _closeRequested.value = Event(Unit) }
 
         // Инициализируем плеер сразу
@@ -553,6 +659,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
                 // Переподготавливаем плеер и возвращаем его на то же место
                 isRecoveringFromError = true
+                keepTracksAcrossReload()
                 playerManager.reloadMediaItems(newItems, currentIndex, currentPos)
                 return true
             }
@@ -598,6 +705,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
                     // Полностью перезагружаем плейлист в плеер
                     isRecoveringFromError = true
+                    keepTracksAcrossReload()
                     playerManager.reloadMediaItems(newItems, currentIndex, currentPos)
 
                     return true // Успешно перехватили и исправили
@@ -649,7 +757,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun handleMediaItemTransition(mediaItem: Media3MediaItem?) {
         afrAppliedForCurrentItem = false
-        fpsDetector.stop(player)
+        fpsDetector.stop()
         fpsDetector.reset() // Сброс для нового видео
 
         // Сбрасываем отложенные ID дорожек при переходе на новое видео
@@ -1010,6 +1118,20 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }
         }
+        // Субтитры, выбранные пользователем в этом плейлисте (форсированные, язык или "выкл"): важнее
+        // автовключения, но не сохраненных для видео. Ждем дорожки субтитров, если ищем включенные
+        val sessionSubs = sessionSubtitleSignature
+        if (!subtitleResolved && videoSettingsChecked && pendingSubtitleId == null && pendingSubtitleLabel == null &&
+            sessionSubs != null && (sessionSubs == TrackLogic.SUBTITLE_OFF || subtitleOptions.any { !it.isOff })
+        ) {
+            TrackLogic.findSubtitleIndex(subtitleOptions, sessionSubs)?.let { idx ->
+                subtitleResolved = true
+                if (idx != finalSubIdx) {
+                    finalSubIdx = idx
+                    selectTrackByIndex(C.TRACK_TYPE_TEXT, idx)
+                }
+            }
+        }
         // Автовключение субтитров по настройке: один раз на видео, если субтитры не сохранены для него.
         // Ждем появления дорожек субтитров: в HLS они могут прийти позже видео и звука
         if (!subtitleResolved && videoSettingsChecked && pendingSubtitleId == null && pendingSubtitleLabel == null &&
@@ -1074,6 +1196,51 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private fun applyPlaybackSpeed(speed: Float) {
         _playbackSpeed.value = speed
         player?.setPlaybackSpeed(speed)
+        checkSessionConflicts()
+    }
+
+    /**
+     * Битстрим не ускоряется (выход отдает его как есть), а при туннелировании кадр выводит аппаратный
+     * композитор мимо трансформаций View, и ручное увеличение не работает. Предлагаем выключить проброс
+     * или туннелирование до конца сеанса плеера, а с "больше не показывать" - выключаем сразу.
+     */
+    private fun checkSessionConflicts() {
+        if (_sessionPrompt.value != null) return
+        val speedConflict = (_playbackSpeed.value ?: 1f) != 1f && playerManager.isDirectAudioOutput &&
+            !playerManager.bitstreamDisabledForSession
+        val zoomConflict = _resizeMode.value == ResizeMode.SCALE && _tunnelingActive.value == true &&
+            !playerManager.tunnelingDisabledForSession
+        when {
+            speedConflict && repository.isSpeedPassthroughAutoEnabled() -> resolveSessionPrompt(SessionPrompt.SPEED_BITSTREAM, true, false)
+            speedConflict -> _sessionPrompt.value = SessionPrompt.SPEED_BITSTREAM
+            zoomConflict && repository.isZoomTunnelingAutoEnabled() -> resolveSessionPrompt(SessionPrompt.ZOOM_TUNNELING, true, false)
+            zoomConflict -> _sessionPrompt.value = SessionPrompt.ZOOM_TUNNELING
+        }
+    }
+
+    /**
+     * Ответ на вопрос о сеансе. [accept] - выключить проброс (туннелирование) до конца сеанса и пересоздать
+     * плеер, иначе вернуть скорость 1x (прежний масштаб). [dontAskAgain] - дальше выключать без вопроса.
+     */
+    fun resolveSessionPrompt(prompt: SessionPrompt, accept: Boolean, dontAskAgain: Boolean) {
+        _sessionPrompt.value = null
+        when (prompt) {
+            SessionPrompt.SPEED_BITSTREAM -> if (accept) {
+                if (dontAskAgain) repository.setSpeedPassthroughAutoEnabled(true)
+                playerManager.bitstreamDisabledForSession = true
+                restartPlayer()
+            } else {
+                setPlaybackSpeed(1.0f)
+            }
+            SessionPrompt.ZOOM_TUNNELING -> if (accept) {
+                if (dontAskAgain) repository.setZoomTunnelingAutoEnabled(true)
+                playerManager.tunnelingDisabledForSession = true
+                _tunnelingActive.value = false
+                restartPlayer()
+            } else {
+                setResizeMode(zoomRevertMode)
+            }
+        }
     }
 
     /** Своя скорость с ползунка: запоминаем и сразу применяем. */
@@ -1085,11 +1252,18 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun getCustomPlaybackSpeed(): Float = repository.getCustomPlaybackSpeed()
 
+    /** Быстрое переключение с пульта: на 1.00x - своя скорость, на любой другой - 1.00x. */
+    fun toggleCustomSpeed() {
+        setPlaybackSpeed(if ((_playbackSpeed.value ?: 1.0f) == 1.0f) repository.getCustomPlaybackSpeed() else 1.0f)
+    }
+
     /** Скорость по умолчанию (долгое нажатие в меню скорости). */
     fun setDefaultPlaybackSpeed(speed: Float) = repository.setDefaultPlaybackSpeed(speed)
 
     fun setResizeMode(mode: ResizeMode) {
+        if (mode == ResizeMode.SCALE && _resizeMode.value != ResizeMode.SCALE) zoomRevertMode = _resizeMode.value ?: ResizeMode.FIT
         _resizeMode.value = mode
+        checkSessionConflicts()
         // Если включено запоминание - сохраняем
         if (repository.isRememberZoomEnabled()) {
             repository.setGlobalResizeMode(mode.ordinal)
@@ -1100,7 +1274,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         val newScale = percent.coerceIn(100, 200) // Ограничиваем от 100% до 200%
         repository.setZoomScalePercent(newScale)
         _zoomScale.value = newScale
+        if (_resizeMode.value != ResizeMode.SCALE) zoomRevertMode = _resizeMode.value ?: ResizeMode.FIT
         _resizeMode.value = ResizeMode.SCALE
+        checkSessionConflicts()
         // Если включено запоминание - сохраняем режим SCALE
         if (repository.isRememberZoomEnabled()) {
             repository.setGlobalResizeMode(ResizeMode.SCALE.ordinal)
@@ -1150,7 +1326,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         val startItem = indexedItems.getOrNull(startIndex)
         var startPos = startItem?.startPositionMs ?: 0L
         pendingExternalPosition = null
-        sessionAudioSignature = null // Новый плейлист - выбор дорожки начинается заново
+        sessionAudioSignature = null // Новый плейлист - выбор дорожек начинается заново
+        sessionSubtitleSignature = null
         isFirstItemLoaded = false // Продолжение просмотра - для первого элемента нового плейлиста
         if (startItem != null && startPos > 0 &&
             repository.getExternalPositionMode() == SettingsRepository.EXTERNAL_POSITION_ASK
@@ -1632,6 +1809,18 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    /**
+     * Перед перезагрузкой того же видео (сторож зависания, восстановление после ошибки): выбор дорожки держится
+     * на TrackGroup старого источника, у нового они другие, и без повторного выбора плеер включил бы дорожку
+     * по умолчанию (озвучка "слетала" после перемотки). Дорожки применятся заново по id в updateTracksInfo.
+     */
+    private fun keepTracksAcrossReload() {
+        _currentAudioTrack.value?.takeIf { !it.isOff }?.format?.id?.let { pendingAudioId = it }
+        _currentSubtitleTrack.value?.let { sub ->
+            (if (sub.isOff) "disabled" else sub.format?.id)?.let { pendingSubtitleId = it }
+        }
+    }
+
     private fun findRememberedAudioTrackIndex(): Int? {
         val mode = repository.getAudioTrackMemoryMode()
         if (mode == SettingsRepository.AUDIO_MEMORY_OFF) return null
@@ -1675,7 +1864,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 currentAudioIndex = index
                 _currentAudioTrack.value = option
             } else {
-                if (fromUser) subtitleResolved = true
+                if (fromUser) {
+                    subtitleResolved = true
+                    sessionSubtitleSignature = TrackLogic.subtitleTrackSignature(option)
+                }
                 currentSubtitleIndex = index
                 _currentSubtitleTrack.value = option
             }
@@ -1994,6 +2186,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun restartPlayer() {
+        // Слушатель кадров детектора FPS не должен оставаться на старом плеере
+        fpsDetector.stop()
         // Сохраняем текущее состояние перед пересозданием
         playerManager.releasePlayer(isFinalRelease = false, saveState = true)
         playerManager.initializePlayer()
@@ -2006,6 +2200,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     override fun onCleared() {
         super.onCleared()
         handler.removeCallbacks(progressUpdater)
+        fpsDetector.stop()
         playerManager.releasePlayer(isFinalRelease = true, saveState = false)
     }
 }

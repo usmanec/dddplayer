@@ -125,10 +125,8 @@
     <string name="decoder_only_device">仅使用设备解码器</string>
     <string name="pref_audio_decoder_sw_desc">FFmpeg 编解码器：vorbis, opus, flac, alac, pcm_mulaw, pcm_alaw, mp3, amrnb, amrwb, aac, ac3, eac3, dca (DTS), mlp, truehd</string>
     <string name="pref_auto_pip_desc">播放期间将应用最小化时，自动打开视频小窗。</string>
-    <string name="pref_downmix">缩混至立体声</string>
-    <string name="pref_downmix_desc">使用 SW 解码器时，可将多声道音频正确¹混合为立体声，解决人声/配音缺失问题（通常存在于中置声道）。\n¹ - 缩混矩阵的计算类似于 RFC 7845（第 5.1.1.5 节）。</string>
-    <string name="pref_downmix_config">缩混校正</string>
-    <string name="pref_downmix_config_desc">您可以根据喜好调整缩混的音频声道音量（前置、中置、后置、侧置、低音炮）。</string>
+    <string name="pref_downmix_config">混音预设</string>
+    <string name="pref_downmix_config_desc">声道音量（前置、中置、后置、侧置、低音炮）：人声增强、夜间模式或自定义</string>
     <string name="pref_downmix_preset">预设：</string>
     <string name="pref_downmix_front">前置 (L/R)</string>
     <string name="pref_downmix_center">中置（人声）</string>
@@ -206,6 +204,8 @@
     <string name="swipe_action_seek">快进/快退</string>
     <string name="swipe_action_playlist">退出或上一个/下一个</string>
     <string name="swipe_action_exit_next">退出或下一个</string>
+    <string name="pref_swipe_edge">忽略从屏幕边缘开始的滑动</string>
+    <string name="pref_swipe_edge_desc">水平滑动不会从系统返回手势区域开始。如果从边缘滑动无效，请关闭此项</string>
     <string name="pref_back_button">屏幕返回按钮</string>
     <string name="pref_back_button_desc">在信息面板中显示退出播放器的箭头（适用于触摸屏）</string>
     <string name="pref_control_buttons">控制栏按钮</string>
@@ -474,12 +474,13 @@
     </string-array>
     <!-- Диагностика устройства -->
     <string name="pref_diagnostics">设备诊断</string>
-    <string name="pref_diagnostics_desc">显示屏、HDR、音频输出和解码器。可复制报告用于反馈问题</string>
+    <string name="pref_diagnostics_desc">显示屏、HDR、音频输出、解码器和最近的应用日志。出现问题后立即打开并上传：可将链接或二维码附在问题反馈中</string>
     <string name="diag_sec_device">设备</string>
     <string name="diag_sec_display">显示屏</string>
     <string name="diag_sec_audio_out">音频输出</string>
     <string name="diag_sec_video_dec">视频解码器</string>
     <string name="diag_sec_audio_dec">音频解码器</string>
+    <string name="diag_sec_app_log">应用日志（最近的行）</string>
     <string name="diag_model">型号</string>
     <string name="diag_app_version">播放器版本</string>
     <string name="diag_abi">架构</string>
@@ -500,4 +501,58 @@
     <string name="track_number">音轨 %1$d</string>
     <string name="storage_permission_denied">没有存储权限，部分文件可能无法播放。</string>
     <string name="update_no_changelog">未提供更新日志。</string>
+    <string name="audio_output_ac3">AC3 (Dolby Digital)</string>
+    <string name="audio_output_eac3">E-AC3 (Dolby Digital Plus)</string>
+    <string name="pref_leaks">内存泄漏 (LeakCanary)</string>
+    <string name="pref_leaks_desc">仅限调试版本：LeakCanary 发现的泄漏</string>
+    <!-- Вывод звука: проброс, перекодирование, микшер -->
+    <string name="audio_route_passthrough">直通</string>
+    <string name="pref_group_passthrough">直通到功放</string>
+    <string name="pref_audio_passthrough">直通（比特流）</string>
+    <string name="pref_audio_passthrough_desc">压缩音频（AC3、DTS…）原样发送到电视或功放并在那里解码。播放速度和混音器对其无效</string>
+    <string name="passthrough_device_formats">输出支持：%1$s</string>
+    <string name="passthrough_device_none">当前输出未报告支持比特流</string>
+    <string name="pref_passthrough_formats">直通格式</string>
+    <string name="pref_passthrough_formats_desc">未勾选的格式由播放器解码</string>
+    <string name="passthrough_format_unsupported">%1$s（输出不支持）</string>
+    <string name="passthrough_formats_all">全部</string>
+    <string name="pref_audio_transcode">重新编码以直通</string>
+    <string name="pref_audio_transcode_off_desc">否：解码后的音频以 PCM 输出。AC3 或 E-AC3：解码后的多声道音频重新编码并以比特流发送，适用于通过 ARC 或光纤连接的电视和回音壁（最多 5.1）</string>
+    <string name="pref_audio_transcode_desc">解码后的多声道音频重新编码并以比特流发送，最多 5.1。立体声保持 PCM。播放速度不适用</string>
+    <string name="audio_transcode_off">否（PCM）</string>
+    <string name="pref_group_mixer">混音器</string>
+    <string name="pref_mixer_note">仅对播放器解码的音频有效：PCM 输出和重新编码为 AC3/E-AC3。直通格式原样发送到功放</string>
+    <string name="pref_audio_output_channels">输出声道</string>
+    <string name="audio_channels_source">与源相同</string>
+    <string name="pref_audio_output_channels_pcm">当前：PCM 最多 %1$s。多余声道会被缩混，2.0 为 RFC 7845 立体声</string>
+    <string name="pref_audio_output_channels_transcode">当前：多声道音频为 %1$s 最多 %2$s，立体声为 PCM</string>
+    <string name="pref_audio_upmix">扩展到所选声道布局</string>
+    <string name="pref_audio_upmix_desc">声道较少的音频分配到所有扬声器：中置取自前置，环绕取自前置或相邻声道。简单矩阵，并非 Dolby Pro Logic</string>
+    <string name="pref_audio_generate_lfe">生成低音炮声道（LFE）</string>
+    <string name="pref_audio_generate_lfe_desc">仅当源中没有低音炮声道时才生成：扩展到 5.1/7.1 时，所有声道中 120 Hz 以下的低音也会送往低音炮。源自带的 LFE 保持不变。电平由混音预设中的 LFE 滑块控制</string>
+    <string name="mix_db_format">%1$s dB</string>
+    <string name="pref_audio_expert">专家音频设置</string>
+    <string name="pref_audio_expert_desc">手动设置解码器、直通与格式、重新编码、声道和混音器。关闭时只需选择音频系统</string>
+    <string name="pref_audio_system">音频系统</string>
+    <string name="audio_system_stereo">立体声</string>
+    <string name="audio_system_multichannel">多声道</string>
+    <string name="audio_system_stereo_desc">电视、耳机、2.0 回音壁：由播放器解码，多声道缩混为立体声</string>
+    <string name="audio_system_multichannel_desc">通过 HDMI 连接的功放或 5.1+ 回音壁。输出支持的格式（%1$s）原样发送，其余多声道音频重新编码为 %2$s，立体声为 PCM</string>
+    <string name="audio_system_multichannel_transcode_desc">通过 HDMI 连接的功放或 5.1+ 回音壁。所有多声道音频重新编码为 %1$s，立体声为 PCM</string>
+    <string name="audio_system_multichannel_voice_desc">通过 HDMI 连接的功放或 5.1+ 回音壁。启用人声增强时，所有多声道音频重新编码为 %1$s 5.1，不再原样发送</string>
+    <string name="audio_system_multichannel_pcm_desc">通过 HDMI 连接的功放或 5.1+ 回音壁。输出不支持 AC3 和 E-AC3：支持的格式原样发送，其余为 PCM</string>
+    <string name="pref_voice_boost">人声增强</string>
+    <string name="pref_voice_boost_desc">增大中置声道音量：对白和翻译</string>
+    <string name="pref_voice_boost_multichannel_desc">增大中置声道音量：对白和翻译。开启后所有多声道音频重新编码为 %1$s</string>
+    <string name="pref_audio_decoder_passthrough_note">不影响直通：决定由谁解码未直通的音频</string>
+    <!-- Выключение проброса и туннелирования на сеанс плеера -->
+    <string name="dont_show_again">不再显示（直接关闭）</string>
+    <string name="session_speed_title">速度与直通</string>
+    <string name="session_speed_message">音频以比特流发送到功放（直通或 AC3/E-AC3），比特流无法加速或减速。要更改速度，将在退出播放器前关闭直通，音频将转换为立体声（PCM 2.0）。取消则保持 1.00x。</string>
+    <string name="session_zoom_title">缩放与隧道模式</string>
+    <string name="session_zoom_message">视频通过隧道模式输出：画面由系统直接绘制，自定义缩放无效。要使用缩放，将在退出播放器前关闭隧道模式（播放器从当前位置重新启动）。取消则恢复之前的模式。</string>
+    <string name="pref_speed_passthrough_auto">更改速度时不询问</string>
+    <string name="pref_speed_passthrough_auto_desc">关：先询问。开：在直通或 AC3/E-AC3 输出时更改速度，将直接关闭直通直到退出播放器，音频转换为立体声（PCM 2.0）</string>
+    <string name="pref_zoom_tunneling_auto">缩放时不询问</string>
+    <string name="pref_zoom_tunneling_auto_desc">关：先询问。开：自定义缩放将直接关闭隧道模式直到退出播放器（播放器从当前位置重新启动）</string>
 </resources>

@@ -24,6 +24,7 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.decoder.av1.Libdav1dVideoRenderer
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.Renderer
@@ -32,6 +33,7 @@ import androidx.media3.exoplayer.audio.AudioRendererEventListener
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.AudioTrackAudioOutputProvider
 import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer
 import androidx.media3.exoplayer.hls.DefaultHlsExtractorFactory
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
@@ -59,8 +61,10 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import top.rootu.dddplayer.App.Companion.USER_AGENT
+import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
 import top.rootu.dddplayer.logic.AudioMixerLogic
+import top.rootu.dddplayer.logic.AudioPassthroughLogic
 import top.rootu.dddplayer.logic.M3uParser
 import top.rootu.dddplayer.logic.StreamTypeLogic
 import top.rootu.dddplayer.logic.UnifiedMetadataReader
@@ -79,6 +83,11 @@ import javax.net.ssl.X509TrustManager
 import androidx.media3.common.MediaItem as Media3MediaItem
 
 private const val MAX_PROBE_BYTES = 32 * 1024 * 1024 // Ограничение размера проверяемого плейлиста
+private const val DAV1D_MAX_FRAME_DELAY = 4 // Кадров в работе у dav1d (по умолчанию 2)
+private const val DAV1D_INPUT_BUFFERS = 8
+private const val DAV1D_OUTPUT_BUFFERS = 6
+// Пауза между выключением и включением звука при пересоздании аудиовыхода
+private const val AUDIO_REFRESH_DELAY_MS = 300L
 
 // Счетчик для уникальных ID MediaSession (общий для всех экземпляров PlayerManager в процессе)
 private val sessionCounter = AtomicInteger()
@@ -106,6 +115,20 @@ class PlayerManager(
     private var networkBufferBytes: Int = C.LENGTH_UNSET
     private var loudnessEnhancer: LoudnessEnhancer? = null
     private var iecSink: IecCarrierSink? = null
+    private var transcodingSink: TranscodingAudioSink? = null
+
+    /**
+     * Проброс и перекодирование выключены до конца сеанса плеера: битстрим нельзя ускорить,
+     * и для смены скорости звук декодируется в PCM. Применяется при пересоздании плеера.
+     */
+    var bitstreamDisabledForSession = false
+
+    // Bluetooth после звонка или голосового ассистента: пересоздаем аудиовыход, см. AudioRouteWatcher
+    private val audioRouteWatcher = AudioRouteWatcher(appContext) { refreshAudioOutput("voice mode ended") }
+    private val audioRefreshHandler = Handler(android.os.Looper.getMainLooper())
+
+    /** Туннелирование выключено до конца сеанса плеера (с ним не работает масштаб). */
+    var tunnelingDisabledForSession = false
 
     // Состояние для восстановления
     private var currentWindowIndex = 0
@@ -159,6 +182,8 @@ class PlayerManager(
         .followRedirects(true)
         .followSslRedirects(true)
         .retryOnConnectionFailure(true)
+        // TCP keepalive: соединение на паузе не выкидывается роутером, мертвое замечается сразу
+        .socketFactory(KeepAliveSocketFactory())
         // Разрешаем самоподписанные сертификаты (для пользовательских серверов с видео)
         .sslSocketFactory(socketFactory(), trustAllCerts[0] as X509TrustManager)
         .hostnameVerifier { _, _ -> true }
@@ -191,8 +216,9 @@ class PlayerManager(
     private val baseHttpFactory = OkHttpDataSource.Factory(okHttpClient)
 
     // Универсальная фабрика, которая умеет работать с content://, file:// и http://
-    // Мы передаем baseHttpFactory как источник для сетевых запросов.
-    private val defaultDataSourceFactory = DefaultDataSource.Factory(appContext, baseHttpFactory)
+    // Сетевые запросы идут через baseHttpFactory; после долгого простоя (пауза) соединение переоткрывается
+    private val defaultDataSourceFactory =
+        DefaultDataSource.Factory(appContext, IdleReconnectDataSource.Factory(baseHttpFactory))
 
     // Ответы, уже скачанные при проверке ссылки на M3U: плеер получает их без повторного запроса
     private val prefetchStore = PrefetchStore()
@@ -343,7 +369,7 @@ class PlayerManager(
         val trackSelector = DefaultTrackSelector(appContext)
         val parametersBuilder = trackSelector.buildUponParameters()
             .setAllowInvalidateSelectionsOnRendererCapabilitiesChange(true)
-            .setTunnelingEnabled(settingsRepo.isTunnelingEnabled())
+            .setTunnelingEnabled(settingsRepo.isTunnelingEnabled() && !tunnelingDisabledForSession)
             // Разрешаем плееру игнорировать битые дорожки
             .setExceedRendererCapabilitiesIfNecessary(true)
             .setAllowMultipleAdaptiveSelections(true)
@@ -396,11 +422,25 @@ class PlayerManager(
                     context, settingsRepo.getVideoDecoderPriority(), mediaCodecSelector, enableDecoderFallback,
                     eventHandler, eventListener, allowedVideoJoiningTimeMs, out
                 )
-                if (!mapDvToHevc) return
-                // При подмене DV на HEVC стандартный рендерер заменяем на тот, что не подменяет декодер
-                // для профилей без совместимого слоя HEVC (профиль 5 и др.). Параметры - как в DefaultRenderersFactory
+                // dav1d: стандартный рендерер держит в работе только 2 кадра, а у 1-плиточного AV1
+                // (обычные релизы) потоки параллелятся именно между кадрами. 4 кадра заметно быстрее
+                // на слабых ТВ-боксах (подход Just+ Player). Буферы растут вместе с конвейером
+                for (i in start until out.size) {
+                    if (out[i] is Libdav1dVideoRenderer) {
+                        out[i] = Libdav1dVideoRenderer(
+                            allowedVideoJoiningTimeMs, eventHandler, eventListener,
+                            DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
+                            Libdav1dVideoRenderer.THREAD_COUNT_DECODER_DEFAULT,
+                            DAV1D_MAX_FRAME_DELAY, DAV1D_INPUT_BUFFERS, DAV1D_OUTPUT_BUFFERS,
+                            /* useCustomAllocator = */ false
+                        )
+                    }
+                }
+                // Стандартный рендерер заменяем своим с теми же параметрами (как в DefaultRenderersFactory):
+                // подмена DV на HEVC только для профилей с совместимым слоем HEVC и пересоздание декодера
+                // HiSilicon при смене поверхности (иначе зеленый экран после настроек), см. PlayerVideoRenderer
                 val index = (start until out.size).firstOrNull { out[it] is MediaCodecVideoRenderer } ?: return
-                out[index] = DolbyVisionVideoRenderer(
+                out[index] = PlayerVideoRenderer(
                     MediaCodecVideoRenderer.Builder(context)
                         .setCodecAdapterFactory(getCodecAdapterFactory())
                         .setMediaCodecSelector(mediaCodecSelector)
@@ -408,7 +448,8 @@ class PlayerManager(
                         .setEnableDecoderFallback(enableDecoderFallback)
                         .setEventHandler(eventHandler)
                         .setEventListener(eventListener)
-                        .setMaxDroppedFramesToNotify(DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY)
+                        .setMaxDroppedFramesToNotify(DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY),
+                    mapDvToHevc
                 )
             }
 
@@ -422,10 +463,33 @@ class PlayerManager(
                 eventListener: AudioRendererEventListener,
                 out: ArrayList<Renderer>
             ) {
-                // Решаем, какой Sink использовать
-                val baseSink = if (settingsRepo.isStereoDownmixEnabled()) {
-                    // Если нужен Downmix -> создаем свой Sink с процессором
+                // Ручные настройки (экспертный режим) или профиль аудиосистемы (простой). Профилю нужно знать,
+                // во что перекодировать: AC3, если выход его принимает, иначе E-AC3
+                val canEncode = AudioOutputCapabilities.isEncoderAvailable
+                val outputFormats = if (settingsRepo.isAudioExpertMode() || !canEncode) emptySet()
+                    else AudioOutputCapabilities.passthroughFormats(appContext, iec = false)
+                val config = settingsRepo.getAudioConfig(
+                    canAc3 = canEncode && AudioPassthroughLogic.AC3 in outputFormats,
+                    canEac3 = canEncode && AudioPassthroughLogic.EAC3 in outputFormats
+                )
+                val bitstreamAllowed = !bitstreamDisabledForSession
+                val passthrough = bitstreamAllowed && config.passthrough
+                val passthroughFormats = config.passthroughFormats
+                val transcode = if (bitstreamAllowed) config.transcode else SettingsRepository.AUDIO_TRANSCODE_OFF
+                val channelsSetting = config.outputChannels
+                val mixParams = config.mixParams
+                val upmix = config.upmix
+                // LFE из других каналов - часть апмикса
+                val generateLfe = config.generateLfe
+                // Проброс выключен на сеанс (смена скорости): звук сводится в стерео. Многоканальный PCM
+                // по оптике и ARC не проходит, а ради ускоренного просмотра стерео достаточно
+                val maxPcmChannels = if (bitstreamDisabledForSession) 2 else 8
+                // "Как в источнике" не расширяется, апмикс работает только с выбранной раскладкой
+                val pcmMixing = channelsSetting != AudioMixerLogic.CHANNELS_SOURCE ||
+                    mixParams != AudioMixerLogic.STANDARD_PARAMS || maxPcmChannels < 8
 
+                // Микшер PCM: свой Sink с процессором, иначе стандартный. Битстрим идет мимо процессоров
+                val baseSink = if (pcmMixing) {
                     // Ограничиваем аудиобуффер, чтобы не упасть по памяти
                     val bufferSizeProvider = DefaultAudioSink.AudioTrackBufferSizeProvider {
                             minSize, encoding, outputMode, pcmFrameSize, sampleRate, bitrate, speed ->
@@ -456,30 +520,67 @@ class PlayerManager(
                         .setAudioOutputProvider(audioOutputProvider) // Ограничиваем аудиобуффер, чтобы не упасть по памяти
 
                     val mixingProcessor = ChannelMixingAudioProcessor()
-                    val matrices = AudioMixerLogic.createMatrices(settingsRepo)
-                    matrices.forEach { matrix ->
-                        mixingProcessor.putChannelMixingMatrix(matrix)
-                    }
+                    AudioMixerLogic.createMatrices(mixParams, channelsSetting, maxPcmChannels, upmix, generateLfe)
+                        .forEach { matrix -> mixingProcessor.putChannelMixingMatrix(matrix) }
 
+                    // Созданный LFE - через ФНЧ 120 Гц после микшера, в конце мягкий ограничитель
+                    // (усиление голоса и уровень даунмикса могут перегрузить канал)
+                    // Микшер считает во float (без обрезки), ограничитель возвращает 16 бит
+                    val processors = if (generateLfe) {
+                        val probe = LfeLowPassAudioProcessor.Probe()
+                        arrayOf(
+                            SoftLimitAudioProcessor.ToFloat(), probe, mixingProcessor,
+                            LfeLowPassAudioProcessor(probe, channelsSetting, maxPcmChannels), SoftLimitAudioProcessor()
+                        )
+                    } else {
+                        arrayOf(SoftLimitAudioProcessor.ToFloat(), mixingProcessor, SoftLimitAudioProcessor())
+                    }
                     sinkBuilder.setAudioProcessorChain(
-                        DefaultAudioSink.DefaultAudioProcessorChain(mixingProcessor)
+                        DefaultAudioSink.DefaultAudioProcessorChain(*processors)
                     )
 
                     sinkBuilder.build()
                 } else {
-                    // Если Downmix не нужен -> используем стандартный (для Passthrough и т.д.)
                     audioSink
                 }
-                // DTS-HD MA и TrueHD через несущую IEC 61937 поверх любого из Sink: даунмикс касается только
-                // декодированного PCM, а битстрим и так идет мимо процессоров
-                val iec = if (settingsRepo.isHdAudioIecEnabled()) IecCarrierOutput.wrap(appContext, baseSink) else null
+                // DTS-HD MA и TrueHD через несущую IEC 61937 - часть проброса
+                val iec = if (passthrough && config.hdAudioIec) IecCarrierOutput.wrap(appContext, baseSink) else null
                 iecSink = iec
-                val finalSink = iec ?: baseSink
+                // Декодированный звук -> AC3/E-AC3 для проброса, тем же микшером. Снаружи микшера PCM:
+                // берет звук до его процессоров
+                val transcoder = if (transcode != SettingsRepository.AUDIO_TRANSCODE_OFF) {
+                    TranscodingAudioSink(
+                        iec ?: baseSink,
+                        TranscodingAudioSink.Config(
+                            eac3 = transcode == SettingsRepository.AUDIO_TRANSCODE_EAC3,
+                            channelsSetting = channelsSetting,
+                            mixParams = mixParams,
+                            upmix = upmix,
+                            generateLfe = generateLfe
+                        )
+                    )
+                } else null
+                transcodingSink = transcoder
+                // Снаружи всего - выбор, какой сжатый звук пробрасывать; остальное декодируется
+                val finalSink = PassthroughPolicySink(transcoder ?: iec ?: baseSink) { format ->
+                    AudioPassthroughLogic.isAllowed(format.sampleMimeType, passthrough, passthroughFormats)
+                }
 
-                // Приоритет встроенного FFmpeg - своя настройка аудио
+                // Проброс не зависит от приоритета декодеров: первым стоит рендерер без декодеров,
+                // он берет только то, что выход примет как есть
+                if (passthrough) {
+                    out.add(
+                        MediaCodecAudioRenderer(
+                            context, MediaCodecSelector { _, _, _ -> emptyList() }, false,
+                            eventHandler, eventListener, finalSink
+                        )
+                    )
+                }
+
+                // Приоритет встроенного FFmpeg - своя настройка аудио: кто декодирует то, что не пробрасывается
                 super.buildAudioRenderers(
                     context,
-                    settingsRepo.getAudioDecoderPriority(),
+                    config.decoderPriority,
                     mediaCodecSelector,
                     enableDecoderFallback,
                     finalSink,
@@ -530,6 +631,7 @@ class PlayerManager(
 
         // Handle Noisy
         player.setHandleAudioBecomingNoisy(true)
+        audioRouteWatcher.start()
 
         // Seek Parameters
         player.setSeekBackIncrementMs(15000)
@@ -589,9 +691,13 @@ class PlayerManager(
                 // Несущая IEC 61937 учитывается как PCM 16 бит, поэтому спрашиваем и ее
                 isDirectAudioOutput = !Util.isEncodingLinearPcm(config.encoding) || iecSink?.isCarrierActive == true
                 // На несущей AudioTrack видит PCM 16 бит 7.1, а на ресивер уходит TrueHD или DTS-HD как есть
+                // Бейдж: дорожка > маршрут ("проброс", "AC3 5.1" при перекодировании, "PCM 2.0")
+                val passthroughLabel = appContext.getString(R.string.audio_route_passthrough)
                 val carrierCodec = iecSink?.carrierCodecLabel
                 if (carrierCodec != null) {
-                    onAudioOutputFormatChanged?.invoke("$carrierCodec (IEC 61937)")
+                    onAudioOutputFormatChanged?.invoke("$passthroughLabel (IEC 61937)")
+                } else if (!Util.isEncodingLinearPcm(config.encoding) && transcodingSink?.isTranscoding != true) {
+                    onAudioOutputFormatChanged?.invoke(passthroughLabel)
                 } else {
                     val encodingName = MediaFormatHelper.getAudioCodecName(config.encoding)
                     val channelStr = MediaFormatHelper.getChannelConfigString(config.channelConfig)
@@ -606,6 +712,14 @@ class PlayerManager(
                 config: AudioSink.AudioTrackConfig
             ) {
                 isDirectAudioOutput = false
+            }
+
+            // Для диагностики пропадающего звука: плеер приглушен потерей аудиофокуса (звонок, другое приложение)
+            override fun onPlaybackSuppressionReasonChanged(
+                eventTime: AnalyticsListener.EventTime,
+                playbackSuppressionReason: Int
+            ) {
+                Log.i("PlayerManager", "Playback suppression reason: $playbackSuppressionReason")
             }
         })
 
@@ -912,6 +1026,8 @@ class PlayerManager(
      * Перезагружает плейлист в текущий плеер (восстановление после ошибки).
      * Источники собираются через [buildMediaSources], чтобы сохранить
      * кастомные экстракторы и ParsingDataSource.
+     * Пауза сохраняется (playWhenReady не меняется): соединение может оборваться, пока видео на паузе,
+     * и восстановление не должно само запускать воспроизведение.
      */
     fun reloadMediaItems(items: List<Media3MediaItem>, index: Int, positionMs: Long) {
         val player = exoPlayer ?: return
@@ -920,10 +1036,30 @@ class PlayerManager(
         currentPosition = positionMs
         player.setMediaSources(buildMediaSources(items), index, positionMs)
         player.prepare()
-        player.play()
+    }
+
+    /**
+     * Пересоздает аудиовыход, как "Выкл" и обратно в меню дорожек: новый AudioTrack заново выбирает маршрут
+     * (A2DP вместо гарнитурного режима). Включение откладываем: два изменения параметров подряд плеер
+     * объединил бы и ничего не пересоздал. Звук, выключенный пользователем, не трогаем.
+     */
+    private fun refreshAudioOutput(reason: String) {
+        val player = exoPlayer ?: return
+        val params = player.trackSelectionParameters
+        if (C.TRACK_TYPE_AUDIO in params.disabledTrackTypes) return
+        Log.i("PlayerManager", "Refreshing audio output: $reason")
+        player.trackSelectionParameters = params.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true).build()
+        audioRefreshHandler.postDelayed({
+            val current = exoPlayer ?: return@postDelayed
+            current.trackSelectionParameters = current.trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
+                .build()
+        }, AUDIO_REFRESH_DELAY_MS)
     }
 
     fun releasePlayer(isFinalRelease: Boolean = false, saveState: Boolean = true) {
+        audioRouteWatcher.stop()
+        audioRefreshHandler.removeCallbacksAndMessages(null)
         exoPlayer?.let { player ->
             if (saveState) {
                 currentWindowIndex = player.currentMediaItemIndex

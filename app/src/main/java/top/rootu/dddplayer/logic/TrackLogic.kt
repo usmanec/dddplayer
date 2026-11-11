@@ -146,6 +146,44 @@ object TrackLogic {
             .replace('\n', ' ')
     }
 
+    /** Подпись выключенных субтитров. */
+    const val SUBTITLE_OFF = "off"
+
+    /**
+     * Подпись субтитров, выбранных пользователем: по ней в следующих элементах плейлиста ищутся такие же.
+     * Название, язык и вид (форсированные или полные); [SUBTITLE_OFF] - субтитры выключены.
+     */
+    fun subtitleTrackSignature(option: TrackOption): String? {
+        if (option.isOff) return SUBTITLE_OFF
+        val format = option.format ?: return null
+        val name = option.nameFromMeta?.trim()?.ifEmpty { null } ?: format.label?.trim().orEmpty()
+        return listOf(name, format.language ?: "und", subtitleKind(format))
+            .joinToString("|")
+            .replace('\n', ' ')
+    }
+
+    /**
+     * Субтитры по подписи [subtitleTrackSignature]: сначала точное совпадение, иначе тот же язык и вид
+     * (у серий название дорожки бывает разным). null - подходящих нет.
+     */
+    fun findSubtitleIndex(options: List<TrackOption>, signature: String): Int? {
+        if (signature == SUBTITLE_OFF) return options.indexOfFirst { it.isOff }.takeIf { it != -1 }
+        options.indexOfFirst { !it.isOff && subtitleTrackSignature(it) == signature }
+            .takeIf { it != -1 }?.let { return it }
+        // Название может содержать "|", поэтому язык и вид берем с конца
+        val parts = signature.split('|')
+        if (parts.size < 3) return null
+        val language = parts[parts.size - 2]
+        val kind = parts.last()
+        return options.indexOfFirst { option ->
+            val format = option.format
+            !option.isOff && format != null && sameLanguage(format.language, language) && subtitleKind(format) == kind
+        }.takeIf { it != -1 }
+    }
+
+    private fun subtitleKind(format: Format): String =
+        if (format.selectionFlags and C.SELECTION_FLAG_FORCED != 0) "forced" else "full"
+
     /**
      * Индекс субтитров для автовключения при загрузке видео (настройка subtitle_auto_mode).
      * null - ничего не менять (режим "По умолчанию" или подходящей дорожки нет).

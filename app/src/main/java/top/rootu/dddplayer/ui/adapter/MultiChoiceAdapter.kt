@@ -7,10 +7,11 @@ import android.widget.CheckedTextView
 import androidx.recyclerview.widget.RecyclerView
 import top.rootu.dddplayer.R
 
-/** Список с флажками: клик переключает пункт, диалог не закрывается. */
+/** Список с флажками: клик переключает пункт, диалог не закрывается. [enabled] - false у недоступных пунктов. */
 class MultiChoiceAdapter(
     private val items: List<String>,
     private val checked: BooleanArray,
+    private val enabled: BooleanArray? = null,
     private val onChanged: (BooleanArray) -> Unit
 ) : RecyclerView.Adapter<MultiChoiceAdapter.ViewHolder>() {
 
@@ -19,7 +20,7 @@ class MultiChoiceAdapter(
         init {
             view.setOnClickListener {
                 val position = bindingAdapterPosition
-                if (position != RecyclerView.NO_POSITION) {
+                if (position != RecyclerView.NO_POSITION && enabled?.get(position) != false) {
                     checked[position] = !checked[position]
                     textView.isChecked = checked[position]
                     onChanged(checked.copyOf())
@@ -37,6 +38,10 @@ class MultiChoiceAdapter(
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         holder.textView.text = items[position]
         holder.textView.isChecked = checked[position]
+        // Недоступный пункт остается в фокусе пульта (иначе список "перепрыгивает"), но приглушен
+        val isEnabled = enabled?.get(position) != false
+        holder.textView.isEnabled = isEnabled
+        holder.itemView.alpha = if (isEnabled) 1f else 0.5f
     }
 
     override fun getItemCount() = items.size
