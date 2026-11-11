@@ -105,6 +105,17 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
     private lateinit var gestureDetector: GestureDetector
     private lateinit var touchHandler: PlayerTouchHandler
 
+    // Пауза на время переключения режима экрана (AFR). Возобновляем только паузу, которую поставили сами
+    private val afrResumeHandler = Handler(Looper.getMainLooper())
+    private var afrPausedPlayback = false
+    private val afrResumeRunnable = Runnable {
+        if (afrPausedPlayback) {
+            afrPausedPlayback = false
+            // Под диалогом "Продолжить просмотр?" видео не запускаем: его запустит ответ пользователя
+            if (viewModel.showResumeDialogEvent.value == null) viewModel.player?.playWhenReady = true
+        }
+    }
+
     // Накопление перемотки по двойному тапу
     private var doubleTapSeekSeconds = 0
     private val doubleTapResetHandler = Handler(Looper.getMainLooper())
@@ -518,8 +529,8 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
 
                 ui.animatePlaylistSwipeConfirm(isNext) {
                     if (currentSwipeIsExit) {
-                        // Логика выхода
-                        requireActivity().finish()
+                        // Логика выхода (к концу анимации фрагмент может быть уже отсоединен)
+                        activity?.finish()
                     } else {
                         // Переключение трека
                         val liveTarget = if (viewModel.isOverallLiveMode()) {
@@ -1349,11 +1360,13 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
                 afrHelper.setListener(object : DisplaySyncHelper.AutoFrameRateListener {
                     override fun onModeStart(newMode: DisplayHolder.Mode?) {
                         val pauseMs = settingsRepo.getAfrPauseMs()
-                        if (pauseMs > 0) {
-                            viewModel.player?.playWhenReady = false
-                            Handler(Looper.getMainLooper()).postDelayed({
-                                viewModel.player?.playWhenReady = true
-                            }, pauseMs.toLong())
+                        val player = viewModel.player
+                        // Видео на паузе (пользователь, диалог продолжения, уход с экрана) не трогаем
+                        if (pauseMs > 0 && player != null && (player.playWhenReady || afrPausedPlayback)) {
+                            afrPausedPlayback = true
+                            player.playWhenReady = false
+                            afrResumeHandler.removeCallbacks(afrResumeRunnable)
+                            afrResumeHandler.postDelayed(afrResumeRunnable, pauseMs.toLong())
                         }
                     }
                     override fun onModeError(newMode: DisplayHolder.Mode?) {}
@@ -1765,8 +1778,12 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
     }
 
     override fun onStop() {
+        // Уход с экрана во время паузы AFR: отложенный запуск отменяем, иначе видео заиграет в фоне
+        val pausedByAfr = afrPausedPlayback
+        afrPausedPlayback = false
+        afrResumeHandler.removeCallbacks(afrResumeRunnable)
         viewModel.player?.let { player ->
-            viewModel.resumePlayWhenReady = player.playWhenReady
+            viewModel.resumePlayWhenReady = player.playWhenReady || pausedByAfr
             player.pause()
             // Битстрим на HDMI в системе один: плеер в фоне держит его, и следующий
             // запуск (например, из Lampa) получает ошибку AudioTrack. Освобождаем, позиция сохраняется.
@@ -1806,6 +1823,8 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         timerController.cleanup()
         inputHandler.cleanup()
         doubleTapResetHandler.removeCallbacksAndMessages(null)
+        afrResumeHandler.removeCallbacksAndMessages(null)
+        afrPausedPlayback = false
 
         // Освобождаем GL ресурсы
         stereoRenderer?.release()
