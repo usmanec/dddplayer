@@ -720,13 +720,13 @@
                     <TextView android:id="@+id/text_voice_boost_value" style="@style/SettingsItemValue" />
                 </LinearLayout>
 
-                <!-- Смена скорости при битстриме: спрашивать, выключать проброс сразу или декодировать на время ускорения -->
-                <LinearLayout android:id="@+id/item_speed_passthrough" style="@style/SettingsItemContainer">
+                <!-- Каналы звука при ускорении (битстрим не ускорить, звук идет PCM): стерео или как в источнике -->
+                <LinearLayout android:id="@+id/item_speed_channels" style="@style/SettingsItemContainer">
                     <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:duplicateParentState="true">
-                        <TextView style="@style/SettingsItemTitle" android:text="@string/pref_speed_passthrough" />
-                        <TextView style="@style/SettingsItemDesc" android:text="@string/pref_speed_passthrough_desc" />
+                        <TextView style="@style/SettingsItemTitle" android:text="@string/pref_speed_channels" />
+                        <TextView style="@style/SettingsItemDesc" android:text="@string/pref_speed_channels_desc" />
                     </LinearLayout>
-                    <TextView android:id="@+id/text_speed_passthrough_value" style="@style/SettingsItemValue" />
+                    <TextView android:id="@+id/text_speed_channels_value" style="@style/SettingsItemValue" />
                 </LinearLayout>
 
                 <!-- Экспертный режим: все настройки вывода звука вручную -->

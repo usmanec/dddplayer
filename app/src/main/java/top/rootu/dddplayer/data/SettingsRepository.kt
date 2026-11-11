@@ -62,10 +62,9 @@ class SettingsRepository private constructor(context: Context) {
         const val AUDIO_TRANSCODE_AC3 = 1
         const val AUDIO_TRANSCODE_EAC3 = 2
 
-        // Смена скорости, пока звук идет битстримом (проброс, перекодирование в AC3/E-AC3)
-        const val SPEED_PT_ASK = 0 // спросить (прежнее поведение)
-        const val SPEED_PT_DISABLE = 1 // без вопроса выключить проброс до конца сеанса плеера (бывшее "не спрашивать")
-        const val SPEED_PT_DECODE = 2 // на время ускорения декодировать звук, на 1x вернуть проброс
+        // Каналы звука при ускорении: битстрим (проброс, перекодирование в AC3/E-AC3) ускорить нельзя, звук идет PCM
+        const val SPEED_CHANNELS_STEREO = 0 // сводится в стерео: проходит по любому выходу (оптика, ARC)
+        const val SPEED_CHANNELS_SOURCE = 1 // многоканальный PCM как в источнике: нужен HDMI-ресивер
 
         // Действие кнопки "OK" при скрытой панели
         const val OK_ACTION_PAUSE = 0
@@ -513,19 +512,21 @@ class SettingsRepository private constructor(context: Context) {
     }
 
     // Скорость при битстриме: не спрашивать, а сразу выключать проброс до конца сеанса плеера
-    // Миграция со старого переключателя "speed_passthrough_auto": вкл -> SPEED_PT_DISABLE, выкл -> SPEED_PT_ASK
-    fun getSpeedPassthroughMode(): Int {
-        if (!prefs.contains("speed_passthrough_mode")) {
-            val migrated = if (prefs.getBoolean("speed_passthrough_auto", false)) SPEED_PT_DISABLE else SPEED_PT_ASK
+    // Каналы при ускорении (SPEED_CHANNELS_*), по умолчанию стерео. Миграция со старых "speed_passthrough_auto"
+    // (выключение проброса сводило звук в стерео) и "speed_passthrough_mode" (2 - декодирование в многоканальный PCM)
+    fun getSpeedChannelsMode(): Int {
+        if (!prefs.contains("speed_channels_mode")) {
+            val migrated = if (prefs.getInt("speed_passthrough_mode", -1) == 2) SPEED_CHANNELS_SOURCE else SPEED_CHANNELS_STEREO
             prefs.edit {
-                putInt("speed_passthrough_mode", migrated)
+                putInt("speed_channels_mode", migrated)
                 remove("speed_passthrough_auto")
+                remove("speed_passthrough_mode")
             }
             return migrated
         }
-        return prefs.getInt("speed_passthrough_mode", SPEED_PT_ASK)
+        return prefs.getInt("speed_channels_mode", SPEED_CHANNELS_STEREO)
     }
-    fun setSpeedPassthroughMode(mode: Int) = prefs.edit { putInt("speed_passthrough_mode", mode) }
+    fun setSpeedChannelsMode(mode: Int) = prefs.edit { putInt("speed_channels_mode", mode) }
 
     // Ручное увеличение при туннелировании: не спрашивать, а сразу выключать туннелирование до конца сеанса
     fun isZoomTunnelingAutoEnabled(): Boolean = prefs.getBoolean("zoom_tunneling_auto", false)
@@ -860,7 +861,7 @@ class SettingsRepository private constructor(context: Context) {
         val videoParams = "${getVideoDecoderPriority()}_${getAudioDecoderPriority()}_${isTunnelingEnabled()}_${getDvMode()}_${isHdAudioIecEnabled()}_${isHdr10PlusEnabled()}"
         val audioMix = "${getAudioOutputChannels()}_${isAudioUpmixEnabled()}_${isAudioGenerateLfeEnabled()}_${getMixPreset()}_${getMixFront()}_${getMixCenter()}_${getMixRear()}_${getMixMiddle()}_${getMixLfe()}"
         val audioOutput = "${isAudioPassthroughEnabled()}_${getAudioPassthroughFormats().sorted()}_${getAudioTranscode()}" +
-            "_${isAudioExpertMode()}_${getAudioSystem()}_${getVoiceBoostDb()}_${getSpeedPassthroughMode() == SPEED_PT_DECODE}"
+            "_${isAudioExpertMode()}_${getAudioSystem()}_${getVoiceBoostDb()}_${getSpeedChannelsMode()}"
         return "${videoParams}_${audioMix}_${audioOutput}_${getTargetBufferCorrectMB()}"
     }
 

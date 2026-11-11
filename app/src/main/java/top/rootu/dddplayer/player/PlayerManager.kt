@@ -19,6 +19,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
+import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.ChannelMixingAudioProcessor
 import androidx.media3.common.util.Util
 import androidx.media3.datasource.DefaultDataSource
@@ -130,8 +131,8 @@ class PlayerManager(
     var requestedSpeed = 1f
 
     /**
-     * Смену скорости при битстриме берет на себя SpeedDecodeSink (настройка "Декодировать на время ускорения"):
-     * звук декодируется и ускоряется сам, вопрос о выключении проброса не нужен.
+     * Смену скорости при битстриме берет на себя SpeedDecodeSink: звук декодируется и ускоряется сам
+     * (число каналов - настройка "Каналы при ускорении"), вопрос о выключении проброса не нужен.
      */
     @Volatile
     var speedDecodeActive = false
@@ -495,7 +496,15 @@ class PlayerManager(
                 val upmix = config.upmix
                 // LFE из других каналов - часть апмикса
                 val generateLfe = config.generateLfe
-                // Проброс выключен на сеанс (смена скорости): звук сводится в стерео. Многоканальный PCM
+                // Смена скорости при битстриме: на время ускорения звук декодируется (SpeedDecodeSink), на 1x снова
+                // проброс. Только с встроенным декодером: без него DTS на части устройств декодировать нечем
+                // (тогда работает вопрос о выключении проброса)
+                val speedDecode = passthrough && config.decoderPriority != DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF
+                speedDecodeActive = speedDecode
+                // Многоканальный PCM проходит не по всякому выходу: на время ускорения звук сводится в стерео
+                val speedMixer = if (speedDecode && settingsRepo.getSpeedChannelsMode() == SettingsRepository.SPEED_CHANNELS_STEREO)
+                    SpeedStereoMixer(mixParams) { requestedSpeed } else null
+                // Проброс выключен на сеанс (вопрос при смене скорости): звук сводится в стерео. Многоканальный PCM
                 // по оптике и ARC не проходит, а ради ускоренного просмотра стерео достаточно
                 val maxPcmChannels = if (bitstreamDisabledForSession) 2 else 8
                 // "Как в источнике" не расширяется, апмикс работает только с выбранной раскладкой
@@ -540,20 +549,28 @@ class PlayerManager(
                     // Созданный LFE - через ФНЧ 120 Гц после микшера, в конце мягкий ограничитель
                     // (усиление голоса и уровень даунмикса могут перегрузить канал)
                     // Микшер считает во float (без обрезки), ограничитель возвращает 16 бит
-                    val processors = if (generateLfe) {
-                        val probe = LfeLowPassAudioProcessor.Probe()
-                        arrayOf(
-                            SoftLimitAudioProcessor.ToFloat(), probe, mixingProcessor,
-                            LfeLowPassAudioProcessor(probe, channelsSetting, maxPcmChannels), SoftLimitAudioProcessor()
-                        )
-                    } else {
-                        arrayOf(SoftLimitAudioProcessor.ToFloat(), mixingProcessor, SoftLimitAudioProcessor())
-                    }
+                    // Сведение в стерео на ускорении - после микшера, перед ограничителем
+                    val processors = buildList<AudioProcessor> {
+                        add(SoftLimitAudioProcessor.ToFloat())
+                        if (generateLfe) {
+                            val probe = LfeLowPassAudioProcessor.Probe()
+                            add(probe)
+                            add(mixingProcessor)
+                            add(LfeLowPassAudioProcessor(probe, channelsSetting, maxPcmChannels))
+                        } else {
+                            add(mixingProcessor)
+                        }
+                        speedMixer?.let { add(it) }
+                        add(SoftLimitAudioProcessor())
+                    }.toTypedArray()
                     sinkBuilder.setAudioProcessorChain(
                         DefaultAudioSink.DefaultAudioProcessorChain(*processors)
                     )
 
                     sinkBuilder.build()
+                } else if (speedMixer != null) {
+                    // Как стандартный Sink плеера, плюс сведение в стерео на ускорении
+                    DefaultAudioSink.Builder(appContext).setAudioProcessors(arrayOf<AudioProcessor>(speedMixer)).build()
                 } else {
                     audioSink
                 }
@@ -562,11 +579,6 @@ class PlayerManager(
                 iecSink = iec
                 // Декодированный звук -> AC3/E-AC3 для проброса, тем же микшером. Снаружи микшера PCM:
                 // берет звук до его процессоров
-                // Смена скорости при битстриме: на время ускорения звук декодируется (SpeedDecodeSink), на 1x снова
-                // проброс. Только с встроенным декодером: без него DTS на части устройств декодировать нечем
-                val speedDecode = settingsRepo.getSpeedPassthroughMode() == SettingsRepository.SPEED_PT_DECODE &&
-                    passthrough && config.decoderPriority != DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF
-                speedDecodeActive = speedDecode
                 val transcoder = if (transcode != SettingsRepository.AUDIO_TRANSCODE_OFF) {
                     TranscodingAudioSink(
                         iec ?: baseSink,

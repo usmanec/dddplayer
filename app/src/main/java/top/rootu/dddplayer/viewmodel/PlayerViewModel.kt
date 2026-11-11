@@ -1212,13 +1212,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
      */
     private fun checkSessionConflicts() {
         if (_sessionPrompt.value != null) return
-        // Битстрим на скорости не 1x: если включено "Декодировать на время ускорения", звук декодируется сам
+        // Битстрим на скорости не 1x: звук декодируется сам (SpeedDecodeSink); вопрос нужен, только если
+        // встроенного декодера нет (режим "только декодеры устройства")
         val speedConflict = (_playbackSpeed.value ?: 1f) != 1f && playerManager.isDirectAudioOutput &&
             !playerManager.bitstreamDisabledForSession && !playerManager.speedDecodeActive
         val zoomConflict = _resizeMode.value == ResizeMode.SCALE && _tunnelingActive.value == true &&
             !playerManager.tunnelingDisabledForSession
         when {
-            speedConflict && repository.getSpeedPassthroughMode() == SettingsRepository.SPEED_PT_DISABLE -> resolveSessionPrompt(SessionPrompt.SPEED_BITSTREAM, true, false)
             speedConflict -> _sessionPrompt.value = SessionPrompt.SPEED_BITSTREAM
             zoomConflict && repository.isZoomTunnelingAutoEnabled() -> resolveSessionPrompt(SessionPrompt.ZOOM_TUNNELING, true, false)
             zoomConflict -> _sessionPrompt.value = SessionPrompt.ZOOM_TUNNELING
@@ -1233,7 +1233,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         _sessionPrompt.value = null
         when (prompt) {
             SessionPrompt.SPEED_BITSTREAM -> if (accept) {
-                if (dontAskAgain) repository.setSpeedPassthroughMode(SettingsRepository.SPEED_PT_DISABLE)
                 playerManager.bitstreamDisabledForSession = true
                 restartPlayer()
             } else {

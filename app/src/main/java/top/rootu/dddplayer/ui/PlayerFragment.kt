@@ -1511,6 +1511,8 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         dialog.findViewById<TextView>(R.id.prompt_title).setText(title)
         dialog.findViewById<TextView>(R.id.prompt_message).setText(message)
         val dontAsk = dialog.findViewById<CheckBox>(R.id.prompt_dont_ask)
+        // "Больше не показывать" есть только у вопроса о туннелировании: у вопроса о скорости настройки нет
+        dontAsk.isVisible = prompt != SessionPrompt.SPEED_BITSTREAM
         val btnOk = dialog.findViewById<Button>(R.id.btn_prompt_ok)
         var answered = false
         fun answer(accept: Boolean) {

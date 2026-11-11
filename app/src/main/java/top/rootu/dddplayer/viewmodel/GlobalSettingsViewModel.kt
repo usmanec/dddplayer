@@ -69,9 +69,9 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     val isAudioUpmixEnabled: LiveData<Boolean> = _isAudioUpmixEnabled
     private val _isAudioGenerateLfeEnabled = MutableLiveData(repository.isAudioGenerateLfeEnabled())
     val isAudioGenerateLfeEnabled: LiveData<Boolean> = _isAudioGenerateLfeEnabled
-    // Смена скорости при битстриме (SPEED_PT_*)
-    private val _speedPassthroughMode = MutableLiveData(repository.getSpeedPassthroughMode())
-    val speedPassthroughMode: LiveData<Int> = _speedPassthroughMode
+    // Каналы звука при ускорении (SPEED_CHANNELS_*)
+    private val _speedChannelsMode = MutableLiveData(repository.getSpeedChannelsMode())
+    val speedChannelsMode: LiveData<Int> = _speedChannelsMode
     // "Больше не показывать" в вопросах о сеансе плеера
     private val _isZoomTunnelingAuto = MutableLiveData(repository.isZoomTunnelingAutoEnabled())
     val isZoomTunnelingAuto: LiveData<Boolean> = _isZoomTunnelingAuto
@@ -334,9 +334,9 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
         _isAudioUpmixEnabled.value = enabled
     }
 
-    fun setSpeedPassthroughMode(mode: Int) {
-        repository.setSpeedPassthroughMode(mode)
-        _speedPassthroughMode.value = mode
+    fun setSpeedChannelsMode(mode: Int) {
+        repository.setSpeedChannelsMode(mode)
+        _speedChannelsMode.value = mode
     }
 
     fun toggleZoomTunnelingAuto(enabled: Boolean) {

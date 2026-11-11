@@ -337,21 +337,27 @@ class SettingsRepositoryTest {
     }
 
     @Test
-    fun `speed passthrough mode defaults to ask and migrates the old switch`() {
-        assertEquals(SettingsRepository.SPEED_PT_ASK, repo().getSpeedPassthroughMode())
+    fun `speed channels default to stereo and migrate the old settings`() {
+        assertEquals(SettingsRepository.SPEED_CHANNELS_STEREO, repo().getSpeedChannelsMode())
+
+        // Старый переключатель "без вопроса" сводил звук в стерео
         prefs.edit().clear().putBoolean("speed_passthrough_auto", true).commit()
         resetSingletons()
-        assertEquals(SettingsRepository.SPEED_PT_DISABLE, repo().getSpeedPassthroughMode())
+        assertEquals(SettingsRepository.SPEED_CHANNELS_STEREO, repo().getSpeedChannelsMode())
         assertFalse(prefs.contains("speed_passthrough_auto"))
+
+        // Промежуточный режим "декодировать" отдавал многоканальный PCM
+        prefs.edit().clear().putInt("speed_passthrough_mode", 2).commit()
+        resetSingletons()
+        assertEquals(SettingsRepository.SPEED_CHANNELS_SOURCE, repo().getSpeedChannelsMode())
+        assertFalse(prefs.contains("speed_passthrough_mode"))
     }
 
     @Test
-    fun `only the decode mode restarts the player`() {
+    fun `speed channels restart the player`() {
         val repo = repo()
         val before = repo.getHardSettingsSignature()
-        repo.setSpeedPassthroughMode(SettingsRepository.SPEED_PT_DISABLE)
-        assertEquals(before, repo.getHardSettingsSignature())
-        repo.setSpeedPassthroughMode(SettingsRepository.SPEED_PT_DECODE)
+        repo.setSpeedChannelsMode(SettingsRepository.SPEED_CHANNELS_SOURCE)
         assertTrue(before != repo.getHardSettingsSignature())
     }
 
