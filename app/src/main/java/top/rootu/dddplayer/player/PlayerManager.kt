@@ -17,6 +17,7 @@ import androidx.media3.common.Format
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.audio.ChannelMixingAudioProcessor
 import androidx.media3.common.util.Util
@@ -122,6 +123,11 @@ class PlayerManager(
      * и для смены скорости звук декодируется в PCM. Применяется при пересоздании плеера.
      */
     var bitstreamDisabledForSession = false
+
+    // Скорость, выбранная пользователем (PlayerViewModel, MediaSession), без поправок LivePlaybackSpeedControl:
+    // по ней звук уходит с несущей IEC на декодер и обратно (в эфире скорость часов сама ходит около 1x)
+    @Volatile
+    var requestedSpeed = 1f
 
     // Bluetooth после звонка или голосового ассистента: пересоздаем аудиовыход, см. AudioRouteWatcher
     private val audioRouteWatcher = AudioRouteWatcher(appContext) { refreshAudioOutput("voice mode ended") }
@@ -544,7 +550,7 @@ class PlayerManager(
                     audioSink
                 }
                 // DTS-HD MA и TrueHD через несущую IEC 61937 - часть проброса
-                val iec = if (passthrough && config.hdAudioIec) IecCarrierOutput.wrap(appContext, baseSink) else null
+                val iec = if (passthrough && config.hdAudioIec) IecCarrierOutput.wrap(appContext, baseSink) { requestedSpeed } else null
                 iecSink = iec
                 // Декодированный звук -> AC3/E-AC3 для проброса, тем же микшером. Снаружи микшера PCM:
                 // берет звук до его процессоров
@@ -660,6 +666,17 @@ class PlayerManager(
                 // ID уникален в процессе: при открытии файла из другого приложения новый экран плеера создает
                 // сессию раньше, чем старый освободит свою, и одинаковый ID ("") дал бы IllegalStateException
                 val sessionPlayer = object : ForwardingPlayer(player) {
+                    // Скорость от внешнего контроллера - тоже выбор пользователя, Sink'и должны о нем знать
+                    override fun setPlaybackSpeed(speed: Float) {
+                        requestedSpeed = speed
+                        super.setPlaybackSpeed(speed)
+                    }
+
+                    override fun setPlaybackParameters(playbackParameters: PlaybackParameters) {
+                        requestedSpeed = playbackParameters.speed
+                        super.setPlaybackParameters(playbackParameters)
+                    }
+
                     override fun stop() {
                         onStopRequested?.invoke() ?: super.stop()
                     }

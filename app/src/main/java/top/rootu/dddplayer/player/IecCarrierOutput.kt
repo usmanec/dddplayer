@@ -25,13 +25,14 @@ internal object IecCarrierOutput {
     private const val CHANNEL_MASK = AudioFormat.CHANNEL_OUT_7POINT1_SURROUND
 
     /** Оборачивает обычный Sink: DTS-HD и TrueHD идут через несущую, остальное как раньше. */
-    fun wrap(context: Context, defaultSink: AudioSink): IecCarrierSink =
+    fun wrap(context: Context, defaultSink: AudioSink, requestedSpeed: () -> Float): IecCarrierSink =
         IecCarrierSink(
             defaultSink = defaultSink,
             carrierSink = buildCarrierSink(context),
             carrierRouteAvailable = { routeAvailable(context, it) },
             directOutputBlocked = { false },
-            log = { level, _, message -> if (level == "warn") Log.w(TAG, message) else Log.i(TAG, message) }
+            log = { level, _, message -> if (level == "warn") Log.w(TAG, message) else Log.i(TAG, message) },
+            requestedSpeed = requestedSpeed
         )
 
     /**

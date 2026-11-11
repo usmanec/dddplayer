@@ -557,6 +557,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         // Подписываемся на создание нового плеера
         playerManager.onPlayerCreated = { newPlayer ->
             // Новый плеер (и пересозданный после смены настроек) идет с выбранной скоростью
+            // Sink'и узнают ее с первого выбора дорожки (скорость по умолчанию идет не через applyPlaybackSpeed)
+            playerManager.requestedSpeed = _playbackSpeed.value ?: 1.0f
             newPlayer.setPlaybackSpeed(_playbackSpeed.value ?: 1.0f)
             _playerRecreatedEvent.postValue(newPlayer)
             // Принудительно обновляем UI состояние
@@ -1198,6 +1200,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun applyPlaybackSpeed(speed: Float) {
         _playbackSpeed.value = speed
+        playerManager.requestedSpeed = speed
         player?.setPlaybackSpeed(speed)
         checkSessionConflicts()
     }
