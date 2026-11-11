@@ -1057,6 +1057,14 @@ class PlayerManager(
         }, AUDIO_REFRESH_DELAY_MS)
     }
 
+    /**
+     * Экран сменил режим (AFR), HDMI согласовался заново. Битстрим-выход, открытый до этого, на части
+     * устройств после смены режима молчит (issue #42): пересоздаем его. Декодированный PCM не трогаем.
+     */
+    fun refreshDirectAudioOutput(reason: String) {
+        if (isDirectAudioOutput) refreshAudioOutput(reason)
+    }
+
     fun releasePlayer(isFinalRelease: Boolean = false, saveState: Boolean = true) {
         audioRouteWatcher.stop()
         audioRefreshHandler.removeCallbacksAndMessages(null)
