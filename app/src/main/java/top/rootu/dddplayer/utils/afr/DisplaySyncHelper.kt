@@ -23,6 +23,8 @@ class DisplaySyncHelper(context: Context?) : UhdHelperListener {
         fun onModeStart(newMode: Mode?)
         fun onModeError(newMode: Mode?)
         fun onModeCancel()
+        /** Экран реально переключился на запрошенный режим (не по таймауту и не с ошибкой). */
+        fun onModeApplied(newMode: Mode?) {}
     }
 
     companion object {
@@ -52,6 +54,8 @@ class DisplaySyncHelper(context: Context?) : UhdHelperListener {
         val current = getUhdHelper().getCurrentMode()
         if (current?.modeId != target.modeId) {
             mListener?.onModeError(target)
+        } else {
+            mListener?.onModeApplied(target)
         }
     }
 

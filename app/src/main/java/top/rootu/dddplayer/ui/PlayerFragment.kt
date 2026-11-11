@@ -122,11 +122,6 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         }
     }
 
-    // После смены режима экрана HDMI согласуется заново: битстрим-выход, открытый до этого, пересоздаем
-    private val afrAudioRefreshRunnable = Runnable {
-        viewModel.refreshDirectAudioOutput("display mode switched (AFR)")
-    }
-
     // Накопление перемотки по двойному тапу
     private var doubleTapSeekSeconds = 0
     private val doubleTapResetHandler = Handler(Looper.getMainLooper())
@@ -1443,19 +1438,20 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
                     override fun onModeStart(newMode: DisplayHolder.Mode?) {
                         val pauseMs = settingsRepo.getAfrPauseMs()
                         val player = viewModel.player
-                        // Аудиовыход пересоздаем перед возобновлением (без паузы - когда экран уже переключился).
-                        // При закрытии плеера (возврат исходного режима экрана) это не нужно
-                        if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
-                            val refreshDelayMs = if (pauseMs > 0) pauseMs.toLong() else AFR_AUDIO_REFRESH_DELAY_MS
-                            afrResumeHandler.removeCallbacks(afrAudioRefreshRunnable)
-                            afrResumeHandler.postDelayed(afrAudioRefreshRunnable, refreshDelayMs)
-                        }
                         // Видео на паузе (пользователь, диалог продолжения, уход с экрана) не трогаем
                         if (pauseMs > 0 && player != null && (player.playWhenReady || afrPausedPlayback)) {
                             afrPausedPlayback = true
                             player.playWhenReady = false
                             afrResumeHandler.removeCallbacks(afrResumeRunnable)
                             afrResumeHandler.postDelayed(afrResumeRunnable, pauseMs.toLong())
+                        }
+                    }
+                    // HDMI после смены режима согласуется заново: битстрим-выход, открытый до этого,
+                    // на части устройств молчит (issue #42), пересоздаем его. Возврат исходного режима
+                    // при закрытии плеера не в счет
+                    override fun onModeApplied(newMode: DisplayHolder.Mode?) {
+                        if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+                            viewModel.refreshDirectAudioOutput("display mode switched (AFR)")
                         }
                     }
                     override fun onModeError(newMode: DisplayHolder.Mode?) {}
@@ -1909,7 +1905,6 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         val pausedByAfr = afrPausedPlayback
         afrPausedPlayback = false
         afrResumeHandler.removeCallbacks(afrResumeRunnable)
-        afrResumeHandler.removeCallbacks(afrAudioRefreshRunnable)
         viewModel.player?.let { player ->
             viewModel.resumePlayWhenReady = player.playWhenReady || pausedByAfr
             player.pause()
@@ -1976,8 +1971,6 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
 
     companion object {
         private const val EXIT_CONFIRM_WINDOW_MS = 2000L
-        // Сколько ждать смены режима экрана, если пауза AFR выключена
-        private const val AFR_AUDIO_REFRESH_DELAY_MS = 2000L
 
         fun newInstance() = PlayerFragment()
     }
