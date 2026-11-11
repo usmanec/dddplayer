@@ -224,7 +224,7 @@ object TrackLogic {
         if (title.isNullOrEmpty()) {
             title =
                 if (langCode == "und" || langCode == "ext")
-                    "Track ${option.index}"
+                    context.getString(R.string.track_number, option.index)
                 else
                     LocaleUtils.getFormattedLanguageName(langCode, context)
         }

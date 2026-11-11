@@ -9,7 +9,6 @@
     <string name="track_off">关闭</string>
     <string name="track_unknown">未知</string>
     <string name="pic">图片</string>
-    <string name="develop_tost">抱歉，此功能仍在开发中。</string>
 
     <!-- 播放器界面 -->
     <string name="time_ends_at">结束于 %s</string>
@@ -114,7 +113,6 @@
 
     <!-- 全局设置 -->
     <string name="pref_title">全局设置</string>
-    <string name="pref_title_desc">全局播放器参数</string>
     <string name="close_settings">关闭设置</string>
     <string name="exit">退出</string>
     <string name="pref_general_header">播放</string>
@@ -167,7 +165,6 @@
     <string name="pref_skip_silence_off">按原样播放</string>
     <string name="pref_audio_boost">音量增强</string>
     <string name="pref_audio_boost_desc">适用于安静的电影。主要目标是在不导致峰值硬削波（失真）的情况下使安静的声音更响。</string>
-    <string name="pref_sec_lang_and_sub">语言和字幕</string>
     <string name="pref_language_audio">默认音轨</string>
     <string name="pref_language_audio_desc">开始播放视频时的首选音轨</string>
     <string name="pref_language_track_default">默认（来自文件）</string>
@@ -180,7 +177,6 @@
     <string name="sub_auto_off">关闭</string>
     <string name="sub_auto_forced">仅强制字幕</string>
     <string name="sub_auto_full">完整字幕</string>
-    <string name="pref_calibration_3d">3D 校准</string>
     <string name="pref_cardboard_vr">Cardboard VR 设置</string>
     <string name="pref_cardboard_vr_desc">镜头、缩放和 IPD 设置向导</string>
     <string name="pref_anaglyph">红蓝眼镜设置</string>
@@ -218,9 +214,6 @@
     <string name="button_label_quality">视频质量</string>
     <string name="button_label_audio">音轨</string>
     <string name="button_label_subtitles">字幕</string>
-    <string name="next_video">下一个：%s</string>
-    <string name="prev_video">上一个：%s</string>
-    <string name="release_to_switch">松开切换</string>
     <string name="action_exit">退出</string>
     <string name="swipe_pull_next">拉动切换</string>
     <string name="swipe_pull_exit">拉动退出</string>
@@ -384,7 +377,6 @@
     <string name="wizard_controls_adjust">“调整”或 OK 隐藏说明。然后 ◀ ▶ 更改数值，OK 或返回键再次显示说明。</string>
     <string name="wizard_controls_params">▲ ▼ 选择参数</string>
     <string name="wizard_controls_touch">触摸：左/右侧更改数值，中间显示说明，上/下滑动选择参数</string>
-    <string name="wizard_controls_simple">“下一步”进入下一步，“返回”回到上一步</string>
     <string name="wizard_param_separation">屏幕间距</string>
     <string name="wizard_param_scale">缩放</string>
     <string name="wizard_param_glasses">眼镜</string>
@@ -502,4 +494,10 @@
     <string name="diag_yes">是</string>
     <string name="diag_no">否</string>
     <string name="diag_builtin">内置</string>
+    <string name="quality_auto">自动</string>
+    <string name="video_number">视频 %1$d</string>
+    <string name="video_default_title">视频</string>
+    <string name="track_number">音轨 %1$d</string>
+    <string name="storage_permission_denied">没有存储权限，部分文件可能无法播放。</string>
+    <string name="update_no_changelog">未提供更新日志。</string>
 </resources>

@@ -112,7 +112,6 @@
 
     <!-- Глабальныя налады -->
     <string name="pref_title">Глабальныя налады</string>
-    <string name="pref_title_desc">Глабальныя параметры плэера</string>
     <string name="exit">Выхад</string>
     <string name="pref_general_header">Прайграванне</string>
     <string name="pref_video_decoder">Дэкодэр відэа (AV1)</string>
@@ -161,7 +160,6 @@
     <string name="afr_pause_none">Без паўзы</string>
     <string name="pref_skip_silence">Прапускаць цішыню</string>
     <string name="pref_audio_boost">Узмацненне гучнасці (Boost)</string>
-    <string name="pref_sec_lang_and_sub">Мова і Субцітры</string>
     <string name="pref_language_audio">Гукавая дарожка па змаўчанні</string>
     <string name="pref_language_audio_desc">Пераважная дарожка пры старце відэа</string>
     <string name="pref_language_track_default">Па змаўчанні (з файла)</string>
@@ -174,7 +172,6 @@
     <string name="sub_auto_off">Не</string>
     <string name="sub_auto_forced">Толькі фарсіраваныя</string>
     <string name="sub_auto_full">Поўныя</string>
-    <string name="pref_calibration_3d">Каліброўка 3D</string>
     <string name="pref_cardboard_vr">Налада Cardboard VR</string>
     <string name="pref_anaglyph">Налада Анагліфа</string>
     <string name="pref_sec_app">Праграма</string>
@@ -210,9 +207,6 @@
     <string name="button_label_quality">Якасць відэа</string>
     <string name="button_label_audio">Аўдыядарожка</string>
     <string name="button_label_subtitles">Субтытры</string>
-    <string name="next_video">Наступнае: %s</string>
-    <string name="prev_video">Папярэдняе: %s</string>
-    <string name="release_to_switch">Адпусціце для пераключэння</string>
     <string name="action_exit">Выхад</string>
     <string name="swipe_pull_next">Цягніце для пераключэння</string>
     <string name="swipe_pull_exit">Цягніце для выхаду</string>
@@ -292,7 +286,6 @@
     <string name="vr_config_success">Профіль Cardboard паспяхова ўжыты!\n\nK1: %1$.3f\nK2: %2$.3f</string>
     <string name="vr_config_error">Памылка чытання профілю Cardboard.</string>
     <string name="pref_app_language_desc">Змяніць мову праграмы. Змена патрабуе перазапуску праграмы.</string>
-    <string name="develop_tost">Выбачайце, гэтая функцыя яшчэ распрацоўваецца.</string>
     <string name="pref_remember_audio">Запамінаць аўдыядарожку</string>
     <string name="pref_dv_mode_desc">Як прайграваць Dolby Vision. Dolby Vision — дэкодэрам DV. Аўта — DV, калі экран і дэкодэр яго падтрымліваюць, інакш HDR10/HLG. HDR10/HLG — толькі базавы пласт, дапамагае пры чорным экране (часта з Profile 7). Dolby Vision (P7 → P8.1) — фільмы Profile 7 (рэмуксы UHD Blu-ray) канвертуюцца ў Profile 8.1 і граюць у DV на прыладах без падтрымкі Profile 7.</string>
     <string name="dv_mode_off">Dolby Vision</string>
@@ -370,7 +363,6 @@
     <string name="wizard_controls_adjust">«Наладзіць» або OK — схаваць інструкцыю. Потым ◀ ▶ мяняюць значэнне, OK або Назад — зноў інструкцыя.</string>
     <string name="wizard_controls_params">▲ ▼ — выбраць параметр</string>
     <string name="wizard_controls_touch">Дотык: злева/справа — змяніць значэнне, у цэнтры — інструкцыя, свайп уверх/уніз — іншы параметр</string>
-    <string name="wizard_controls_simple">«Далей» — наступны крок, «Назад» — папярэдні</string>
     <string name="wizard_param_separation">Разнос экранаў</string>
     <string name="wizard_param_scale">Маштаб</string>
     <string name="wizard_param_glasses">Акуляры</string>
@@ -488,4 +480,22 @@
     <string name="diag_yes">так</string>
     <string name="diag_no">не</string>
     <string name="diag_builtin">убудаваны</string>
+    <string name="quality_auto">Аўта</string>
+    <string name="video_number">Відэа %1$d</string>
+    <string name="video_default_title">Відэа</string>
+    <string name="track_number">Дарожка %1$d</string>
+    <string name="storage_permission_denied">Няма доступу да сховішча. Некаторыя файлы могуць не адкрыцца.</string>
+    <string name="update_no_changelog">Спіс змен не прадастаўлены.</string>
+    <string name="close_settings">Закрыць налады</string>
+    <string name="mix_preset_standard">Стандарт - RFC 7845 (Section 5.1.1.5)</string>
+    <string name="mix_preset_boost_center">Узмацненне голасу</string>
+    <string name="mix_preset_night_mode">Начны (Ціхія эфекты)</string>
+    <string name="mix_preset_custom">Карыстальніцкі</string>
+    <string name="playback_error">Памылка прайгравання</string>
+    <string name="pref_anaglyph_desc">Вызначэнне тыпу акуляраў і карэкцыя колеру</string>
+    <string name="pref_audio_boost_desc">Карысна для ціхіх фільмаў. Галоўная мэта — зрабіць ціхі гук гучнейшым, не выклікаючы жорсткага кліпінгу (хрыпу) на піках.</string>
+    <string name="pref_cardboard_vr_desc">Майстар налады лінзаў, маштабу і IPD</string>
+    <string name="pref_skip_silence_off">Прайграваць як ёсць</string>
+    <string name="pref_skip_silence_on">Прапускаць фрагменты з цішынёй у аўдыяпатоку</string>
+    <string name="pref_update_check">Праверыць абнаўленне</string>
 </resources>

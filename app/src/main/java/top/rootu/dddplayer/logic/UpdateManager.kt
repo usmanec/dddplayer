@@ -10,6 +10,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
+import top.rootu.dddplayer.R
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -65,7 +66,7 @@ class UpdateManager(private val context: Context) {
 
         UpdateInfo(
             version = tagName,
-            description = latest.optString("body", "").ifEmpty { "Список изменений не предоставлен." },
+            description = latest.optString("body", "").ifEmpty { context.getString(R.string.update_no_changelog) },
             downloadUrl = apkAsset.getString("browser_download_url"),
             size = apkAsset.getLong("size")
         )

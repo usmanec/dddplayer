@@ -1676,7 +1676,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
 
         val wrapper = ContextThemeWrapper(context, R.style.DarkPopupContext)
         val popup = PopupMenu(wrapper, ui.buttonQuality)
-        options.forEachIndexed { index, option -> popup.menu.add(0, index, 0, option.name) }
+        options.forEachIndexed { index, option -> popup.menu.add(0, index, 0, if (option.isAuto) getString(R.string.quality_auto) else option.name) }
         popup.setOnMenuItemClickListener { item ->
             viewModel.setVideoQuality(options[item.itemId])
             true

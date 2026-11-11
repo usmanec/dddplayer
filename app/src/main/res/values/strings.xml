@@ -10,12 +10,10 @@
     <string name="track_unknown">Unknown</string>
     <string name="percent_100" translatable="false">100%</string>
     <string name="pic">picture</string>
-    <string name="develop_tost">Sorry, this is still in development.</string>
 
     <!-- Player Screen -->
     <string name="seek_delta_format" translatable="false">%1$s %2$s</string>
     <string name="percentage_int_format" translatable="false">%d%%</string>
-    <string name="fps_counter_format" translatable="false">FPS: %d</string>
     <string name="audio_badge_format" translatable="false">%1$s > %2$s</string>
     <string name="time_ends_at">Ends at %s</string>
     <string name="top_panel_help_text">▲▼ select • OK save • BACK cancel</string>
@@ -126,7 +124,6 @@
 
     <!-- Global Settings -->
     <string name="pref_title">Global settings</string>
-    <string name="pref_title_desc">Global player parameters</string>
     <string name="close_settings">Close settings</string>
     <string name="exit">Exit</string>
     <string name="pref_general_header">Playback</string>
@@ -180,12 +177,10 @@
     <string name="pref_audio_boost">Volume Boost</string>
     <string name="pref_audio_boost_desc">Useful for quiet movies. The main goal is to make quiet sounds louder without causing hard clipping (distortion) at peaks.</string>
     <string name="loudness_boost_format" translatable="false">+%d dB</string>
-    <string name="pref_sec_lang_and_sub">Language &amp; Subtitles</string>
     <string name="pref_language_audio">Default Audio Track</string>
     <string name="pref_language_audio_desc">Preferred track when starting a video</string>
     <string name="pref_language_track_default">Default (from file)</string>
     <string name="pref_language_track_device">Device languages</string>
-    <string name="language_code_format" translatable="false">%1$s (%2$s)</string>
     <string name="pref_sub_lang_default">Default Subtitle Language</string>
     <string name="pref_sub_lang_default_desc">Preferred subtitles (if available)</string>
     <string name="pref_subtitle_auto">Auto-enable subtitles</string>
@@ -194,7 +189,6 @@
     <string name="sub_auto_off">Off</string>
     <string name="sub_auto_forced">Forced only</string>
     <string name="sub_auto_full">Full</string>
-    <string name="pref_calibration_3d">3D Calibration</string>
     <string name="pref_cardboard_vr">Cardboard VR Setup</string>
     <string name="pref_cardboard_vr_desc">Wizard for lens, zoom, and IPD settings</string>
     <string name="pref_anaglyph">Anaglyph Setup</string>
@@ -202,7 +196,6 @@
     <string name="pref_sec_app">Application</string>
     <string name="pref_app_language" translatable="false">Application Language</string>
     <string name="pref_app_language_desc">Change app language. Restart required.</string>
-    <string name="pref_language_dialog_title" translatable="false">Language</string>
     <string name="pref_language_system">System Default</string>
     <string name="pref_up_action">\'Up\' Button Action</string>
     <string name="pref_up_action_desc">What to open when pressing \'Up\' in the player</string>
@@ -235,9 +228,6 @@
     <string name="button_label_quality">Video quality</string>
     <string name="button_label_audio">Audio track</string>
     <string name="button_label_subtitles">Subtitles</string>
-    <string name="next_video">Next: %s</string>
-    <string name="prev_video">Prev: %s</string>
-    <string name="release_to_switch">Release to switch</string>
     <string name="action_exit">Exit</string>
     <string name="swipe_pull_next">Pull to switch</string>
     <string name="swipe_pull_exit">Pull to exit</string>
@@ -401,7 +391,6 @@
     <string name="wizard_controls_adjust">“Adjust” or OK hides the instructions. Then ◀ ▶ change the value, OK or Back show the instructions again.</string>
     <string name="wizard_controls_params">▲ ▼ select the parameter</string>
     <string name="wizard_controls_touch">Touch: left/right side changes the value, center shows the instructions, swipe up/down selects the parameter</string>
-    <string name="wizard_controls_simple">“Next” goes to the next step, “Back” to the previous one</string>
     <string name="wizard_param_separation">Screen separation</string>
     <string name="wizard_param_scale">Scale</string>
     <string name="wizard_param_glasses">Glasses</string>
@@ -519,4 +508,10 @@
     <string name="diag_yes">yes</string>
     <string name="diag_no">no</string>
     <string name="diag_builtin">built-in</string>
+    <string name="quality_auto">Auto</string>
+    <string name="video_number">Video %1$d</string>
+    <string name="video_default_title">Video</string>
+    <string name="track_number">Track %1$d</string>
+    <string name="storage_permission_denied">Storage permission denied. Some files may not play.</string>
+    <string name="update_no_changelog">No changelog provided.</string>
 </resources>

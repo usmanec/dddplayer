@@ -11,7 +11,6 @@
     <string name="track_off">Выкл.</string>
     <string name="track_unknown">Неизвестно</string>
     <string name="pic">картинка</string>
-    <string name="develop_tost">Извините, это всё ещё в разработке.</string>
 
     <!-- ==================================================== -->
     <!-- Экран плеера (OSD, меню, сообщения)                  -->
@@ -121,7 +120,6 @@
     <!-- Экран глобальных настроек (GlobalSettingsActivity)   -->
     <!-- ==================================================== -->
     <string name="pref_title">Глобальные настройки</string>
-    <string name="pref_title_desc">Глобальные параметры плеера</string>
     <string name="close_settings">Закрыть настройки</string>
     <string name="exit">Выход</string>
     <string name="pref_general_header">Воспроизведение</string>
@@ -174,7 +172,6 @@
     <string name="pref_skip_silence_off">Воспроизводить как есть</string>
     <string name="pref_audio_boost">Усиление громкости (Boost)</string>
     <string name="pref_audio_boost_desc">Полезно для тихих фильмов. Главная цель — сделать тихий звук громче, не вызывая жесткого клиппинга (хрипа) на пиках.</string>
-    <string name="pref_sec_lang_and_sub">Язык и Субтитры</string>
     <string name="pref_language_audio">Звуковая дорожка по умолчанию</string>
     <string name="pref_language_audio_desc">Предпочитаемая дорожка при старте видео</string>
     <string name="pref_language_track_default">По умолчанию (из файла)</string>
@@ -187,7 +184,6 @@
     <string name="sub_auto_off">Нет</string>
     <string name="sub_auto_forced">Только форсированные</string>
     <string name="sub_auto_full">Полные</string>
-    <string name="pref_calibration_3d">Калибровка 3D</string>
     <string name="pref_cardboard_vr">Настройка Cardboard VR</string>
     <string name="pref_cardboard_vr_desc">Мастер настройки линз, масштаба и IPD</string>
     <string name="pref_anaglyph">Настройка Анаглифа</string>
@@ -225,9 +221,6 @@
     <string name="button_label_quality">Качество видео</string>
     <string name="button_label_audio">Аудиодорожка</string>
     <string name="button_label_subtitles">Субтитры</string>
-    <string name="next_video">След: %s</string>
-    <string name="prev_video">Пред: %s</string>
-    <string name="release_to_switch">Отпустите для переключения</string>
     <string name="action_exit">Выход</string>
     <string name="swipe_pull_next">Тяните для переключения</string>
     <string name="swipe_pull_exit">Тяните для выхода</string>
@@ -398,7 +391,6 @@
     <string name="wizard_controls_adjust">«Настроить» или OK — скрыть инструкцию. Затем ◀ ▶ меняют значение, OK или Назад — снова инструкция.</string>
     <string name="wizard_controls_params">▲ ▼ — выбрать параметр</string>
     <string name="wizard_controls_touch">Касание: слева/справа — изменить значение, в центре — инструкция, свайп вверх/вниз — другой параметр</string>
-    <string name="wizard_controls_simple">«Далее» — следующий шаг, «Назад» — предыдущий</string>
     <string name="wizard_param_separation">Разнос экранов</string>
     <string name="wizard_param_scale">Масштаб</string>
     <string name="wizard_param_glasses">Очки</string>
@@ -516,4 +508,10 @@
     <string name="diag_yes">да</string>
     <string name="diag_no">нет</string>
     <string name="diag_builtin">встроенный</string>
+    <string name="quality_auto">Авто</string>
+    <string name="video_number">Видео %1$d</string>
+    <string name="video_default_title">Видео</string>
+    <string name="track_number">Дорожка %1$d</string>
+    <string name="storage_permission_denied">Нет доступа к хранилищу. Некоторые файлы могут не открыться.</string>
+    <string name="update_no_changelog">Список изменений не предоставлен.</string>
 </resources>

@@ -113,7 +113,7 @@ class PlaylistAdapter(
         }
 
         fun bind(item: MediaItem, isPlaying: Boolean) {
-            title.text = item.title ?: item.filename ?: "Video ${item.absoluteIndex + 1}"
+            title.text = item.title ?: item.filename ?: itemView.context.getString(R.string.video_number, item.absoluteIndex + 1)
             if (isPlaying) {
                 title.setTextColor("#000000".toColorInt())
                 itemView.isSelected = true
