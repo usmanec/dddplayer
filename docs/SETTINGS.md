@@ -31,7 +31,7 @@
 | `show_info_on_change` | false | Инфопанель при смене элемента плейлиста |
 | `show_playlist_index` | true | Номера в плейлисте |
 | `saved_playlists` | — | Плейлисты по ссылке на стартовом экране (JSON: id, name, url). Прежний `startup_playlist_uri` переносится сюда один раз и удаляется |
-| `smb_servers` | — | Сетевые папки SMB стартового экрана (JSON: id, name, address, user, password, domain) |
+| `smb_servers` | — | Сетевые папки SMB стартового экрана (JSON: id, name, address, user, password, domain). Лежит в отдельном файле `smb_prefs`, исключенном из резервных копий (пароли); из `global_prefs` переносится один раз |
 | `watch_history` | — | История «Продолжить просмотр» (JSON, до 30 записей, одна на источник: папку или плейлист) |
 | `last_channel_uri` | null | Последний канал M3U (служебное) |
 | `clock_transparency` | `CLOCK_OFF` (-1) | -1 выкл, 0..80 % прозрачности. Мигрирует из старого `show_clock` |

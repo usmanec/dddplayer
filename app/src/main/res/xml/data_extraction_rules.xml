@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Резервные копии и перенос на другое устройство (Android 12+): пароли сетевых папок SMB не передаются -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="smb_prefs.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="smb_prefs.xml" />
+    </device-transfer>
+</data-extraction-rules>

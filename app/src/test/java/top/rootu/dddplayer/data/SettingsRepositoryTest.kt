@@ -278,6 +278,16 @@ class SettingsRepositoryTest {
     }
 
     @Test
+    fun `smb servers migrate from global prefs to their own file`() {
+        val json = """[{"id":"1","name":"NAS","address":"smb://nas/Video","user":"user","password":"secret","domain":""}]"""
+        prefs.edit().putString("smb_servers", json).commit()
+        val repo = repo()
+        assertEquals("secret", repo.getSmbServers().single().password)
+        assertFalse(prefs.contains("smb_servers"))
+        assertEquals(json, context.getSharedPreferences("smb_prefs", Context.MODE_PRIVATE).getString("smb_servers", null))
+    }
+
+    @Test
     fun `control bar defaults keep all buttons and no back arrow`() {
         val repo = repo()
         assertTrue(repo.getHiddenControlButtons().isEmpty())
