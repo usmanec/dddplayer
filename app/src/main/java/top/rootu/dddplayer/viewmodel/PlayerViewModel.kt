@@ -21,7 +21,6 @@ import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.text.Cue
 import androidx.media3.common.text.CueGroup
-import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.dash.manifest.DashManifest
@@ -104,7 +103,6 @@ data class PlaylistUiState(
     val availableGroups: List<String> = emptyList() // Пусто, если в плейлисте нет групп
 )
 
-@UnstableApi
 // Пункт "Загрузить из файла" в меню субтитров
 const val SUBTITLE_MENU_LOAD_FILE = "load_file"
 // Пункт "Своя скорость" в меню скорости

@@ -4,8 +4,6 @@ import android.app.Activity
 import android.app.Application
 import android.os.Bundle
 import android.util.Log
-import androidx.annotation.OptIn
-import androidx.media3.common.util.UnstableApi
 
 /**
  * Возврат видео из окна PiP, когда приложение открывают снаружи (лаунчер, "Недавние").
@@ -13,7 +11,6 @@ import androidx.media3.common.util.UnstableApi
  * в отдельной задаче - без этого видео осталось бы в углу. Переходы между своими экранами не считаются:
  * новый экран запускается раньше, чем останавливается прежний.
  */
-@OptIn(UnstableApi::class)
 class PipReturnCallbacks : Application.ActivityLifecycleCallbacks {
 
     // Запущенные экраны приложения, кроме плеера

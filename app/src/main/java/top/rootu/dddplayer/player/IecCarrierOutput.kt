@@ -8,12 +8,10 @@ import android.media.AudioTrack
 import android.os.Build
 import android.os.SystemClock
 import android.util.Log
-import androidx.annotation.OptIn
 import androidx.media3.common.Format
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.audio.AudioProcessor
-import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.AudioTrackAudioOutputProvider
 import androidx.media3.exoplayer.audio.DefaultAudioSink
@@ -22,7 +20,6 @@ import java.util.concurrent.ConcurrentHashMap
 // Вывод DTS-HD MA и TrueHD (MAT) через несущую IEC 61937 192 кГц/7.1, как у Kodi.
 // Fire OS принимает сырой ENCODING_DTS_HD, но передает только ядро DTS, а сырой TrueHD не передает вовсе.
 // Упаковщики и IecCarrierSink перенесены из edde746/plezy (GPL-3.0).
-@OptIn(UnstableApi::class)
 internal object IecCarrierOutput {
     private const val TAG = "IecCarrier"
     private const val CHANNEL_MASK = AudioFormat.CHANNEL_OUT_7POINT1_SURROUND

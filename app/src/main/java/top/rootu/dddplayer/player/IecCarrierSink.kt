@@ -6,7 +6,6 @@ package top.rootu.dddplayer.player
 
 import android.media.AudioDeviceInfo
 import android.media.AudioTrack
-import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.AuxEffectInfo
 import androidx.media3.common.C
@@ -14,7 +13,6 @@ import androidx.media3.common.Format
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.util.Clock
-import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.analytics.PlayerId
 import androidx.media3.exoplayer.audio.AudioSink
 import java.nio.ByteBuffer
@@ -46,7 +44,6 @@ import java.util.concurrent.atomic.AtomicInteger
  * Selection happens only in [configure]. Persistent controls and the listener are mirrored to both
  * delegates so either can be activated later; per-stream calls go to the active one alone.
  */
-@OptIn(UnstableApi::class)
 internal class IecCarrierSink(
   private val defaultSink: AudioSink,
   private val carrierSink: AudioSink,
