@@ -1,10 +1,8 @@
 package top.rootu.dddplayer.player
 
-import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor.AudioFormat
 import androidx.media3.common.audio.BaseAudioProcessor
-import androidx.media3.common.util.UnstableApi
 import top.rootu.dddplayer.logic.AudioMixerLogic
 import top.rootu.dddplayer.logic.LowPassFilter
 import java.nio.ByteBuffer
@@ -15,7 +13,6 @@ import java.nio.ByteOrder
  * Микшер видит вход, а этот процессор - уже его выход, поэтому число входных каналов запоминает
  * [Probe], стоящий перед микшером. Настоящий LFE источника не трогаем.
  */
-@OptIn(UnstableApi::class)
 internal class LfeLowPassAudioProcessor(
     private val probe: Probe,
     private val channelsSetting: Int,

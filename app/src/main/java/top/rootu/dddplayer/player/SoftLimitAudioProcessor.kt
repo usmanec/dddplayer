@@ -1,10 +1,8 @@
 package top.rootu.dddplayer.player
 
-import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor.AudioFormat
 import androidx.media3.common.audio.BaseAudioProcessor
-import androidx.media3.common.util.UnstableApi
 import top.rootu.dddplayer.logic.SoftLimiter
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -14,7 +12,6 @@ import java.nio.ByteOrder
  * сам обрезает перегрузку), а этот процессор в конце мягко ограничивает ([SoftLimiter]) и возвращает 16 бит:
  * AudioTrack на старых чипах остается 16-битным, как и раньше.
  */
-@OptIn(UnstableApi::class)
 internal class SoftLimitAudioProcessor : BaseAudioProcessor() {
 
     private var isFloat = false

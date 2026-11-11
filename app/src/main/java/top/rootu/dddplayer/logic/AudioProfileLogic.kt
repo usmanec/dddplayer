@@ -1,7 +1,5 @@
 package top.rootu.dddplayer.logic
 
-import androidx.annotation.OptIn
-import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import top.rootu.dddplayer.data.SettingsRepository
 
@@ -9,7 +7,6 @@ import top.rootu.dddplayer.data.SettingsRepository
  * Настройки звука, по которым собирается плеер. В экспертном режиме это ручные настройки как есть,
  * в простом - профиль по аудиосистеме (стерео или многоканальная) и усилению голоса.
  */
-@OptIn(UnstableApi::class)
 object AudioProfileLogic {
 
     const val SYSTEM_STEREO = 0

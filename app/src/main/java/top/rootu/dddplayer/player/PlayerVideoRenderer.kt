@@ -2,7 +2,6 @@ package top.rootu.dddplayer.player
 
 import androidx.media3.common.Format
 import androidx.media3.common.MimeTypes
-import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer
@@ -18,7 +17,6 @@ import top.rootu.dddplayer.logic.DolbyVisionLogic
  *   временную поверхность) возврат на SurfaceView падал в setOutputSurface ("cannot change usage"),
  *   оверлей оставался зеленым. Для них декодер пересоздается при смене поверхности (штатный обход Media3).
  */
-@UnstableApi
 class PlayerVideoRenderer(
     builder: MediaCodecVideoRenderer.Builder,
     private val mapDvToHevc: Boolean

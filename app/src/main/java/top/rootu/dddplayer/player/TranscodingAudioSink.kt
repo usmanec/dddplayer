@@ -2,7 +2,6 @@ package top.rootu.dddplayer.player
 
 import android.media.AudioDeviceInfo
 import android.util.Log
-import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.AuxEffectInfo
 import androidx.media3.common.C
@@ -10,7 +9,6 @@ import androidx.media3.common.Format
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.util.Clock
-import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.analytics.PlayerId
 import androidx.media3.exoplayer.audio.AudioSink
 import top.rootu.dddplayer.logic.AudioMixerLogic
@@ -31,7 +29,6 @@ import kotlin.math.abs
  * этот формат битстримом. Остальное идет в [delegate] как раньше.
  * Скорость воспроизведения к битстриму не применяется (как при обычном пробросе).
  */
-@OptIn(UnstableApi::class)
 internal class TranscodingAudioSink(
     private val delegate: AudioSink,
     private val config: Config

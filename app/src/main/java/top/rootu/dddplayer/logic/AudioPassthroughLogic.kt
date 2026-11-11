@@ -1,15 +1,12 @@
 package top.rootu.dddplayer.logic
 
-import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.MimeTypes
-import androidx.media3.common.util.UnstableApi
 
 /**
  * Проброс (битстрим) звука на ресивер: группы форматов, которые пользователь выбирает в настройках,
  * и правило, какой сжатый поток можно отдать выходу как есть.
  */
-@OptIn(UnstableApi::class)
 object AudioPassthroughLogic {
 
     const val AC3 = "ac3"

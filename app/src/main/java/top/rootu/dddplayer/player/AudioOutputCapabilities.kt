@@ -1,14 +1,11 @@
 package top.rootu.dddplayer.player
 
 import android.content.Context
-import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
-import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.audio.AudioCapabilities
 import top.rootu.dddplayer.logic.AudioPassthroughLogic
 
 /** Что текущий аудиовыход принимает битстримом: для пунктов проброса и перекодирования в настройках. */
-@OptIn(UnstableApi::class)
 object AudioOutputCapabilities {
 
     /** Группы форматов (AudioPassthroughLogic.*), которые выход примет как есть; [iec] - с несущей IEC 61937. */
