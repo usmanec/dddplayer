@@ -198,7 +198,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     data class TrackCounts(val video: Int, val audio: Int, val subtitles: Int)
     private val _trackCounts = MutableLiveData<TrackCounts>()
     val trackCounts: LiveData<TrackCounts> = _trackCounts
-    private val _currentQualityName = MutableLiveData("Auto")
+    private val _currentQualityName = MutableLiveData(getString(R.string.quality_auto))
     val currentQualityName: LiveData<String> = _currentQualityName
 
     // Renderer Settings
@@ -507,6 +507,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         val cause = error.cause
         val TAG = "tryRecoverFromError"
 
+        // Плеер отстал от окна трансляции (например, после долгой паузы в эфире): прыгаем на край эфира
+        if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
+            Log.w(TAG, "Behind live window. Jumping to the live edge...")
+            p.seekToDefaultPosition()
+            p.prepare()
+            return true
+        }
+
         // Перехват застрявшего HLS плейлиста
         if (cause is HlsPlaylistTracker.PlaylistStuckException) {
             Log.w(TAG, "HLS Playlist stuck. Forcing reload...")
@@ -534,7 +542,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 Log.w(TAG, "IO Error detected ($ioRetryCount/$MAX_IO_RETRIES). Retrying at current position...")
 
                 val currentIndex = p.currentMediaItemIndex
-                val currentPos = p.currentPosition // Сохраняем текущую точку
+                // Сохраняем текущую точку; эфир перезагружаем с края, старая позиция могла выйти из окна трансляции
+                val currentPos = if (p.isCurrentMediaItemLive) C.TIME_UNSET else p.currentPosition
 
                 // Собираем новый список MediaItem
                 val newItems = mutableListOf<Media3MediaItem>()
@@ -687,9 +696,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 _showInfoPanelEvent.value = Event(Unit)
             }
 
-            if (currentUri != null) {
+            val loadingUri = currentUri
+            if (loadingUri != null) {
                 viewModelScope.launch {
-                    val saved = repository.getVideoSettings(currentUri!!)
+                    val saved = repository.getVideoSettings(loadingUri)
+                    // Пока читали базу, включили другое видео: его настройки загрузит свой переход
+                    if (loadingUri != currentUri) return@launch
                     if (saved != null) {
                         applySettings(saved)
                         // Сохраняем ID из базы как отложенные
@@ -701,9 +713,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                         loadGlobalDefaults()
                     }
                     videoSettingsChecked = true
-                    // Дорожки могли прийти раньше настроек: применяем автовключение субтитров сейчас
-                    if (!subtitleResolved && repository.getSubtitleAutoMode() != SettingsRepository.SUB_AUTO_DEFAULT) {
-                        player?.let { updateTracksInfo(it.currentTracks) }
+                    // Дорожки могли прийти раньше настроек: применяем сохраненные дорожки
+                    // и автовключение субтитров сейчас
+                    val autoSubtitles = !subtitleResolved &&
+                        repository.getSubtitleAutoMode() != SettingsRepository.SUB_AUTO_DEFAULT
+                    val hasPendingTracks = pendingAudioId != null || pendingSubtitleId != null
+                    player?.currentTracks?.let { tracks ->
+                        if (autoSubtitles || (hasPendingTracks && !tracks.isEmpty)) updateTracksInfo(tracks)
                     }
                     if (!isFirstItemLoaded) {
                         handleResumeLogic(saved)
@@ -1541,7 +1557,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         if (p.hasNextMediaItem()) {
             val nextIndex = p.nextMediaItemIndex
             val item = p.getMediaItemAt(nextIndex)
-            return item.mediaMetadata.title?.toString() ?: "Video ${nextIndex + 1}"
+            return item.mediaMetadata.title?.toString() ?: getString(R.string.video_number, nextIndex + 1)
         }
         return null
     }
@@ -1551,7 +1567,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         if (p.hasPreviousMediaItem()) {
             val prevIndex = p.previousMediaItemIndex
             val item = p.getMediaItemAt(prevIndex)
-            return item.mediaMetadata.title?.toString() ?: "Video ${prevIndex + 1}"
+            return item.mediaMetadata.title?.toString() ?: getString(R.string.video_number, prevIndex + 1)
         }
         return null
     }
@@ -1583,7 +1599,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         val index = playlist.indexOfFirst { it.uuid == playingId }
         if (index == -1) return
 
-        val name = fileName ?: uri.lastPathSegment ?: "Subtitles"
+        val name = fileName ?: uri.lastPathSegment ?: getString(R.string.setting_subtitles)
         val mimeType = MediaFormatHelper.getSubtitleMimeTypeByName(name)
         if (mimeType == null || mimeType == MimeTypes.TEXT_UNKNOWN) {
             _toastMessage.value = getString(R.string.subtitle_unsupported)
@@ -1860,7 +1876,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }
             p.trackSelectionParameters = builder.build()
-            _currentQualityName.value = option.name
+            _currentQualityName.value = if (option.isAuto) getString(R.string.quality_auto) else option.name
         }
     }
 
