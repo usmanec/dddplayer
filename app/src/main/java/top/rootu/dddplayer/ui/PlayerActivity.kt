@@ -237,7 +237,7 @@ class PlayerActivity : AppCompatActivity() {
             // Для content:// это может быть не критично, пробуем открыть так.
             // Для file:// это фатально, но ExoPlayer сам выдаст ошибку, которую мы покажем.
             pendingIntent?.let { handleIntent(it) }
-            Toast.makeText(applicationContext, "Storage permission denied. Some files may not play.", Toast.LENGTH_LONG).show()
+            Toast.makeText(applicationContext, R.string.storage_permission_denied, Toast.LENGTH_LONG).show()
         }
         pendingIntent = null
     }
@@ -371,8 +371,10 @@ class PlayerActivity : AppCompatActivity() {
     private fun checkPermissionsAndHandleIntent(intent: Intent) {
         val uri = intent.data
 
-        // Если URI нет или это http/https, разрешение на файлы не нужно
-        if (uri == null || uri.scheme == "http" || uri.scheme == "https") {
+        // Разрешение на файлы нужно только локальным файлам (file://, content://, путь без схемы),
+        // сетевым ссылкам (http, rtsp, smb, ftp и т.п.) оно не нужно
+        val scheme = uri?.scheme?.lowercase()
+        if (uri == null || (!scheme.isNullOrEmpty() && scheme != "file" && scheme != "content")) {
             handleIntent(intent)
             return
         }
@@ -487,7 +489,8 @@ class PlayerActivity : AppCompatActivity() {
             // Возвращаем URI текущего видео (полезно, если это был плейлист)
             resultIntent.data = viewModel.player?.currentMediaItem?.localConfiguration?.uri
 
-            val duration = viewModel.player?.duration
+            // Длительность неизвестна (эфир): отдаем 0, а не служебное значение C.TIME_UNSET
+            val duration = viewModel.player?.duration?.coerceAtLeast(0L)
             val position = if (isCompleted) duration else viewModel.player?.currentPosition
 
             resultIntent.putExtra("position", position)

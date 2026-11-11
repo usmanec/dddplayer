@@ -172,7 +172,7 @@ When started with `startActivityForResult` and `return_result = true`, the playe
 | :--- | :--- | :--- |
 | `data` | Uri | URI of the current (last played) item. |
 | `position` | Long | Playback position in milliseconds (equals the duration when the video ended). |
-| `duration` | Long | Video duration in milliseconds. |
+| `duration` | Long | Video duration in milliseconds (0 when unknown, e.g. live). |
 | `end_by` | String | `completion` if the video finished (the player closes automatically), `user` if the user exited. |
 
 ### Tech Stack

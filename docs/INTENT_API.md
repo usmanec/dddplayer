@@ -70,5 +70,5 @@ HLS (`application/vnd.apple.mpegurl`, `application/x-mpegURL`), `application/das
 |:---|:---|:---|
 | `data` | Uri | URI текущего (последнего) элемента |
 | `position` | Long | Позиция в мс. При завершении видео равна длительности |
-| `duration` | Long | Длительность в мс |
+| `duration` | Long | Длительность в мс (0, если неизвестна, например эфир) |
 | `end_by` | String | `completion` (видео закончилось само; при `return_result` активити закрывается) или `user` |
