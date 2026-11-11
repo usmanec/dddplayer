@@ -115,9 +115,9 @@ class PlayerManager(
     private var headersByMediaId: Map<String, Map<String, String>> = emptyMap()
     private var playWhenReady = true
 
+    // Метаданные дорожек по URI файла (у каждого элемента плейлиста свои).
     // Пишется из IO-потока парсера, читается из потоков загрузки и главного потока
-    @Volatile
-    private var currentTrackInfo: Map<Int, UnifiedMetadataReader.TrackInfo> = emptyMap()
+    private val trackInfoByUri = ConcurrentHashMap<String, Map<Int, UnifiedMetadataReader.TrackInfo>>()
     var onMetadataAvailable: (() -> Unit)? = null
     var onPlayerCreated: ((ExoPlayer) -> Unit)? = null
     var onVideoFormatChanged: ((Format) -> Unit)? = null
@@ -219,11 +219,11 @@ class PlayerManager(
             upstreamFactory = ResolvingDataSource.Factory(prefetchingDataSourceFactory) { dataSpec ->
                 dataSpec.withAdditionalHeaders(itemHeaders)
             },
-            onMetadataParsed = { metadataMap ->
-                currentTrackInfo = metadataMap
+            onMetadataParsed = { uri, metadataMap ->
+                trackInfoByUri[uri.toString()] = metadataMap
                 onMetadataAvailable?.invoke()
             },
-            isMetadataParsed = { currentTrackInfo.isNotEmpty() }
+            isMetadataParsed = { uri -> trackInfoByUri.containsKey(uri.toString()) }
         )
     }
 
@@ -881,7 +881,7 @@ class PlayerManager(
     }
 
     fun loadPlaylist(items: List<MediaItem>, startIndex: Int, startPosMs: Long = 0) {
-        currentTrackInfo = emptyMap()
+        trackInfoByUri.clear()
         resolvedMediaTypes.clear() // Очищаем кэш типов при новой загрузке
         resolvedMediaTypes.putAll(probedMediaTypes)
         probedMediaTypes.clear()
@@ -948,10 +948,16 @@ class PlayerManager(
             onVideoFormatChanged = null
             onAudioOutputFormatChanged = null
             onTunnelingChanged = null
+            onStopRequested = null
+            iecSink = null
         }
     }
 
-    fun getTrackMetadata(): Map<Int, UnifiedMetadataReader.TrackInfo> = currentTrackInfo
+    /** Метаданные дорожек текущего видео (вызывать из главного потока). */
+    fun getTrackMetadata(): Map<Int, UnifiedMetadataReader.TrackInfo> {
+        val uri = exoPlayer?.currentMediaItem?.localConfiguration?.uri ?: return emptyMap()
+        return trackInfoByUri[uri.toString()].orEmpty()
+    }
 
     /**
      * Заполненность буфера (0-100) по объему, если для текущего сетевого видео задан размер в МБ.

@@ -48,8 +48,9 @@ private class ParseSession(
 
 class ParsingDataSource(
     private val upstream: DataSource,
-    private val onMetadataParsed: (Map<Int, UnifiedMetadataReader.TrackInfo>) -> Unit,
-    private val isMetadataParsed: () -> Boolean
+    // Метаданные хранятся по URI файла: у каждого элемента плейлиста они свои
+    private val onMetadataParsed: (Uri, Map<Int, UnifiedMetadataReader.TrackInfo>) -> Unit,
+    private val isMetadataParsed: (Uri) -> Boolean
 ) : DataSource {
 
     private var teeDataSource: TeeDataSource? = null
@@ -60,9 +61,10 @@ class ParsingDataSource(
 
         override fun open(dataSpec: DataSpec) {
             // Запускаем парсинг только если это начало файла и метаданные еще не были распарсены
-            if (dataSpec.position == 0L && !isMetadataParsed()) {
+            if (dataSpec.position == 0L && !isMetadataParsed(dataSpec.uri)) {
                 stopParsing() // Закрываем старую сессию на всякий случай
 
+                val sourceUri = dataSpec.uri
                 val pipedOut = PipedOutputStream()
                 val pipedIn = try {
                     PipedInputStream(pipedOut, PIPE_BUFFER_SIZE)
@@ -84,7 +86,7 @@ class ParsingDataSource(
                             metadata.forEach {
                                 Log.d(TAG, " - Track: ID=${it.trackId}, Name=${it.name}, Lang=${it.language}")
                             }
-                            onMetadataParsed(metadata.associateBy { it.trackId })
+                            onMetadataParsed(sourceUri, metadata.associateBy { it.trackId })
                         }
                     } catch (e: Exception) {
                         // Pipe closed, Interrupted, etc. - это нормальные сценарии завершения
@@ -132,7 +134,7 @@ class ParsingDataSource(
 
     override fun open(dataSpec: DataSpec): Long {
         // Если это начало файла и метаданные еще не распарсены, используем TeeDataSource
-        if (dataSpec.position == 0L && !isMetadataParsed()) {
+        if (dataSpec.position == 0L && !isMetadataParsed(dataSpec.uri)) {
             teeDataSource = TeeDataSource(upstream, pipeSink)
             return teeDataSource!!.open(dataSpec)
         }
@@ -170,8 +172,9 @@ class ParsingDataSource(
 
 class ParsingDataSourceFactory(
     private val upstreamFactory: DataSource.Factory,
-    private val onMetadataParsed: (Map<Int, UnifiedMetadataReader.TrackInfo>) -> Unit,
-    private val isMetadataParsed: () -> Boolean
+    // Метаданные хранятся по URI файла: у каждого элемента плейлиста они свои
+    private val onMetadataParsed: (Uri, Map<Int, UnifiedMetadataReader.TrackInfo>) -> Unit,
+    private val isMetadataParsed: (Uri) -> Boolean
 ) : DataSource.Factory {
     override fun createDataSource(): DataSource {
         return ParsingDataSource(upstreamFactory.createDataSource(), onMetadataParsed, isMetadataParsed)
