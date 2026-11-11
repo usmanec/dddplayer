@@ -720,18 +720,13 @@
                     <TextView android:id="@+id/text_voice_boost_value" style="@style/SettingsItemValue" />
                 </LinearLayout>
 
-                <!-- Смена скорости при битстриме: спрашивать или выключать проброс сразу -->
-                <LinearLayout android:id="@+id/item_speed_passthrough_auto" style="@style/SettingsItemContainer">
+                <!-- Смена скорости при битстриме: спрашивать, выключать проброс сразу или декодировать на время ускорения -->
+                <LinearLayout android:id="@+id/item_speed_passthrough" style="@style/SettingsItemContainer">
                     <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:duplicateParentState="true">
-                        <TextView style="@style/SettingsItemTitle" android:text="@string/pref_speed_passthrough_auto" />
-                        <TextView style="@style/SettingsItemDesc" android:text="@string/pref_speed_passthrough_auto_desc" />
+                        <TextView style="@style/SettingsItemTitle" android:text="@string/pref_speed_passthrough" />
+                        <TextView style="@style/SettingsItemDesc" android:text="@string/pref_speed_passthrough_desc" />
                     </LinearLayout>
-                    <androidx.appcompat.widget.SwitchCompat
-                        android:id="@+id/switch_speed_passthrough_auto"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:clickable="false"
-                        android:focusable="false" />
+                    <TextView android:id="@+id/text_speed_passthrough_value" style="@style/SettingsItemValue" />
                 </LinearLayout>
 
                 <!-- Экспертный режим: все настройки вывода звука вручную -->

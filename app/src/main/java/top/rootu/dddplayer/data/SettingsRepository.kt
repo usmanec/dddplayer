@@ -62,6 +62,11 @@ class SettingsRepository private constructor(context: Context) {
         const val AUDIO_TRANSCODE_AC3 = 1
         const val AUDIO_TRANSCODE_EAC3 = 2
 
+        // Смена скорости, пока звук идет битстримом (проброс, перекодирование в AC3/E-AC3)
+        const val SPEED_PT_ASK = 0 // спросить (прежнее поведение)
+        const val SPEED_PT_DISABLE = 1 // без вопроса выключить проброс до конца сеанса плеера (бывшее "не спрашивать")
+        const val SPEED_PT_DECODE = 2 // на время ускорения декодировать звук, на 1x вернуть проброс
+
         // Действие кнопки "OK" при скрытой панели
         const val OK_ACTION_PAUSE = 0
         const val OK_ACTION_PAUSE_PANEL = 1
@@ -508,8 +513,19 @@ class SettingsRepository private constructor(context: Context) {
     }
 
     // Скорость при битстриме: не спрашивать, а сразу выключать проброс до конца сеанса плеера
-    fun isSpeedPassthroughAutoEnabled(): Boolean = prefs.getBoolean("speed_passthrough_auto", false)
-    fun setSpeedPassthroughAutoEnabled(enabled: Boolean) = prefs.edit { putBoolean("speed_passthrough_auto", enabled) }
+    // Миграция со старого переключателя "speed_passthrough_auto": вкл -> SPEED_PT_DISABLE, выкл -> SPEED_PT_ASK
+    fun getSpeedPassthroughMode(): Int {
+        if (!prefs.contains("speed_passthrough_mode")) {
+            val migrated = if (prefs.getBoolean("speed_passthrough_auto", false)) SPEED_PT_DISABLE else SPEED_PT_ASK
+            prefs.edit {
+                putInt("speed_passthrough_mode", migrated)
+                remove("speed_passthrough_auto")
+            }
+            return migrated
+        }
+        return prefs.getInt("speed_passthrough_mode", SPEED_PT_ASK)
+    }
+    fun setSpeedPassthroughMode(mode: Int) = prefs.edit { putInt("speed_passthrough_mode", mode) }
 
     // Ручное увеличение при туннелировании: не спрашивать, а сразу выключать туннелирование до конца сеанса
     fun isZoomTunnelingAutoEnabled(): Boolean = prefs.getBoolean("zoom_tunneling_auto", false)
@@ -844,7 +860,7 @@ class SettingsRepository private constructor(context: Context) {
         val videoParams = "${getVideoDecoderPriority()}_${getAudioDecoderPriority()}_${isTunnelingEnabled()}_${getDvMode()}_${isHdAudioIecEnabled()}_${isHdr10PlusEnabled()}"
         val audioMix = "${getAudioOutputChannels()}_${isAudioUpmixEnabled()}_${isAudioGenerateLfeEnabled()}_${getMixPreset()}_${getMixFront()}_${getMixCenter()}_${getMixRear()}_${getMixMiddle()}_${getMixLfe()}"
         val audioOutput = "${isAudioPassthroughEnabled()}_${getAudioPassthroughFormats().sorted()}_${getAudioTranscode()}" +
-            "_${isAudioExpertMode()}_${getAudioSystem()}_${getVoiceBoostDb()}"
+            "_${isAudioExpertMode()}_${getAudioSystem()}_${getVoiceBoostDb()}_${getSpeedPassthroughMode() == SPEED_PT_DECODE}"
         return "${videoParams}_${audioMix}_${audioOutput}_${getTargetBufferCorrectMB()}"
     }
 

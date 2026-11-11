@@ -93,7 +93,7 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var groupAudioExpert: LinearLayout
     private lateinit var itemAudioSystem: LinearLayout
     private lateinit var itemVoiceBoost: LinearLayout
-    private lateinit var itemSpeedPassthroughAuto: LinearLayout
+    private lateinit var itemSpeedPassthrough: LinearLayout
     private lateinit var itemAudioPassthrough: LinearLayout
     private lateinit var switchAudioPassthrough: SwitchCompat
     private lateinit var textAudioPassthroughFormats: TextView
@@ -109,7 +109,7 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var switchAudioUpmix: SwitchCompat
     private lateinit var itemAudioGenerateLfe: LinearLayout
     private lateinit var switchAudioGenerateLfe: SwitchCompat
-    private lateinit var switchSpeedPassthroughAuto: SwitchCompat
+    private lateinit var textSpeedPassthroughValue: TextView
     private lateinit var itemZoomTunnelingAuto: LinearLayout
     private lateinit var switchZoomTunnelingAuto: SwitchCompat
     // Что выход принимает битстримом; обновляется при открытии экрана и переключении несущей IEC
@@ -379,7 +379,7 @@ class GlobalSettingsActivity : AppCompatActivity() {
         groupAudioExpert = findViewById(R.id.group_audio_expert)
         itemAudioSystem = findViewById(R.id.item_audio_system)
         itemVoiceBoost = findViewById(R.id.item_voice_boost)
-        itemSpeedPassthroughAuto = findViewById(R.id.item_speed_passthrough_auto)
+        itemSpeedPassthrough = findViewById(R.id.item_speed_passthrough)
         itemAudioPassthrough = findViewById(R.id.item_audio_passthrough)
         switchAudioPassthrough = findViewById(R.id.switch_audio_passthrough)
         textAudioPassthroughFormats = findViewById(R.id.text_audio_passthrough_formats)
@@ -395,7 +395,7 @@ class GlobalSettingsActivity : AppCompatActivity() {
         switchAudioUpmix = findViewById(R.id.switch_audio_upmix)
         itemAudioGenerateLfe = findViewById(R.id.item_audio_generate_lfe)
         switchAudioGenerateLfe = findViewById(R.id.switch_audio_generate_lfe)
-        switchSpeedPassthroughAuto = findViewById(R.id.switch_speed_passthrough_auto)
+        textSpeedPassthroughValue = findViewById(R.id.text_speed_passthrough_value)
         itemZoomTunnelingAuto = findViewById(R.id.item_zoom_tunneling_auto)
         switchZoomTunnelingAuto = findViewById(R.id.switch_zoom_tunneling_auto)
         itemHdAudioIec = findViewById(R.id.item_hd_audio_iec)
@@ -558,8 +558,16 @@ class GlobalSettingsActivity : AppCompatActivity() {
                 settingsViewModel.setVoiceBoostDb(steps[it])
             }
         }
-        itemSpeedPassthroughAuto.setOnClickListener {
-            settingsViewModel.toggleSpeedPassthroughAuto(!switchSpeedPassthroughAuto.isChecked)
+        itemSpeedPassthrough.setOnClickListener {
+            val options = listOf(
+                getString(R.string.speed_passthrough_ask),
+                getString(R.string.speed_passthrough_disable),
+                getString(R.string.speed_passthrough_decode)
+            )
+            showSingleChoiceDialog(
+                getString(R.string.pref_speed_passthrough), options,
+                settingsViewModel.speedPassthroughMode.value ?: SettingsRepository.SPEED_PT_ASK
+            ) { settingsViewModel.setSpeedPassthroughMode(it) }
         }
         itemZoomTunnelingAuto.setOnClickListener {
             settingsViewModel.toggleZoomTunnelingAuto(!switchZoomTunnelingAuto.isChecked)
@@ -808,7 +816,15 @@ class GlobalSettingsActivity : AppCompatActivity() {
             itemZoomTunnelingAuto.visibility = if (it) View.VISIBLE else View.GONE
         }
         settingsViewModel.isZoomTunnelingAuto.observe(this) { switchZoomTunnelingAuto.isChecked = it }
-        settingsViewModel.isSpeedPassthroughAuto.observe(this) { switchSpeedPassthroughAuto.isChecked = it }
+        settingsViewModel.speedPassthroughMode.observe(this) {
+            textSpeedPassthroughValue.setText(
+                when (it) {
+                    SettingsRepository.SPEED_PT_DISABLE -> R.string.speed_passthrough_disable
+                    SettingsRepository.SPEED_PT_DECODE -> R.string.speed_passthrough_decode
+                    else -> R.string.speed_passthrough_ask
+                }
+            )
+        }
         settingsViewModel.isHdr10PlusEnabled.observe(this) { switchHdr10Plus.isChecked = it }
         settingsViewModel.isAudioExpertMode.observe(this) { expert ->
             switchAudioExpert.isChecked = expert
@@ -1197,12 +1213,12 @@ class GlobalSettingsActivity : AppCompatActivity() {
 
     /**
      * Описание аудиосистемы простого режима: что пробрасывается и во что перекодируется (по возможностям выхода).
-     * "Менять скорость без вопроса" нужно только там, где звук идет битстримом: многоканальная система или экспертный режим.
+     * "Скорость при пробросе" нужна только там, где звук идет битстримом: многоканальная система или экспертный режим.
      */
     private fun updateSimpleAudioDescriptions() {
         val expert = settingsViewModel.isAudioExpertMode.value == true
         val multichannel = settingsViewModel.audioSystem.value == AudioProfileLogic.SYSTEM_MULTICHANNEL
-        itemSpeedPassthroughAuto.visibility = if (expert || multichannel) View.VISIBLE else View.GONE
+        itemSpeedPassthrough.visibility = if (expert || multichannel) View.VISIBLE else View.GONE
         val voice = (settingsViewModel.voiceBoostDb.value ?: 0) > 0
         val encoder = AudioOutputCapabilities.isEncoderAvailable
         val codec = when {

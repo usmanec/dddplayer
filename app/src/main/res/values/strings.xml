@@ -565,8 +565,11 @@
     <string name="session_speed_message">Audio goes to the receiver as a bitstream (passthrough or AC3/E-AC3), and a bitstream cannot be played faster or slower. To change the speed, passthrough is turned off until you leave the player and the audio is converted to stereo (PCM 2.0). Cancel keeps 1.00x.</string>
     <string name="session_zoom_title">Zoom and tunneling</string>
     <string name="session_zoom_message">Video goes through tunneling: the system draws the frame by itself and custom zoom does not apply. To zoom, tunneling is turned off until you leave the player (the player restarts from the same position). Cancel keeps the previous mode.</string>
-    <string name="pref_speed_passthrough_auto">Change speed without asking</string>
-    <string name="pref_speed_passthrough_auto_desc">Off: ask first. On: changing the speed during passthrough or AC3/E-AC3 output turns passthrough off until you leave the player, and the audio is converted to stereo (PCM 2.0)</string>
+    <string name="pref_speed_passthrough">Speed during passthrough</string>
+    <string name="pref_speed_passthrough_desc">A bitstream cannot be played faster or slower. Turn passthrough off: until you leave the player, the audio becomes stereo (PCM 2.0). Decode while sped up: the audio is decoded only at a speed other than 1.00x and goes out as a bitstream again at 1.00x. It is multichannel PCM, which needs an HDMI receiver (on optical or ARC choose Turn passthrough off), and the built-in decoder must not be turned off</string>
+    <string name="speed_passthrough_ask">Ask</string>
+    <string name="speed_passthrough_disable">Turn passthrough off</string>
+    <string name="speed_passthrough_decode">Decode while sped up</string>
     <string name="pref_zoom_tunneling_auto">Zoom without asking</string>
     <string name="pref_zoom_tunneling_auto_desc">Off: ask first. On: custom zoom turns tunneling off until you leave the player (the player restarts from the same position)</string>
 </resources>

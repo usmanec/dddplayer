@@ -551,8 +551,11 @@
     <string name="session_speed_message">音频以比特流发送到功放（直通或 AC3/E-AC3），比特流无法加速或减速。要更改速度，将在退出播放器前关闭直通，音频将转换为立体声（PCM 2.0）。取消则保持 1.00x。</string>
     <string name="session_zoom_title">缩放与隧道模式</string>
     <string name="session_zoom_message">视频通过隧道模式输出：画面由系统直接绘制，自定义缩放无效。要使用缩放，将在退出播放器前关闭隧道模式（播放器从当前位置重新启动）。取消则恢复之前的模式。</string>
-    <string name="pref_speed_passthrough_auto">更改速度时不询问</string>
-    <string name="pref_speed_passthrough_auto_desc">关：先询问。开：在直通或 AC3/E-AC3 输出时更改速度，将直接关闭直通直到退出播放器，音频转换为立体声（PCM 2.0）</string>
+    <string name="pref_speed_passthrough">直通时的速度</string>
+    <string name="pref_speed_passthrough_desc">比特流无法加速或减速。关闭直通：在退出播放器前，音频转为立体声（PCM 2.0）。加速时解码：仅在速度不是 1.00x 时解码音频，回到 1.00x 后重新以比特流输出。这是多声道 PCM，需要 HDMI 功放（光纤和 ARC 请选择“关闭直通”），且不能关闭内置解码器</string>
+    <string name="speed_passthrough_ask">询问</string>
+    <string name="speed_passthrough_disable">关闭直通</string>
+    <string name="speed_passthrough_decode">加速时解码</string>
     <string name="pref_zoom_tunneling_auto">缩放时不询问</string>
     <string name="pref_zoom_tunneling_auto_desc">关：先询问。开：自定义缩放将直接关闭隧道模式直到退出播放器（播放器从当前位置重新启动）</string>
 </resources>

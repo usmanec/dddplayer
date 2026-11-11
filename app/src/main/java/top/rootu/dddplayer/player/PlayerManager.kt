@@ -129,6 +129,14 @@ class PlayerManager(
     @Volatile
     var requestedSpeed = 1f
 
+    /**
+     * Смену скорости при битстриме берет на себя SpeedDecodeSink (настройка "Декодировать на время ускорения"):
+     * звук декодируется и ускоряется сам, вопрос о выключении проброса не нужен.
+     */
+    @Volatile
+    var speedDecodeActive = false
+        private set
+
     // Bluetooth после звонка или голосового ассистента: пересоздаем аудиовыход, см. AudioRouteWatcher
     private val audioRouteWatcher = AudioRouteWatcher(appContext) { refreshAudioOutput("voice mode ended") }
     private val audioRefreshHandler = Handler(android.os.Looper.getMainLooper())
@@ -554,6 +562,11 @@ class PlayerManager(
                 iecSink = iec
                 // Декодированный звук -> AC3/E-AC3 для проброса, тем же микшером. Снаружи микшера PCM:
                 // берет звук до его процессоров
+                // Смена скорости при битстриме: на время ускорения звук декодируется (SpeedDecodeSink), на 1x снова
+                // проброс. Только с встроенным декодером: без него DTS на части устройств декодировать нечем
+                val speedDecode = settingsRepo.getSpeedPassthroughMode() == SettingsRepository.SPEED_PT_DECODE &&
+                    passthrough && config.decoderPriority != DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF
+                speedDecodeActive = speedDecode
                 val transcoder = if (transcode != SettingsRepository.AUDIO_TRANSCODE_OFF) {
                     TranscodingAudioSink(
                         iec ?: baseSink,
@@ -563,14 +576,18 @@ class PlayerManager(
                             mixParams = mixParams,
                             upmix = upmix,
                             generateLfe = generateLfe
-                        )
+                        ),
+                        // На ускоренном звуке кодировщик уступает PCM: закодированный битстрим не ускорить
+                        if (speedDecode) ({ requestedSpeed }) else null
                     )
                 } else null
                 transcodingSink = transcoder
                 // Снаружи всего - выбор, какой сжатый звук пробрасывать; остальное декодируется
-                val finalSink = PassthroughPolicySink(transcoder ?: iec ?: baseSink) { format ->
+                val policySink = PassthroughPolicySink(transcoder ?: iec ?: baseSink) { format ->
                     AudioPassthroughLogic.isAllowed(format.sampleMimeType, passthrough, passthroughFormats)
                 }
+                // Совсем снаружи: пока скорость не 1x, битстрим отдается декодеру
+                val finalSink = if (speedDecode) SpeedDecodeSink(policySink, { requestedSpeed }, iec, transcoder) else policySink
 
                 // Проброс не зависит от приоритета декодеров: первым стоит рендерер без декодеров,
                 // он берет только то, что выход примет как есть

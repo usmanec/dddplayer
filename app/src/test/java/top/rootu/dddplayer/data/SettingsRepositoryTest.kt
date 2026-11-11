@@ -337,6 +337,25 @@ class SettingsRepositoryTest {
     }
 
     @Test
+    fun `speed passthrough mode defaults to ask and migrates the old switch`() {
+        assertEquals(SettingsRepository.SPEED_PT_ASK, repo().getSpeedPassthroughMode())
+        prefs.edit().clear().putBoolean("speed_passthrough_auto", true).commit()
+        resetSingletons()
+        assertEquals(SettingsRepository.SPEED_PT_DISABLE, repo().getSpeedPassthroughMode())
+        assertFalse(prefs.contains("speed_passthrough_auto"))
+    }
+
+    @Test
+    fun `only the decode mode restarts the player`() {
+        val repo = repo()
+        val before = repo.getHardSettingsSignature()
+        repo.setSpeedPassthroughMode(SettingsRepository.SPEED_PT_DISABLE)
+        assertEquals(before, repo.getHardSettingsSignature())
+        repo.setSpeedPassthroughMode(SettingsRepository.SPEED_PT_DECODE)
+        assertTrue(before != repo.getHardSettingsSignature())
+    }
+
+    @Test
     fun `smb servers migrate from global prefs to their own file`() {
         val json = """[{"id":"1","name":"NAS","address":"smb://nas/Video","user":"user","password":"secret","domain":""}]"""
         prefs.edit().putString("smb_servers", json).commit()

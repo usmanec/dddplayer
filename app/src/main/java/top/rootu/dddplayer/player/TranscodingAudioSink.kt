@@ -31,7 +31,10 @@ import kotlin.math.abs
  */
 internal class TranscodingAudioSink(
     private val delegate: AudioSink,
-    private val config: Config
+    private val config: Config,
+    // Скорость, выбранная пользователем (null - перекодирование от скорости не зависит). Закодированный битстрим
+    // выход не ускоряет, поэтому не на 1x звук идет PCM через микшер PCM, а не через кодировщик
+    private val requestedSpeed: (() -> Float)? = null
 ) : AudioSink {
 
     /**
@@ -52,6 +55,10 @@ internal class TranscodingAudioSink(
     }
 
     private var transcoding = false
+    private var listener: AudioSink.Listener? = null
+    // Вход можно перекодировать (даже если на скорости не 1x он идет PCM) и скорость на прошлой настройке
+    private var eligible = false
+    private var lastUnitSpeed = true
     private var encoder = 0L
     private var frameSize = 0
     private var sampleRate = 0
@@ -81,6 +88,11 @@ internal class TranscodingAudioSink(
 
     val isTranscoding: Boolean get() = transcoding
 
+    /** Смена скорости 1x <-> не 1x перенастроит этот Sink (сам сообщает плееру), если вход перекодируется. */
+    val signalsSpeedChange: Boolean get() = eligible
+
+    private fun isUnitSpeed() = (requestedSpeed?.invoke() ?: 1f) == 1f
+
     /** Кодек на выходе для бейджа аудио, null - перекодирования нет. */
     val outputLabel: String? get() = if (transcoding) "${if (config.eac3) "E-AC3" else "AC3"} ${outChannels}ch" else null
 
@@ -92,8 +104,9 @@ internal class TranscodingAudioSink(
     override fun configure(inputFormat: Format, specifiedBufferSize: Int, outputChannels: IntArray?) {
         val layout = transcodeLayout(inputFormat)
         val encodedFormat = layout?.let { encodedFormat(it, inputFormat.sampleRate) }
-        val useEncoder = layout != null && encodedFormat != null && delegate.supportsFormat(encodedFormat) &&
-            openEncoder(layout, inputFormat)
+        eligible = layout != null && encodedFormat != null && delegate.supportsFormat(encodedFormat)
+        lastUnitSpeed = isUnitSpeed()
+        val useEncoder = eligible && lastUnitSpeed && openEncoder(layout!!, inputFormat)
         if (useEncoder != transcoding || useEncoder) {
             Log.i(TAG, if (useEncoder) {
                 "PCM ${inputFormat.channelCount}ch ${inputFormat.sampleRate}Hz -> ${outputLabelFor(layout!!)}, " +
@@ -282,14 +295,26 @@ internal class TranscodingAudioSink(
 
     override fun getAudioTrackBufferSizeUs(): Long = delegate.getAudioTrackBufferSizeUs()
 
-    override fun setListener(listener: AudioSink.Listener) = delegate.setListener(listener)
+    override fun setListener(listener: AudioSink.Listener) {
+        this.listener = listener
+        delegate.setListener(listener)
+    }
 
     override fun setPlayerId(playerId: PlayerId?) = delegate.setPlayerId(playerId)
 
     override fun setClock(clock: Clock) = delegate.setClock(clock)
 
-    override fun setPlaybackParameters(playbackParameters: PlaybackParameters) =
+    override fun setPlaybackParameters(playbackParameters: PlaybackParameters) {
         delegate.setPlaybackParameters(playbackParameters)
+        val unit = isUnitSpeed()
+        if (unit == lastUnitSpeed) return
+        lastUnitSpeed = unit
+        // Кодировщик включается или уступает PCM только при настройке Sink заново: плеер перезапускает рендереры
+        if (eligible) {
+            Log.i(TAG, "Speed ${if (unit) "back to 1x: transcoding again" else "not 1x: PCM instead of the bitstream"}")
+            listener?.onAudioCapabilitiesChanged()
+        }
+    }
 
     override fun getPlaybackParameters(): PlaybackParameters = delegate.getPlaybackParameters()
 
@@ -322,6 +347,7 @@ internal class TranscodingAudioSink(
     override fun reset() {
         discardState()
         transcoding = false
+        eligible = false
         releaseEncoder()
         delegate.reset()
     }
