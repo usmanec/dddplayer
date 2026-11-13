@@ -17,6 +17,7 @@ import top.rootu.dddplayer.logic.SmbAddress
 import top.rootu.dddplayer.logic.SmbLogic
 import top.rootu.dddplayer.model.SmbServer
 import java.util.EnumSet
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 /** Элемент сетевой папки SMB. */
@@ -38,8 +39,11 @@ object SmbConnections {
         )
     }
 
-    private val sessions = HashMap<String, Session>()
-    private val shares = HashMap<String, DiskShare>()
+    private val sessions = ConcurrentHashMap<String, Session>()
+    private val shares = ConcurrentHashMap<String, DiskShare>()
+    // Блокировка своя у каждого сервера: подключение к недоступному серверу (до 30 с)
+    // не задерживает чтение с остальных
+    private val locks = ConcurrentHashMap<String, Any>()
     private lateinit var appContext: Context
 
     fun init(context: Context) {
@@ -55,25 +59,30 @@ object SmbConnections {
         }
     }
 
-    @Synchronized
     fun share(address: SmbAddress, server: SmbServer? = serverFor(address)): DiskShare {
         val user = server?.user.orEmpty()
         val shareKey = "${address.host}:${address.port}|$user|${address.share}".lowercase()
-        shares[shareKey]?.takeIf { it.isConnected }?.let { return it }
-
         val sessionKey = "${address.host}:${address.port}|$user".lowercase()
-        val session = sessions[sessionKey]?.takeIf { it.connection.isConnected } ?: run {
-            val connection = if (address.port != null) client.connect(address.host, address.port) else client.connect(address.host)
-            val auth = if (server == null || server.user.isEmpty()) {
-                AuthenticationContext.guest()
-            } else {
-                AuthenticationContext(server.user, server.password.toCharArray(), server.domain.ifEmpty { null })
+        return synchronized(locks.getOrPut(sessionKey) { Any() }) {
+            shares[shareKey]?.takeIf { it.isConnected }?.let { return@synchronized it }
+
+            val session = sessions[sessionKey]?.takeIf { it.connection.isConnected } ?: run {
+                // Оборванное подключение закрываем, иначе оно остается висеть до выхода из приложения
+                sessions.remove(sessionKey)?.let { stale ->
+                    try { stale.connection.close(true) } catch (_: Exception) {}
+                }
+                val connection = if (address.port != null) client.connect(address.host, address.port) else client.connect(address.host)
+                val auth = if (server == null || server.user.isEmpty()) {
+                    AuthenticationContext.guest()
+                } else {
+                    AuthenticationContext(server.user, server.password.toCharArray(), server.domain.ifEmpty { null })
+                }
+                connection.authenticate(auth).also { sessions[sessionKey] = it }
             }
-            connection.authenticate(auth).also { sessions[sessionKey] = it }
+            val share = session.connectShare(address.share) as DiskShare
+            shares[shareKey] = share
+            share
         }
-        val share = session.connectShare(address.share) as DiskShare
-        shares[shareKey] = share
-        return share
     }
 
     /** Содержимое папки (без "." и ".."). */

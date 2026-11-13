@@ -2,6 +2,7 @@ package top.rootu.dddplayer.ui
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.ActivityManager
 import android.app.PendingIntent
 import android.app.PictureInPictureParams
 import android.app.RemoteAction
@@ -31,7 +32,6 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
 import top.rootu.dddplayer.BuildConfig
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
@@ -41,11 +41,10 @@ import java.lang.ref.WeakReference
 
 private const val ACTION_PIP_PLAY_PAUSE = "top.rootu.dddplayer.action.PIP_PLAY_PAUSE"
 
-@UnstableApi
 class PlayerActivity : AppCompatActivity() {
 
     companion object {
-        // Лог жизненного цикла PiP (adb logcat -s PlayerPip): задачи, служебные запуски, кто закрывает плеер
+        // Лог PiP (adb logcat -s PlayerPip): разворачивание и закрытие окна
         private const val PIP_TAG = "PlayerPip"
 
         // Пометка интента, которым разворачиваем окно PiP (не новое видео)
@@ -59,13 +58,33 @@ class PlayerActivity : AppCompatActivity() {
             !it.isFinishing && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && it.isInPictureInPictureMode
         }
 
+        // Плеер с видео (не служебный запуск) и запущен ли он сейчас (виден на экране)
+        private var playerActivity: WeakReference<PlayerActivity>? = null
+        private var playerStarted = false
+
+        /**
+         * Возврат в плеер при открытии приложения (иконка, стартовый экран): окно PiP разворачивается,
+         * плеер, свернутый кнопкой "Домой", поднимается со своей задачей (как в 1.2.x, когда иконкой
+         * был сам плеер). Плеер живет в своей задаче или в задаче вызвавшего приложения (TorrServe, Lampa),
+         * поэтому лаунчер его не находит. @return false - возвращаться некуда
+         */
+        fun restorePlayer(context: Context): Boolean {
+            if (restorePictureInPicture()) return true
+            val player = playerActivity?.get()?.takeIf { !it.isFinishing && !it.isDestroyed && !playerStarted }
+                ?: return false
+            Log.d(PIP_TAG, "restore background player: task=${player.taskId}")
+            return runCatching {
+                context.getSystemService(ActivityManager::class.java).moveTaskToFront(player.taskId, 0)
+            }.isSuccess
+        }
+
         /**
          * Разворачивает окно PiP на весь экран: повторный запуск активити в PiP система (SystemUI)
          * обрабатывает как возврат из PiP. @return false - окна PiP нет
          */
         fun restorePictureInPicture(): Boolean {
             val pip = activePipPlayer()
-            Log.i(PIP_TAG, "restore: pip=${pip?.hashCode()} task=${pip?.taskId}")
+            Log.d(PIP_TAG, "restore: pip=${pip?.hashCode()} task=${pip?.taskId}")
             pip ?: return false
             pip.startActivity(
                 Intent(pip, PlayerActivity::class.java)
@@ -211,15 +230,9 @@ class PlayerActivity : AppCompatActivity() {
         updatePictureInPictureParams()
     }
 
-    override fun onConfigurationChanged(newConfig: Configuration) {
-        super.onConfigurationChanged(newConfig)
-        // Размер окна при выходе из PiP (видео могло остаться маленьким)
-        Log.i(PIP_TAG, "configChanged ${describe()} screen=${newConfig.screenWidthDp}x${newConfig.screenHeightDp}dp")
-    }
-
     override fun onPictureInPictureModeChanged(inPip: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(inPip, newConfig)
-        Log.i(PIP_TAG, "pipModeChanged=$inPip ${describe()} screen=${newConfig.screenWidthDp}x${newConfig.screenHeightDp}dp")
+        Log.d(PIP_TAG, "pipModeChanged=$inPip ${describe()}")
         if (isTrampoline) return
         if (inPip) pipActivity = WeakReference(this)
         else if (pipActivity?.get() === this) pipActivity = null
@@ -239,14 +252,13 @@ class PlayerActivity : AppCompatActivity() {
             // Для content:// это может быть не критично, пробуем открыть так.
             // Для file:// это фатально, но ExoPlayer сам выдаст ошибку, которую мы покажем.
             pendingIntent?.let { handleIntent(it) }
-            Toast.makeText(applicationContext, "Storage permission denied. Some files may not play.", Toast.LENGTH_LONG).show()
+            Toast.makeText(applicationContext, R.string.storage_permission_denied, Toast.LENGTH_LONG).show()
         }
         pendingIntent = null
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Log.i(PIP_TAG, "onCreate ${describe()} restored=${savedInstanceState != null} intent=$intent")
 
         // Разворачивание PiP создало новый экземпляр вместо подъема прежнего: прежний плеер не трогаем
         if (intent.getBooleanExtra(EXTRA_RESTORE_PIP, false)) {
@@ -259,10 +271,13 @@ class PlayerActivity : AppCompatActivity() {
         if (isLaunchedFromLauncher(intent)) {
             isTrampoline = true
             // Видео в окне PiP: возвращаем его на весь экран вместо стартового экрана
+            // (свернутый плеер поднимет PipReturnCallbacks при старте стартового экрана)
             if (!restorePictureInPicture()) startActivity(Intent(this, FileBrowserActivity::class.java))
             finish()
             return
         }
+
+        playerActivity = WeakReference(this)
 
         // Держим экран включенным
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -336,9 +351,22 @@ class PlayerActivity : AppCompatActivity() {
         updatePictureInPictureParams()
     }
 
+    override fun onStart() {
+        super.onStart()
+        if (playerActivity?.get() === this) playerStarted = true
+    }
+
+    override fun onStop() {
+        if (playerActivity?.get() === this) playerStarted = false
+        super.onStop()
+    }
+
     override fun onDestroy() {
-        Log.i(PIP_TAG, "onDestroy ${describe()} finishing=$isFinishing")
         if (pipActivity?.get() === this) pipActivity = null
+        if (playerActivity?.get() === this) {
+            playerActivity = null
+            playerStarted = false
+        }
         if (pipReceiverRegistered) {
             unregisterReceiver(pipControlReceiver)
             pipReceiverRegistered = false
@@ -362,7 +390,6 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        Log.i(PIP_TAG, "onNewIntent ${describe()} intent=$intent")
         // Разворачивание окна PiP: видео то же, интент не меняем
         if (intent.getBooleanExtra(EXTRA_RESTORE_PIP, false)) return
         setIntent(intent)
@@ -373,8 +400,10 @@ class PlayerActivity : AppCompatActivity() {
     private fun checkPermissionsAndHandleIntent(intent: Intent) {
         val uri = intent.data
 
-        // Если URI нет или это http/https, разрешение на файлы не нужно
-        if (uri == null || uri.scheme == "http" || uri.scheme == "https") {
+        // Разрешение на файлы нужно только локальным файлам (file://, content://, путь без схемы),
+        // сетевым ссылкам (http, rtsp, smb, ftp и т.п.) оно не нужно
+        val scheme = uri?.scheme?.lowercase()
+        if (uri == null || (!scheme.isNullOrEmpty() && scheme != "file" && scheme != "content")) {
             handleIntent(intent)
             return
         }
@@ -453,8 +482,6 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     override fun finish() {
-        // Стек показывает, кто закрыл плеер
-        Log.i(PIP_TAG, "finish ${describe()}", Throwable("finish caller"))
         // У служебного запуска нет плеера: не создаем ViewModel ради сохранения
         if (!isTrampoline) prepareFinish()
         super.finish()
@@ -466,7 +493,7 @@ class PlayerActivity : AppCompatActivity() {
      */
     private fun closeFromPictureInPicture(newPlayerTaskId: Int) {
         if (isFinishing) return
-        Log.i(PIP_TAG, "closeFromPictureInPicture ${describe()} newTask=$newPlayerTaskId", Throwable("close caller"))
+        Log.d(PIP_TAG, "closeFromPictureInPicture ${describe()} newTask=$newPlayerTaskId")
         if (newPlayerTaskId == taskId) {
             finish()
         } else {
@@ -489,7 +516,8 @@ class PlayerActivity : AppCompatActivity() {
             // Возвращаем URI текущего видео (полезно, если это был плейлист)
             resultIntent.data = viewModel.player?.currentMediaItem?.localConfiguration?.uri
 
-            val duration = viewModel.player?.duration
+            // Длительность неизвестна (эфир): отдаем 0, а не служебное значение C.TIME_UNSET
+            val duration = viewModel.player?.duration?.coerceAtLeast(0L)
             val position = if (isCompleted) duration else viewModel.player?.currentPosition
 
             resultIntent.putExtra("position", position)

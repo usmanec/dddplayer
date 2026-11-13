@@ -10,12 +10,10 @@
     <string name="track_unknown">Unknown</string>
     <string name="percent_100" translatable="false">100%</string>
     <string name="pic">picture</string>
-    <string name="develop_tost">Sorry, this is still in development.</string>
 
     <!-- Player Screen -->
     <string name="seek_delta_format" translatable="false">%1$s %2$s</string>
     <string name="percentage_int_format" translatable="false">%d%%</string>
-    <string name="fps_counter_format" translatable="false">FPS: %d</string>
     <string name="audio_badge_format" translatable="false">%1$s > %2$s</string>
     <string name="time_ends_at">Ends at %s</string>
     <string name="top_panel_help_text">▲▼ select • OK save • BACK cancel</string>
@@ -126,7 +124,6 @@
 
     <!-- Global Settings -->
     <string name="pref_title">Global settings</string>
-    <string name="pref_title_desc">Global player parameters</string>
     <string name="close_settings">Close settings</string>
     <string name="exit">Exit</string>
     <string name="pref_general_header">Playback</string>
@@ -139,10 +136,8 @@
     <string name="decoder_only_device">Device decoders only</string>
     <string name="pref_audio_decoder_sw_desc">FFmpeg codecs: vorbis, opus, flac, alac, pcm_mulaw, pcm_alaw, mp3, amrnb, amrwb, aac, ac3, eac3, dca (DTS), mlp, truehd</string>
     <string name="pref_auto_pip_desc">Automatically open a small video window when minimizing during playback.</string>
-    <string name="pref_downmix">Downmix to Stereo</string>
-    <string name="pref_downmix_desc">When using the SW decoder, this allows converting multi-channel audio into a properly¹ mixed stereo, which can solve the problem of missing voice/translation (usually present on the center channel).\n¹ - The downmix matrices are calculated similarly to RFC 7845 (Section 5.1.1.5).</string>
-    <string name="pref_downmix_config">Downmix Correction</string>
-    <string name="pref_downmix_config_desc">You can adjust the volume of audio channels (front, center, rear, side, subwoofer) for the downmix to your liking.</string>
+    <string name="pref_downmix_config">Mixer preset</string>
+    <string name="pref_downmix_config_desc">Channel volumes (front, center, rear, side, subwoofer): voice boost, night mode or your own</string>
     <string name="pref_downmix_preset">Preset:</string>
     <string name="pref_downmix_front">Front (L/R)</string>
     <string name="pref_downmix_center">Center (Voice)</string>
@@ -180,12 +175,10 @@
     <string name="pref_audio_boost">Volume Boost</string>
     <string name="pref_audio_boost_desc">Useful for quiet movies. The main goal is to make quiet sounds louder without causing hard clipping (distortion) at peaks.</string>
     <string name="loudness_boost_format" translatable="false">+%d dB</string>
-    <string name="pref_sec_lang_and_sub">Language &amp; Subtitles</string>
     <string name="pref_language_audio">Default Audio Track</string>
     <string name="pref_language_audio_desc">Preferred track when starting a video</string>
     <string name="pref_language_track_default">Default (from file)</string>
     <string name="pref_language_track_device">Device languages</string>
-    <string name="language_code_format" translatable="false">%1$s (%2$s)</string>
     <string name="pref_sub_lang_default">Default Subtitle Language</string>
     <string name="pref_sub_lang_default_desc">Preferred subtitles (if available)</string>
     <string name="pref_subtitle_auto">Auto-enable subtitles</string>
@@ -194,7 +187,6 @@
     <string name="sub_auto_off">Off</string>
     <string name="sub_auto_forced">Forced only</string>
     <string name="sub_auto_full">Full</string>
-    <string name="pref_calibration_3d">3D Calibration</string>
     <string name="pref_cardboard_vr">Cardboard VR Setup</string>
     <string name="pref_cardboard_vr_desc">Wizard for lens, zoom, and IPD settings</string>
     <string name="pref_anaglyph">Anaglyph Setup</string>
@@ -202,7 +194,6 @@
     <string name="pref_sec_app">Application</string>
     <string name="pref_app_language" translatable="false">Application Language</string>
     <string name="pref_app_language_desc">Change app language. Restart required.</string>
-    <string name="pref_language_dialog_title" translatable="false">Language</string>
     <string name="pref_language_system">System Default</string>
     <string name="pref_up_action">\'Up\' Button Action</string>
     <string name="pref_up_action_desc">What to open when pressing \'Up\' in the player</string>
@@ -227,6 +218,8 @@
     <string name="swipe_action_seek">Seek</string>
     <string name="swipe_action_playlist">Exit or Prev/Next</string>
     <string name="swipe_action_exit_next">Exit or Next</string>
+    <string name="pref_swipe_edge">Ignore swipes from the screen edge</string>
+    <string name="pref_swipe_edge_desc">A horizontal swipe does not start in the system Back gesture zone. Turn off if swipes from the edge do not work</string>
     <string name="pref_back_button">Back button on screen</string>
     <string name="pref_back_button_desc">Arrow in the info panel to close the player (for touch screens)</string>
     <string name="pref_control_buttons">Control bar buttons</string>
@@ -235,9 +228,6 @@
     <string name="button_label_quality">Video quality</string>
     <string name="button_label_audio">Audio track</string>
     <string name="button_label_subtitles">Subtitles</string>
-    <string name="next_video">Next: %s</string>
-    <string name="prev_video">Prev: %s</string>
-    <string name="release_to_switch">Release to switch</string>
     <string name="action_exit">Exit</string>
     <string name="swipe_pull_next">Pull to switch</string>
     <string name="swipe_pull_exit">Pull to exit</string>
@@ -401,7 +391,6 @@
     <string name="wizard_controls_adjust">“Adjust” or OK hides the instructions. Then ◀ ▶ change the value, OK or Back show the instructions again.</string>
     <string name="wizard_controls_params">▲ ▼ select the parameter</string>
     <string name="wizard_controls_touch">Touch: left/right side changes the value, center shows the instructions, swipe up/down selects the parameter</string>
-    <string name="wizard_controls_simple">“Next” goes to the next step, “Back” to the previous one</string>
     <string name="wizard_param_separation">Screen separation</string>
     <string name="wizard_param_scale">Scale</string>
     <string name="wizard_param_glasses">Glasses</string>
@@ -499,12 +488,13 @@
     </string-array>
     <!-- Диагностика устройства -->
     <string name="pref_diagnostics">Device diagnostics</string>
-    <string name="pref_diagnostics_desc">Display, HDR, audio output and decoders. The report can be copied for a bug report</string>
+    <string name="pref_diagnostics_desc">Display, HDR, audio output, decoders and the recent app log. Open it right after a problem and upload: the link and QR can be sent with the bug report</string>
     <string name="diag_sec_device">Device</string>
     <string name="diag_sec_display">Display</string>
     <string name="diag_sec_audio_out">Audio output</string>
     <string name="diag_sec_video_dec">Video decoders</string>
     <string name="diag_sec_audio_dec">Audio decoders</string>
+    <string name="diag_sec_app_log">App log (last lines)</string>
     <string name="diag_model">Model</string>
     <string name="diag_app_version">Player version</string>
     <string name="diag_abi">Architecture</string>
@@ -519,4 +509,66 @@
     <string name="diag_yes">yes</string>
     <string name="diag_no">no</string>
     <string name="diag_builtin">built-in</string>
+    <string name="quality_auto">Auto</string>
+    <string name="video_number">Video %1$d</string>
+    <string name="video_default_title">Video</string>
+    <string name="track_number">Track %1$d</string>
+    <string name="storage_permission_denied">Storage permission denied. Some files may not play.</string>
+    <string name="update_no_changelog">No changelog provided.</string>
+    <string name="audio_output_ac3">AC3 (Dolby Digital)</string>
+    <string name="audio_output_eac3">E-AC3 (Dolby Digital Plus)</string>
+    <string name="pref_leaks">Memory leaks (LeakCanary)</string>
+    <string name="pref_leaks_desc">Debug build only: leaks found by LeakCanary</string>
+    <!-- Вывод звука: проброс, перекодирование, микшер -->
+    <string name="audio_route_passthrough">passthrough</string>
+    <string name="pref_group_passthrough">Passthrough to receiver</string>
+    <string name="pref_audio_passthrough">Passthrough (bitstream)</string>
+    <string name="pref_audio_passthrough_desc">Compressed audio (AC3, DTS…) goes to the TV or receiver unchanged and is decoded there. Playback speed and the mixer do not apply to it</string>
+    <string name="passthrough_device_formats">Output accepts: %1$s</string>
+    <string name="passthrough_device_none">The current output reports no bitstream support</string>
+    <string name="pref_passthrough_formats">Passthrough formats</string>
+    <string name="pref_passthrough_formats_desc">Unchecked formats are decoded by the player</string>
+    <string name="passthrough_format_unsupported">%1$s (not supported by output)</string>
+    <string name="passthrough_formats_all">All</string>
+    <string name="pref_audio_transcode">Re-encode for passthrough</string>
+    <string name="pref_audio_transcode_off_desc">Off: decoded audio is output as PCM. AC3 or E-AC3: decoded multichannel audio is re-encoded and sent as a bitstream, for TVs and soundbars over ARC or optical (up to 5.1)</string>
+    <string name="pref_audio_transcode_desc">Decoded multichannel audio is re-encoded and sent as a bitstream, up to 5.1. Stereo stays PCM. Playback speed does not apply</string>
+    <string name="audio_transcode_off">No (PCM)</string>
+    <string name="pref_group_mixer">Mixer</string>
+    <string name="pref_mixer_note">Works only for audio the player decodes: PCM output and re-encoding to AC3/E-AC3. Passthrough formats go to the receiver unchanged</string>
+    <string name="pref_audio_output_channels">Output channels</string>
+    <string name="audio_channels_source">As source</string>
+    <string name="pref_audio_output_channels_pcm">Now: PCM up to %1$s. Extra channels are mixed down, 2.0 is stereo by RFC 7845</string>
+    <string name="pref_audio_output_channels_transcode">Now: multichannel audio as %1$s up to %2$s, stereo as PCM</string>
+    <string name="pref_audio_upmix">Expand to the chosen layout</string>
+    <string name="pref_audio_upmix_desc">Audio with fewer channels is spread to all speakers: center from the fronts, surrounds from the fronts or neighbours. A simple matrix, not Dolby Pro Logic</string>
+    <string name="pref_audio_generate_lfe">Create subwoofer channel (LFE)</string>
+    <string name="pref_audio_generate_lfe_desc">Creates the subwoofer channel only if the source has none: when expanding to 5.1/7.1, the bass of all channels below 120 Hz goes to the subwoofer as well. A source LFE stays as is. Level is the LFE slider of the mixer preset</string>
+    <string name="mix_db_format">%1$s dB</string>
+    <string name="pref_audio_expert">Expert audio settings</string>
+    <string name="pref_audio_expert_desc">Manual decoder, passthrough and formats, re-encoding, channels and mixer. Off: just pick your audio system</string>
+    <string name="pref_audio_system">Audio system</string>
+    <string name="audio_system_stereo">Stereo</string>
+    <string name="audio_system_multichannel">Multichannel</string>
+    <string name="audio_system_stereo_desc">TV, headphones, 2.0 soundbar: the player decodes audio and mixes multichannel down to stereo</string>
+    <string name="audio_system_multichannel_desc">Receiver or 5.1+ soundbar over HDMI. Formats the output accepts (%1$s) go to it unchanged, other multichannel audio is re-encoded to %2$s, stereo stays PCM</string>
+    <string name="audio_system_multichannel_transcode_desc">Receiver or 5.1+ soundbar over HDMI. All multichannel audio is re-encoded to %1$s, stereo stays PCM</string>
+    <string name="audio_system_multichannel_voice_desc">Receiver or 5.1+ soundbar over HDMI. With voice boost all multichannel audio is re-encoded to %1$s 5.1, nothing goes to the receiver unchanged</string>
+    <string name="audio_system_multichannel_pcm_desc">Receiver or 5.1+ soundbar over HDMI. The output does not accept AC3 or E-AC3: formats it accepts go unchanged, the rest is output as PCM</string>
+    <string name="pref_voice_boost">Voice boost</string>
+    <string name="pref_voice_boost_desc">Louder center channel: dialogue and translation</string>
+    <string name="pref_voice_boost_multichannel_desc">Louder center channel: dialogue and translation. When on, all multichannel audio is re-encoded to %1$s</string>
+    <string name="pref_audio_decoder_passthrough_note">Does not affect passthrough: it decides who decodes what is not passed through</string>
+    <!-- Выключение проброса и туннелирования на сеанс плеера -->
+    <string name="dont_show_again">Don\'t show again (always disable)</string>
+    <string name="session_speed_title">Speed and passthrough</string>
+    <string name="session_speed_message">Audio goes to the receiver as a bitstream (passthrough or AC3/E-AC3), and a bitstream cannot be played faster or slower. To change the speed, passthrough is turned off until you leave the player and the audio is converted to stereo (PCM 2.0). Cancel keeps 1.00x.</string>
+    <string name="session_zoom_title">Zoom and tunneling</string>
+    <string name="session_zoom_message">Video goes through tunneling: the system draws the frame by itself and custom zoom does not apply. To zoom, tunneling is turned off until you leave the player (the player restarts from the same position). Cancel keeps the previous mode.</string>
+    <string name="pref_speed_channels">Channels when sped up</string>
+    <string name="pref_speed_channels_desc">A bitstream (passthrough, AC3/E-AC3) cannot be played faster or slower, so when sped up the audio goes out as PCM. Multichannel PCM is not supported by every device (on optical and ARC it may not be heard), so stereo is the default. Without the built-in decoder the player asks whether to turn passthrough off instead</string>
+    <string name="speed_channels_stereo">Stereo</string>
+    <string name="speed_channels_source">As in the source</string>
+    <string name="pref_zoom_tunneling_auto">Zoom without asking</string>
+    <string name="pref_zoom_tunneling_auto_desc">Off: ask first. On: custom zoom turns tunneling off until you leave the player (the player restarts from the same position)</string>
 </resources>

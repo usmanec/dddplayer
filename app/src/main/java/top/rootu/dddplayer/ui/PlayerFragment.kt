@@ -24,15 +24,20 @@ import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.PopupMenu
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
+import androidx.core.widget.TextViewCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.C
 import androidx.media3.common.Player
@@ -69,6 +74,7 @@ import top.rootu.dddplayer.utils.afr.DisplaySyncHelper
 import top.rootu.dddplayer.utils.afr.TvQuickActions
 import top.rootu.dddplayer.viewmodel.PlayerViewModel
 import top.rootu.dddplayer.viewmodel.SPEED_MENU_CUSTOM
+import top.rootu.dddplayer.viewmodel.SessionPrompt
 import top.rootu.dddplayer.viewmodel.SUBTITLE_MENU_LOAD_FILE
 import top.rootu.dddplayer.viewmodel.PlaylistUiState
 import top.rootu.dddplayer.viewmodel.SettingType
@@ -105,6 +111,17 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
     private lateinit var gestureDetector: GestureDetector
     private lateinit var touchHandler: PlayerTouchHandler
 
+    // Пауза на время переключения режима экрана (AFR). Возобновляем только паузу, которую поставили сами
+    private val afrResumeHandler = Handler(Looper.getMainLooper())
+    private var afrPausedPlayback = false
+    private val afrResumeRunnable = Runnable {
+        if (afrPausedPlayback) {
+            afrPausedPlayback = false
+            // Под диалогом "Продолжить просмотр?" видео не запускаем: его запустит ответ пользователя
+            if (viewModel.showResumeDialogEvent.value == null) viewModel.player?.playWhenReady = true
+        }
+    }
+
     // Накопление перемотки по двойному тапу
     private var doubleTapSeekSeconds = 0
     private val doubleTapResetHandler = Handler(Looper.getMainLooper())
@@ -122,6 +139,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
 
     // Переменные для горизонтального свайпа
     private var swipeAction = SettingsRepository.SWIPE_NONE
+    private var swipeEdgeExclusion = true
     private var verticalGesturesEnabled = true // Жесты громкости и яркости
     private var hiddenControlButtons: Set<String> = emptySet() // Кнопки, скрытые в настройках
 
@@ -129,6 +147,9 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
     private lateinit var scaleDetector: ScaleGestureDetector
     private var pinchZoom = 100f
     private var bufferDisplayMode = SettingsRepository.BUFFER_DISPLAY_OFF
+    // Кнопка слева в панели: новая версия (если есть), иначе буфер (вывод "в панели") или текущая версия
+    private var availableUpdateVersion: String? = null
+    private var checkingUpdates = false
     private var isSwipeSeeking = false
     private var swipeSeekStartPosition = 0L
     private var swipeSeekCurrentPosition = 0L
@@ -178,20 +199,30 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
             onShowControls = { ui.showControls(); timerController.resetControlsTimer() },
             onHideControls = { ui.hideControls() },
             onResetHideTimer = { timerController.resetControlsTimer() },
-            onShowPlaylist = { showPlaylist() }
+            onShowPlaylist = { showPlaylist() },
+            onToggleCustomSpeed = { viewModel.toggleCustomSpeed() }
         )
 
         swipeAction = settingsRepo.getHorizontalSwipeAction()
+        swipeEdgeExclusion = settingsRepo.isSwipeEdgeExclusionEnabled()
         verticalGesturesEnabled = settingsRepo.isVolumeBrightnessGesturesEnabled()
         hiddenControlButtons = settingsRepo.getHiddenControlButtons()
         ui.buttonBack.isVisible = settingsRepo.isBackButtonEnabled()
 
         // === ИНИЦИАЛИЗАЦИЯ ЖЕСТОВ ===
-        val displayMetrics = resources.displayMetrics
+        val touchArea = view.findViewById<View>(R.id.root_container)
 
         touchHandler = PlayerTouchHandler(
             context = requireContext(),
-            screenWidth = displayMetrics.widthPixels,
+            viewWidth = ::touchAreaWidth,
+            // Реальные зоны жеста "Назад" (навигация жестами, Android 10+); при кнопках навигации их нет
+            backGestureEdges = {
+                // Отключается в настройках, если свайп от края не срабатывает
+                val insets = if (swipeEdgeExclusion) {
+                    ViewCompat.getRootWindowInsets(touchArea)?.getInsets(WindowInsetsCompat.Type.systemGestures())
+                } else null
+                (insets?.left ?: 0) to (insets?.right ?: 0)
+            },
             onSingleTap = {
                 // Логика одиночного тапа (показать/скрыть контролы)
                 if (settingsViewModel.isSettingsPanelVisible.value == true) {
@@ -214,7 +245,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
                 changeBrightness(deltaPercent)
             },
             onHorizontalScroll = { deltaX ->
-                handleHorizontalSwipe(deltaX, displayMetrics.widthPixels)
+                handleHorizontalSwipe(deltaX, touchAreaWidth())
             },
             onGestureEnd = {
                 ui.hideGestureIndicatorDelayed()
@@ -415,6 +446,10 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         ui.showBrightnessIndicator((currentBrightness * 100).toInt())
     }
 
+    /** Ширина области касаний: экран плеера, а не дисплея (вырез и панель навигации в нее не входят). */
+    private fun touchAreaWidth(): Int =
+        view?.findViewById<View>(R.id.root_container)?.width?.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
+
     private fun handleHorizontalSwipe(deltaX: Float, screenWidth: Int) {
         if (swipeAction == SettingsRepository.SWIPE_NONE) return
 
@@ -491,7 +526,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
     }
 
     private fun finishHorizontalSwipe() {
-        val screenWidth = resources.displayMetrics.widthPixels
+        val screenWidth = touchAreaWidth()
 
         // 1. Завершение перемотки
         if (swipeAction == SettingsRepository.SWIPE_SEEK && isSwipeSeeking) {
@@ -518,8 +553,8 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
 
                 ui.animatePlaylistSwipeConfirm(isNext) {
                     if (currentSwipeIsExit) {
-                        // Логика выхода
-                        requireActivity().finish()
+                        // Логика выхода (к концу анимации фрагмент может быть уже отсоединен)
+                        activity?.finish()
                     } else {
                         // Переключение трека
                         val liveTarget = if (viewModel.isOverallLiveMode()) {
@@ -621,6 +656,17 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
             ui.hideControls()
             showPlaybackSpeedMenu()
         }
+        // Долгое нажатие: сразу своя скорость и ползунок, после него - снова панель управления
+        ui.buttonSpeed.setOnLongClickListener {
+            timerController.stopControlsTimer()
+            viewModel.setPlaybackSpeed(viewModel.getCustomPlaybackSpeed())
+            showCustomSpeedDialog(onDismiss = {
+                ui.showControls()
+                ui.buttonSpeed.requestFocus()
+                timerController.resetControlsTimer()
+            })
+            true
+        }
 
         ui.buttonResize.setOnClickListener {
             ui.hideControls()
@@ -647,8 +693,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
             // Скрываем контролы плеера, чтобы при возврате был чистый экран
             ui.hideControls()
             // Запускаем глобальные настройки
-            val intent = Intent(requireContext(), GlobalSettingsActivity::class.java)
-            startActivity(intent)
+            openGlobalSettings()
             true
         }
 
@@ -702,10 +747,21 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
                 }
                 "global_settings" -> {
                     sideMenuDialog?.dismiss()
-                    startActivity(Intent(requireContext(), GlobalSettingsActivity::class.java))
+                    openGlobalSettings()
                 }
             }
         }
+    }
+
+    /**
+     * Глобальные настройки поверх плеера. Без FLAG_ACTIVITY_NO_USER_ACTION система считает переход уходом
+     * пользователя (onUserLeaveHint), и при автовходе в PiP плеер уходил в окно PiP вместо паузы.
+     */
+    private fun openGlobalSettings(focusItemId: Int? = null) {
+        val intent = Intent(requireContext(), GlobalSettingsActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NO_USER_ACTION)
+        focusItemId?.let { intent.putExtra("FOCUS_ITEM_ID", it) }
+        startActivity(intent)
     }
 
     private fun showAudioTrackMenu() {
@@ -799,7 +855,11 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         updateSideMenuItems(viewModel.getPlaybackSpeedMenuItems(requireContext()))
     }
 
-    private fun showCustomSpeedDialog() {
+    /**
+     * Ползунок своей скорости.
+     * @param onDismiss куда вернуться: по умолчанию в меню скорости (боковое меню еще открыто)
+     */
+    private fun showCustomSpeedDialog(onDismiss: () -> Unit = { showPlaybackSpeedMenu(SPEED_MENU_CUSTOM) }) {
         val steps = ((PlaybackSpeed.CUSTOM_MAX - PlaybackSpeed.CUSTOM_MIN) / PlaybackSpeed.CUSTOM_STEP).roundToInt()
         fun speedAt(progress: Int) = PlaybackSpeed.normalize(PlaybackSpeed.CUSTOM_MIN + progress * PlaybackSpeed.CUSTOM_STEP)
         val current = PlaybackSpeed.normalize(viewModel.playbackSpeed.value ?: 1.0f)
@@ -808,8 +868,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
             progress = ((current - PlaybackSpeed.CUSTOM_MIN) / PlaybackSpeed.CUSTOM_STEP).roundToInt(),
             title = { getString(R.string.playback_speed_custom_value, PlaybackSpeed.label(speedAt(it))) },
             onChange = { viewModel.setCustomPlaybackSpeed(speedAt(it)) },
-            // После закрытия возвращаемся в меню скорости (sideMenuDialog все еще открыт)
-            onDismiss = { showPlaybackSpeedMenu(SPEED_MENU_CUSTOM) }
+            onDismiss = onDismiss
         )
     }
 
@@ -913,8 +972,9 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
                         return@setOnKeyListener true
                     }
                     KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                        // Нажатие OK/Center на SeekBar закрывает диалог
-                        zoomDialog?.dismiss()
+                        // Нажатие OK/Center на SeekBar закрывает диалог.
+                        // Автоповтор пропускаем: диалог мог открыться долгим нажатием OK, которое еще держат
+                        if (event.repeatCount == 0) zoomDialog?.dismiss()
                         return@setOnKeyListener true
                     }
                 }
@@ -1030,10 +1090,53 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
     }
 
     private fun updateBufferDisplay(percent: Int) {
-        ui.updateBufferDisplay(percent, bufferDisplayMode)
+        // Буфер "в панели" показывается на месте версии, а под полосой перемотки - только когда это место
+        // заняла кнопка обновления
+        val underSeekBar = bufferDisplayMode == SettingsRepository.BUFFER_DISPLAY_PANEL && availableUpdateVersion != null
+        ui.updateBufferDisplay(percent, if (underSeekBar) bufferDisplayMode else SettingsRepository.BUFFER_DISPLAY_OFF)
+        renderVersionButton()
         // Рядом с часами: и в одиночных часах, и в часах инфопанели
         timerController.bufferText =
             if (bufferDisplayMode == SettingsRepository.BUFFER_DISPLAY_CLOCK) "$percent%" else ""
+    }
+
+    /**
+     * Слева в панели. Есть обновление - кнопка с иконкой и номером новой версии (открывает настройки на обновлении).
+     * Иначе при выводе буфера "в панели" - просто текст буфера (обновления и так проверяются сами и в настройках),
+     * а без него - кнопка с текущей версией (нажатие проверяет обновления).
+     */
+    private fun renderVersionButton() {
+        val button = ui.buttonUpdate
+        val update = availableUpdateVersion
+        val bufferInPanel = update == null && bufferDisplayMode == SettingsRepository.BUFFER_DISPLAY_PANEL
+        ui.panelBufferTextView.isVisible = bufferInPanel
+        button.isVisible = !bufferInPanel
+        if (bufferInPanel) {
+            ui.panelBufferTextView.text = getString(R.string.buffer_percentage, viewModel.bufferedPercentage.value ?: 0)
+            return
+        }
+        val icon = if (update != null && !checkingUpdates) R.drawable.ic_system_update_alt else 0
+        button.setCompoundDrawablesRelativeWithIntrinsicBounds(icon, 0, 0, 0)
+        TextViewCompat.setCompoundDrawableTintList(button, button.textColors)
+        button.isEnabled = !checkingUpdates
+        when {
+            checkingUpdates -> {
+                button.text = getString(R.string.update_btn_checking)
+                button.alpha = 0.5f
+            }
+            update != null -> {
+                button.text = update
+                button.contentDescription = getString(R.string.update_btn_update_fmt, update)
+                button.alpha = 1.0f
+                button.setOnClickListener { openGlobalSettings(focusItemId = R.id.item_update) }
+            }
+            else -> {
+                button.text = getString(R.string.version, BuildConfig.VERSION_NAME)
+                button.contentDescription = null
+                button.alpha = 0.5f
+                button.setOnClickListener { updateViewModel.forceCheckUpdates() }
+            }
+        }
     }
 
     private fun resetDimTimer() {
@@ -1064,7 +1167,10 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
                     ui.hideError()
                 }
             }
-            ui.playPauseButton.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow)
+        }
+        // Значок по намерению пользователя: буферизация на него не влияет (см. PlayerViewModel.playIntent)
+        viewModel.playIntent.observe(viewLifecycleOwner) { playIntent ->
+            ui.playPauseButton.setImageResource(if (playIntent) R.drawable.ic_pause else R.drawable.ic_play_arrow)
 
             // Сбрасываем таймер затемнения при снятии/постановке на паузу
             resetDimTimer()
@@ -1091,31 +1197,13 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
 
         // UpdateViewModel Observers
         updateViewModel.updateInfo.observe(viewLifecycleOwner) { info ->
-            if (info != null) {
-                ui.buttonUpdate.text = getString(R.string.update_btn_update_fmt, info.version)
-                ui.buttonUpdate.alpha = 1.0f
-                ui.buttonUpdate.setOnClickListener {
-                    val intent = Intent(requireContext(), GlobalSettingsActivity::class.java).apply {
-                        putExtra("FOCUS_ITEM_ID", R.id.item_update)
-                    }
-                    startActivity(intent)
-                }
-            } else {
-                ui.buttonUpdate.text = getString(R.string.version, BuildConfig.VERSION_NAME)
-                ui.buttonUpdate.alpha = 0.5f
-                ui.buttonUpdate.setOnClickListener {
-                    updateViewModel.forceCheckUpdates()
-                }
-            }
+            availableUpdateVersion = info?.version
+            updateBufferDisplay(viewModel.bufferedPercentage.value ?: 0)
         }
 
         updateViewModel.isCheckingUpdates.observe(viewLifecycleOwner) { checking ->
-            if (checking) {
-                ui.buttonUpdate.text = getString(R.string.update_btn_checking)
-                ui.buttonUpdate.isEnabled = false
-            } else {
-                ui.buttonUpdate.isEnabled = true
-            }
+            checkingUpdates = checking
+            renderVersionButton()
         }
 
         updateViewModel.toastMessage.observe(viewLifecycleOwner) { msg ->
@@ -1349,11 +1437,21 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
                 afrHelper.setListener(object : DisplaySyncHelper.AutoFrameRateListener {
                     override fun onModeStart(newMode: DisplayHolder.Mode?) {
                         val pauseMs = settingsRepo.getAfrPauseMs()
-                        if (pauseMs > 0) {
-                            viewModel.player?.playWhenReady = false
-                            Handler(Looper.getMainLooper()).postDelayed({
-                                viewModel.player?.playWhenReady = true
-                            }, pauseMs.toLong())
+                        val player = viewModel.player
+                        // Видео на паузе (пользователь, диалог продолжения, уход с экрана) не трогаем
+                        if (pauseMs > 0 && player != null && (player.playWhenReady || afrPausedPlayback)) {
+                            afrPausedPlayback = true
+                            player.playWhenReady = false
+                            afrResumeHandler.removeCallbacks(afrResumeRunnable)
+                            afrResumeHandler.postDelayed(afrResumeRunnable, pauseMs.toLong())
+                        }
+                    }
+                    // HDMI после смены режима согласуется заново: битстрим-выход, открытый до этого,
+                    // на части устройств молчит (issue #42), пересоздаем его. Возврат исходного режима
+                    // при закрытии плеера не в счет
+                    override fun onModeApplied(newMode: DisplayHolder.Mode?) {
+                        if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+                            viewModel.refreshDirectAudioOutput("display mode switched (AFR)")
                         }
                     }
                     override fun onModeError(newMode: DisplayHolder.Mode?) {}
@@ -1392,6 +1490,45 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
                 showResumeDialog(data.first, data.second)
             }
         }
+
+        viewModel.sessionPrompt.observe(viewLifecycleOwner) { prompt ->
+            if (prompt != null && sessionPromptDialog?.isShowing != true) showSessionPrompt(prompt)
+        }
+    }
+
+    private var sessionPromptDialog: Dialog? = null
+
+    /** Выключить проброс (туннелирование) до конца сеанса плеера или вернуть скорость 1x (прежний масштаб). */
+    private fun showSessionPrompt(prompt: SessionPrompt) {
+        timerController.stopControlsTimer()
+        val dialog = Dialog(requireContext(), R.style.Theme_App_Dialog)
+        dialog.setContentView(R.layout.dialog_session_prompt)
+        dialog.setCanceledOnTouchOutside(false)
+        val (title, message) = when (prompt) {
+            SessionPrompt.SPEED_BITSTREAM -> R.string.session_speed_title to R.string.session_speed_message
+            SessionPrompt.ZOOM_TUNNELING -> R.string.session_zoom_title to R.string.session_zoom_message
+        }
+        dialog.findViewById<TextView>(R.id.prompt_title).setText(title)
+        dialog.findViewById<TextView>(R.id.prompt_message).setText(message)
+        val dontAsk = dialog.findViewById<CheckBox>(R.id.prompt_dont_ask)
+        // "Больше не показывать" есть только у вопроса о туннелировании: у вопроса о скорости настройки нет
+        dontAsk.isVisible = prompt != SessionPrompt.SPEED_BITSTREAM
+        val btnOk = dialog.findViewById<Button>(R.id.btn_prompt_ok)
+        var answered = false
+        fun answer(accept: Boolean) {
+            if (answered) return
+            answered = true
+            viewModel.resolveSessionPrompt(prompt, accept, accept && dontAsk.isChecked)
+            dialog.dismiss()
+            timerController.resetControlsTimer()
+        }
+        btnOk.setOnClickListener { answer(true) }
+        dialog.findViewById<Button>(R.id.btn_prompt_cancel).setOnClickListener { answer(false) }
+        dialog.setOnCancelListener { answer(false) }
+        dialog.setOnDismissListener { sessionPromptDialog = null }
+        sessionPromptDialog = dialog
+        dialog.show()
+        btnOk.requestFocus()
     }
 
     private fun refreshInfoPanelData() {
@@ -1663,7 +1800,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
 
         val wrapper = ContextThemeWrapper(context, R.style.DarkPopupContext)
         val popup = PopupMenu(wrapper, ui.buttonQuality)
-        options.forEachIndexed { index, option -> popup.menu.add(0, index, 0, option.name) }
+        options.forEachIndexed { index, option -> popup.menu.add(0, index, 0, if (option.isAuto) getString(R.string.quality_auto) else option.name) }
         popup.setOnMenuItemClickListener { item ->
             viewModel.setVideoQuality(options[item.itemId])
             true
@@ -1726,6 +1863,7 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
         // Обновляем настройку свайпа при возврате на экран
         val settingsRepo = SettingsRepository.getInstance(requireContext().applicationContext)
         swipeAction = settingsRepo.getHorizontalSwipeAction()
+        swipeEdgeExclusion = settingsRepo.isSwipeEdgeExclusionEnabled()
         verticalGesturesEnabled = settingsRepo.isVolumeBrightnessGesturesEnabled()
         hiddenControlButtons = settingsRepo.getHiddenControlButtons()
         ui.buttonBack.isVisible = settingsRepo.isBackButtonEnabled()
@@ -1765,8 +1903,12 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
     }
 
     override fun onStop() {
+        // Уход с экрана во время паузы AFR: отложенный запуск отменяем, иначе видео заиграет в фоне
+        val pausedByAfr = afrPausedPlayback
+        afrPausedPlayback = false
+        afrResumeHandler.removeCallbacks(afrResumeRunnable)
         viewModel.player?.let { player ->
-            viewModel.resumePlayWhenReady = player.playWhenReady
+            viewModel.resumePlayWhenReady = player.playWhenReady || pausedByAfr
             player.pause()
             // Битстрим на HDMI в системе один: плеер в фоне держит его, и следующий
             // запуск (например, из Lampa) получает ошибку AudioTrack. Освобождаем, позиция сохраняется.
@@ -1801,11 +1943,15 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
     override fun onDestroyView() {
         // Сначала отвязываем поверхность от плеера
         viewModel.player?.setVideoSurface(null)
+        // Вопрос о сеансе остается в ViewModel и покажется снова в новом экране
+        sessionPromptDialog?.dismiss()
 
         // Останавливаем таймеры
         timerController.cleanup()
         inputHandler.cleanup()
         doubleTapResetHandler.removeCallbacksAndMessages(null)
+        afrResumeHandler.removeCallbacksAndMessages(null)
+        afrPausedPlayback = false
 
         // Освобождаем GL ресурсы
         stereoRenderer?.release()

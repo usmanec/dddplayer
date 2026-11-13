@@ -3,7 +3,6 @@ package top.rootu.dddplayer.player
 import android.net.Uri
 import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
-import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.BaseDataSource
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSourceException
@@ -19,7 +18,6 @@ import kotlin.math.min
 /**
  * Чтение файла с SMB-сервера для плеера (smb://host/share/path). Перемотка - чтение с нужного места файла.
  */
-@UnstableApi
 class SmbDataSource : BaseDataSource(/* isNetwork= */ true) {
 
     private var file: File? = null
@@ -94,7 +92,6 @@ class SmbDataSource : BaseDataSource(/* isNetwork= */ true) {
 /**
  * Источник, который отдает smb:// в [SmbDataSource], а остальное - обычной фабрике (file, content, http).
  */
-@UnstableApi
 class SmbRoutingDataSource(private val upstream: DataSource) : DataSource {
 
     private val smb = SmbDataSource()

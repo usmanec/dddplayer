@@ -91,6 +91,19 @@ To assemble ``.aar``:
 ./gradlew :lib-decoder-av1:assembleRelease
 ```
 
+### AV1: 10-bit (`av1/`)
+
+`libdav1dJNI.so` inside `lib-decoder-av1-release.aar` is built from `av1/jni`: the Media3 1.9.0 JNI wrapper with
+10-bit output ported from `androidx/media` main (P010 with a BT.2020 PQ/HLG dataspace, 8-bit YV12 fallback when
+the window does not accept P010). JNI signatures are unchanged, so the AAR's Java classes stay Media3 1.9.0.
+Rebuild: GitHub Actions → "Build AV1 decoder" (commits the AAR to the branch it runs on), or locally
+`./av1/build_av1.sh <ndk path>` (needs cmake, meson, ninja, nasm).
+
+`libdav1dJNI.so` в `lib-decoder-av1-release.aar` собирается из `av1/jni`: JNI-обертка Media3 1.9.0 с выводом
+10-bit из ветки main `androidx/media` (P010 с dataspace BT.2020 PQ/HLG, откат на 8-bit YV12, если окно не принимает P010).
+Сигнатуры JNI не менялись, Java-классы AAR остаются от Media3 1.9.0. Пересборка: GitHub Actions → «Build AV1 decoder»
+(коммитит AAR в ветку, с которой запущен) или локально `./av1/build_av1.sh <путь к NDK>` (нужны cmake, meson, ninja, nasm).
+
 ### Russian version
 
 Если у вас Linux, это идеально подходит для сборки SW декодеров Media3 в AAR.

@@ -1,12 +1,12 @@
 // Перенесено из edde746/plezy (GPL-3.0, https://github.com/edde746/plezy). Комментарии на английском оставлены как
 // в оригинале, чтобы переносить исправления из plezy диффами; номера #1804/#1988 - issues plezy.
 // Изменения DDD (комментарии на русском): сигнатура configure для Media3 1.9, A_DTS, перенос play() между
-// делегатами, туннелирование, прежний путь без несущей на выходе, ошибка запасного пути, кодек для бейджа.
+// делегатами, туннелирование, прежний путь без несущей на выходе, ошибка запасного пути, кодек для бейджа,
+// скорость, выбранная пользователем (requestedSpeed), вместо скорости часов.
 package top.rootu.dddplayer.player
 
 import android.media.AudioDeviceInfo
 import android.media.AudioTrack
-import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.AuxEffectInfo
 import androidx.media3.common.C
@@ -14,7 +14,6 @@ import androidx.media3.common.Format
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.util.Clock
-import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.analytics.PlayerId
 import androidx.media3.exoplayer.audio.AudioSink
 import java.nio.ByteBuffer
@@ -46,7 +45,6 @@ import java.util.concurrent.atomic.AtomicInteger
  * Selection happens only in [configure]. Persistent controls and the listener are mirrored to both
  * delegates so either can be activated later; per-stream calls go to the active one alone.
  */
-@OptIn(UnstableApi::class)
 internal class IecCarrierSink(
   private val defaultSink: AudioSink,
   private val carrierSink: AudioSink,
@@ -57,7 +55,13 @@ internal class IecCarrierSink(
   private val carrierRouteAvailable: (Format) -> Boolean,
   /** Whether policy currently forbids bitstreaming at all (downmix, normalization, user setting). */
   private val directOutputBlocked: (Format) -> Boolean,
-  private val log: ((String, String, String) -> Unit)? = null
+  private val log: ((String, String, String) -> Unit)? = null,
+  /**
+   * Скорость, выбранная пользователем; без нее - скорость часов. В эфире LivePlaybackSpeedControl сам
+   * двигает скорость часов около 1x (0.97–1.05, ровно 1.0 в пределах ±20 мс, не чаще раза в секунду),
+   * и по ней TrueHD/DTS-HD уходил бы с несущей на декодер и обратно при каждом переходе через 1.0.
+   */
+  private val requestedSpeed: (() -> Float)? = null
 ) : AudioSink {
 
   private val matPacker = TrueHdMatPacker()
@@ -136,7 +140,7 @@ internal class IecCarrierSink(
     // Туннелирование синхронизирует видео с AudioTrack обычного Sink; несущая его не поддерживает
     if (tunneling) return false
     if (!isCarrierRateFamily(format.sampleRate)) return false
-    if (playbackParameters.speed != 1f) return false
+    if (!isUnitSpeed()) return false
     if (directOutputBlocked(format)) return false
     // A_DTS может оказаться обычным ядром: тогда его заберет обычный Sink, и он должен это уметь
     if (format.sampleMimeType == MimeTypes.AUDIO_DTS &&
@@ -446,15 +450,21 @@ internal class IecCarrierSink(
     carrierSink.setClock(clock)
   }
 
+  private fun isUnitSpeed() = (requestedSpeed?.invoke() ?: playbackParameters.speed) == 1f
+
+  // Была ли скорость 1x на прошлом setPlaybackParameters: выбранная скорость меняется вне Sink
+  private var lastUnitSpeed = true
+
   override fun setPlaybackParameters(playbackParameters: PlaybackParameters) {
-    val wasUnitSpeed = this.playbackParameters.speed == 1f
-    val isUnitSpeed = playbackParameters.speed == 1f
+    val wasUnitSpeed = lastUnitSpeed
     this.playbackParameters = playbackParameters
+    val isUnitSpeed = isUnitSpeed()
+    lastUnitSpeed = isUnitSpeed
     defaultSink.setPlaybackParameters(playbackParameters)
     // A bitstream cannot be resampled, and the carrier delegate has no processor chain to do it
     // with, so it is never handed a speed nothing can apply.
     carrierSink.setPlaybackParameters(
-      if (isUnitSpeed) playbackParameters else PlaybackParameters.DEFAULT
+      if (playbackParameters.speed == 1f) playbackParameters else PlaybackParameters.DEFAULT
     )
 
     // Crossing 1x changes whether a bitstream may ride the carrier, but nothing re-asks on its
@@ -483,6 +493,9 @@ internal class IecCarrierSink(
    * the pinned 1x back and silently undo the user's speed change, so the requested parameters are
    * reported instead; the reselection triggered above then moves the stream onto the decoder, which
    * really can apply them.
+   *
+   * Поправки LivePlaybackSpeedControl (выбрана 1x) несущую не меняют: битстрим идет на 1x, как AC3 passthrough,
+   * и задержку эфира поправка не сокращает.
    */
   override fun getPlaybackParameters(): PlaybackParameters = if (carrierActive) playbackParameters else active.getPlaybackParameters()
 

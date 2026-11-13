@@ -106,6 +106,8 @@ class FileBrowserActivity : AppCompatActivity() {
     // История развернута целиком (иначе первые HISTORY_PREVIEW записей)
     private var historyExpanded = false
     private var started = false
+    // Экран уходил в фон (плеер, настройки): при возврате обновляем главный экран
+    private var wasStopped = false
 
     // Медиасерверы DLNA: ищутся один раз при открытии экрана (и по "Искать снова")
     private var dlnaServers: List<DlnaServer> = emptyList()
@@ -122,7 +124,8 @@ class FileBrowserActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Иконка приложения при видео в окне PiP: возвращаем видео на весь экран, стартовый экран не показываем
+        // Иконка приложения при видео в окне PiP: возвращаем видео на весь экран, стартовый экран не показываем.
+        // Свернутый плеер поднимает PipReturnCallbacks при старте экрана: задачу можно переставить, только когда приложение видно
         if (savedInstanceState == null && intent?.action == Intent.ACTION_MAIN && PlayerActivity.restorePictureInPicture()) {
             finish()
             return
@@ -165,10 +168,16 @@ class FileBrowserActivity : AppCompatActivity() {
         if (waitingForAllFilesAccess) {
             waitingForAllFilesAccess = false
             open(location)
-        } else if (started && location == Location.Home) {
-            // Возврат из плеера: история обновилась
+        } else if (started && wasStopped && location == Location.Home) {
+            // Возврат из плеера: история обновилась. При первом запуске список уже грузится
             open(Location.Home, focusPath = focusedPath())
         }
+        wasStopped = false
+    }
+
+    override fun onStop() {
+        super.onStop()
+        wasStopped = true
     }
 
     /**
@@ -745,6 +754,22 @@ class FileBrowserActivity : AppCompatActivity() {
     // ==================== СПИСОК ====================
 
     private inner class FileAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+
+        // Стабильные ID: при обновлении списка (поиск DLNA, возврат из плеера) строка под фокусом
+        // остается той же вьюхой, и фокус не перескакивает на кнопку настроек и обратно
+        init {
+            setHasStableIds(true)
+        }
+
+        override fun getItemId(position: Int): Long {
+            val row = rows[position]
+            // FNV-1a 64 по типу, пути и названию: у разных строк совпадения практически невозможны
+            var hash = -0x340d631b7bdddcdbL
+            for (ch in "${row.type.name}\u0000${row.path}\u0000${row.title}") {
+                hash = (hash xor ch.code.toLong()) * 0x100000001b3L
+            }
+            return hash
+        }
 
         inner class Holder(view: View) : RecyclerView.ViewHolder(view) {
             val icon: ImageView = view.findViewById(R.id.file_icon)

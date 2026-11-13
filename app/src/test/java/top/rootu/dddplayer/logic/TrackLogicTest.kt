@@ -130,4 +130,27 @@ class TrackLogicTest {
         assertFalse(TrackLogic.sameLanguage("ext", "ext"))
         assertFalse(TrackLogic.sameLanguage(null, "en"))
     }
+
+    // Субтитры, выбранные в плейлисте: такие же в следующей серии
+    private fun named(name: String, language: String, flags: Int = 0) =
+        option(Format.Builder().setLabel(name).setLanguage(language).setSelectionFlags(flags)
+            .setSampleMimeType(MimeTypes.APPLICATION_SUBRIP).build())
+
+    @Test
+    fun `forced subtitles are found in the next episode by language when names differ`() {
+        val chosen = TrackLogic.subtitleTrackSignature(named("Надписи", "ru", C.SELECTION_FLAG_FORCED))!!
+        val next = listOf(option(null, isOff = true), named("Полные", "ru"), named("Forced", "ru", C.SELECTION_FLAG_FORCED))
+        assertEquals(2, TrackLogic.findSubtitleIndex(next, chosen))
+    }
+
+    @Test
+    fun `exact subtitle match wins and off is remembered`() {
+        val options = listOf(option(null, isOff = true), named("A", "en"), named("B", "en"))
+        val chosen = TrackLogic.subtitleTrackSignature(options[2])!!
+        assertEquals(2, TrackLogic.findSubtitleIndex(options, chosen))
+        assertEquals(TrackLogic.SUBTITLE_OFF, TrackLogic.subtitleTrackSignature(options[0]))
+        assertEquals(0, TrackLogic.findSubtitleIndex(options, TrackLogic.SUBTITLE_OFF))
+        // Нет такого языка - решает автовключение
+        assertNull(TrackLogic.findSubtitleIndex(options, TrackLogic.subtitleTrackSignature(named("X", "de"))!!))
+    }
 }

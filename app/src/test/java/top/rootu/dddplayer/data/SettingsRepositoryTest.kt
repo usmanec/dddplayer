@@ -12,6 +12,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import top.rootu.dddplayer.logic.AudioMixerLogic
+import top.rootu.dddplayer.logic.AudioPassthroughLogic
+import top.rootu.dddplayer.logic.AudioProfileLogic
 import top.rootu.dddplayer.model.AnaglyphCalibration
 import top.rootu.dddplayer.model.HistoryEntry
 import top.rootu.dddplayer.model.SavedPlaylist
@@ -148,6 +151,61 @@ class SettingsRepositoryTest {
     }
 
     @Test
+    fun `new install keeps decoded stereo without passthrough`() {
+        val repo = repo()
+        assertFalse(repo.isAudioPassthroughEnabled())
+        assertEquals(AudioMixerLogic.CHANNELS_20, repo.getAudioOutputChannels())
+        assertEquals(SettingsRepository.AUDIO_TRANSCODE_OFF, repo.getAudioTranscode())
+        assertEquals(AudioPassthroughLogic.ALL_FORMATS.toSet(), repo.getAudioPassthroughFormats())
+        // Простой режим, стерео, голос не усиливается
+        assertFalse(repo.isAudioExpertMode())
+        assertEquals(AudioProfileLogic.SYSTEM_STEREO, repo.getAudioSystem())
+        assertEquals(0, repo.getVoiceBoostDb())
+    }
+
+    @Test
+    fun `hardware decoder with passthrough migrates to expert mode`() {
+        prefs.edit {
+            putInt("audio_decoder_priority", DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+            putBoolean("stereo_downmix", false)
+        }
+        val repo = repo()
+        assertTrue(repo.isAudioExpertMode())
+        // Экспертный режим собирает плеер по ручным настройкам
+        assertEquals(repo.getExpertAudioConfig(), repo.getAudioConfig(canAc3 = true, canEac3 = true))
+    }
+
+    @Test
+    fun `device decoders first and no downmix migrate to passthrough with source channels`() {
+        prefs.edit {
+            putInt("audio_decoder_priority", DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+            putBoolean("stereo_downmix", false)
+            putInt("center_gain_db", 6)
+        }
+        val repo = repo()
+        assertTrue(repo.isAudioPassthroughEnabled())
+        assertEquals(AudioMixerLogic.CHANNELS_SOURCE, repo.getAudioOutputChannels())
+        assertFalse(prefs.contains("stereo_downmix"))
+        assertFalse(prefs.contains("center_gain_db"))
+        // Приоритет декодеров остается своим, проброс от него больше не зависит
+        repo.setAudioDecoderPriority(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+        assertTrue(repo.isAudioPassthroughEnabled())
+    }
+
+    @Test
+    fun `transcoding settings migrate to transcode and channels`() {
+        prefs.edit {
+            putInt("audio_output_codec", 2)
+            putInt("audio_output_layout", 2)
+        }
+        val repo = repo()
+        assertEquals(SettingsRepository.AUDIO_TRANSCODE_EAC3, repo.getAudioTranscode())
+        assertEquals(AudioMixerLogic.CHANNELS_40, repo.getAudioOutputChannels())
+        assertFalse(repo.isAudioPassthroughEnabled())
+        assertFalse(prefs.contains("audio_output_codec"))
+    }
+
+    @Test
     fun `subtitle style is stored and defaults to the standard look`() {
         val repo = repo()
         assertEquals(SubtitleStyle(), repo.getSubtitleStyle())
@@ -203,7 +261,8 @@ class SettingsRepositoryTest {
         assertEquals(SettingsRepository.CLOCK_OFF, repo.getClockTransparency())
         // Кнопка "Вверх": первое нажатие - инфопанель, второе - боковое меню
         assertEquals(SettingsRepository.UP_ACTION_INFO, repo.getUpButtonAction())
-        assertEquals(SettingsRepository.AUDIO_MEMORY_OFF, repo.getAudioTrackMemoryMode())
+        // Озвучка, выбранная в плейлисте, по умолчанию сохраняется для следующих серий
+        assertEquals(SettingsRepository.AUDIO_MEMORY_PLAYLIST, repo.getAudioTrackMemoryMode())
         assertEquals(SettingsRepository.EXTERNAL_POSITION_APPLY, repo.getExternalPositionMode())
         assertEquals(SettingsRepository.BUFFER_SIZE_AUTO, repo.getTargetBufferMB())
         assertFalse(repo.isLiveModeEnabled())
@@ -275,6 +334,41 @@ class SettingsRepositoryTest {
         assertEquals("HOME", saved.domain)
         repo.removeSmbServer("1")
         assertTrue(repo.getSmbServers().isEmpty())
+    }
+
+    @Test
+    fun `speed channels default to stereo and migrate the old settings`() {
+        assertEquals(SettingsRepository.SPEED_CHANNELS_STEREO, repo().getSpeedChannelsMode())
+
+        // Старый переключатель "без вопроса" сводил звук в стерео
+        prefs.edit().clear().putBoolean("speed_passthrough_auto", true).commit()
+        resetSingletons()
+        assertEquals(SettingsRepository.SPEED_CHANNELS_STEREO, repo().getSpeedChannelsMode())
+        assertFalse(prefs.contains("speed_passthrough_auto"))
+
+        // Промежуточный режим "декодировать" отдавал многоканальный PCM
+        prefs.edit().clear().putInt("speed_passthrough_mode", 2).commit()
+        resetSingletons()
+        assertEquals(SettingsRepository.SPEED_CHANNELS_SOURCE, repo().getSpeedChannelsMode())
+        assertFalse(prefs.contains("speed_passthrough_mode"))
+    }
+
+    @Test
+    fun `speed channels restart the player`() {
+        val repo = repo()
+        val before = repo.getHardSettingsSignature()
+        repo.setSpeedChannelsMode(SettingsRepository.SPEED_CHANNELS_SOURCE)
+        assertTrue(before != repo.getHardSettingsSignature())
+    }
+
+    @Test
+    fun `smb servers migrate from global prefs to their own file`() {
+        val json = """[{"id":"1","name":"NAS","address":"smb://nas/Video","user":"user","password":"secret","domain":""}]"""
+        prefs.edit().putString("smb_servers", json).commit()
+        val repo = repo()
+        assertEquals("secret", repo.getSmbServers().single().password)
+        assertFalse(prefs.contains("smb_servers"))
+        assertEquals(json, context.getSharedPreferences("smb_prefs", Context.MODE_PRIVATE).getString("smb_servers", null))
     }
 
     @Test

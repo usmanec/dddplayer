@@ -7,7 +7,10 @@ import kotlin.math.abs
 
 class PlayerTouchHandler(
     private val context: Context,
-    private val screenWidth: Int,
+    // Ширина области касаний (берется при каждом жесте: экран могли повернуть)
+    private val viewWidth: () -> Int,
+    // Зоны системного жеста "Назад" слева и справа, px (0 - нет, например при навигации кнопками)
+    private val backGestureEdges: () -> Pair<Int, Int> = { 0 to 0 },
     private val onSingleTap: () -> Unit,
     private val onDoubleTapSeek: (forward: Boolean) -> Unit,
     private val onVolumeChange: (deltaPercent: Float) -> Unit,
@@ -38,9 +41,6 @@ class PlayerTouchHandler(
     // но достаточно маленьким, чтобы интерфейс был отзывчивым.
     private val scrollThreshold = 30f
 
-    // Полоса у левого и правого края: там системный жест "Назад", горизонтальный свайп оттуда не начинаем
-    private val edgeExclusionPx = EDGE_EXCLUSION_DP * context.resources.displayMetrics.density
-
     override fun onDown(e: MotionEvent): Boolean {
         scrollMode = ScrollMode.NONE
         multiTouch = false
@@ -55,7 +55,7 @@ class PlayerTouchHandler(
 
     override fun onDoubleTap(e: MotionEvent): Boolean {
         if (multiTouch) return true
-        val isForward = e.x > screenWidth / 2
+        val isForward = e.x > viewWidth() / 2
         onDoubleTapSeek(isForward)
         return true
     }
@@ -87,7 +87,7 @@ class PlayerTouchHandler(
                     // Определяем сторону экрана (Лево/Право) по точке НАЧАЛА жеста (e1)
                     if (!isVerticalGesturesEnabled()) {
                         ScrollMode.IGNORED
-                    } else if (e1.x > screenWidth / 2) {
+                    } else if (e1.x > viewWidth() / 2) {
                         ScrollMode.VOLUME
                     } else {
                         ScrollMode.BRIGHTNESS
@@ -120,18 +120,14 @@ class PlayerTouchHandler(
         return true
     }
 
+    /** Касание в зоне системного жеста "Назад": горизонтальный свайп оттуда не начинаем. */
     private fun isNearSideEdge(x: Float): Boolean {
-        val width = context.resources.displayMetrics.widthPixels
-        return x < edgeExclusionPx || x > width - edgeExclusionPx
+        val (left, right) = backGestureEdges()
+        return x < left || x > viewWidth() - right
     }
 
     fun onActionUp() {
         if (isScrolling) onGestureEnd()
         scrollMode = ScrollMode.NONE
-    }
-
-    companion object {
-        // Ширина зоны системного жеста "Назад" (в Android по умолчанию 24dp) с запасом
-        private const val EDGE_EXCLUSION_DP = 32f
     }
 }

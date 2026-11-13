@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.os.Parcelable
 import android.provider.OpenableColumns
 import androidx.core.net.toUri
+import top.rootu.dddplayer.R
 import top.rootu.dddplayer.model.HistorySource
 import top.rootu.dddplayer.model.MediaItem
 import top.rootu.dddplayer.model.SubtitleItem
@@ -67,7 +68,7 @@ object IntentUtils {
         val filename = resolveFileName(context, uri)
 
         if (title.isNullOrEmpty()) {
-            title = filename ?: uri.lastPathSegment ?: "Video"
+            title = filename ?: uri.lastPathSegment ?: context.getString(R.string.video_default_title)
         }
 
         val startPosition = getLongExtraCompat(extras, "position")

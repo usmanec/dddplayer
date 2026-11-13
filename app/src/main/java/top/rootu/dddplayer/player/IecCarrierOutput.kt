@@ -8,12 +8,10 @@ import android.media.AudioTrack
 import android.os.Build
 import android.os.SystemClock
 import android.util.Log
-import androidx.annotation.OptIn
 import androidx.media3.common.Format
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.audio.AudioProcessor
-import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.AudioTrackAudioOutputProvider
 import androidx.media3.exoplayer.audio.DefaultAudioSink
@@ -22,19 +20,19 @@ import java.util.concurrent.ConcurrentHashMap
 // Вывод DTS-HD MA и TrueHD (MAT) через несущую IEC 61937 192 кГц/7.1, как у Kodi.
 // Fire OS принимает сырой ENCODING_DTS_HD, но передает только ядро DTS, а сырой TrueHD не передает вовсе.
 // Упаковщики и IecCarrierSink перенесены из edde746/plezy (GPL-3.0).
-@OptIn(UnstableApi::class)
 internal object IecCarrierOutput {
     private const val TAG = "IecCarrier"
     private const val CHANNEL_MASK = AudioFormat.CHANNEL_OUT_7POINT1_SURROUND
 
     /** Оборачивает обычный Sink: DTS-HD и TrueHD идут через несущую, остальное как раньше. */
-    fun wrap(context: Context, defaultSink: AudioSink): IecCarrierSink =
+    fun wrap(context: Context, defaultSink: AudioSink, requestedSpeed: () -> Float): IecCarrierSink =
         IecCarrierSink(
             defaultSink = defaultSink,
             carrierSink = buildCarrierSink(context),
             carrierRouteAvailable = { routeAvailable(context, it) },
             directOutputBlocked = { false },
-            log = { level, _, message -> if (level == "warn") Log.w(TAG, message) else Log.i(TAG, message) }
+            log = { level, _, message -> if (level == "warn") Log.w(TAG, message) else Log.i(TAG, message) },
+            requestedSpeed = requestedSpeed
         )
 
     /**
@@ -44,6 +42,11 @@ internal object IecCarrierOutput {
     // Проверка маршрута - несколько binder-вызовов, а ExoPlayer спрашивает о каждом формате много раз
     private const val ROUTE_CACHE_MS = 2_000L
     private val routeCache = ConcurrentHashMap<Boolean, Pair<Long, Boolean>>()
+
+    /** Есть ли маршрут несущей для DTS-HD ([dts]) или TrueHD: для списка форматов в настройках. */
+    fun isRouteAvailable(context: Context, dts: Boolean): Boolean = routeAvailable(
+        context, Format.Builder().setSampleMimeType(if (dts) MimeTypes.AUDIO_DTS_HD else MimeTypes.AUDIO_TRUEHD).build()
+    )
 
     private fun routeAvailable(context: Context, format: Format): Boolean {
         val isDts = format.sampleMimeType == MimeTypes.AUDIO_DTS_HD || format.sampleMimeType == MimeTypes.AUDIO_DTS

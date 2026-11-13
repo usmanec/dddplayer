@@ -55,7 +55,7 @@ app/src/main/java/top/rootu/dddplayer/
 ├── player/                     PlayerManager (ExoPlayer, OkHttp, источники, M3U-проба),
 │                               NetworkBufferLoadControl, PrefetchingDataSource, ParsingDataSource
 ├── logic/                      Чистая логика: M3uParser, TrackLogic, AnaglyphLogic, AudioMixerLogic,
-│                               Matroska/Mp4/UnifiedMetadataReader, SettingsMutator, StereoFormatLogic, DeviceInfoLogic,
+│                               Mp4/UnifiedMetadataReader, SettingsMutator, StereoFormatLogic, DeviceInfoLogic,
 │                               UpdateManager
 ├── renderer/                   StereoGLSurfaceView, StereoRenderer, ShaderSource (GLSL ES 2.0/3.0)
 ├── viewmodel/                  PlayerViewModel (центр всего), AnaglyphDelegate, SettingsViewModel,
