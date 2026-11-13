@@ -65,6 +65,7 @@ import okhttp3.Request
 import top.rootu.dddplayer.App.Companion.USER_AGENT
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
+import top.rootu.dddplayer.logic.AudioBufferLogic
 import top.rootu.dddplayer.logic.AudioMixerLogic
 import top.rootu.dddplayer.logic.AudioPassthroughLogic
 import top.rootu.dddplayer.logic.M3uParser
@@ -529,7 +530,8 @@ class PlayerManager(
                                 speed
                             )
 
-                        standardSize.coerceAtMost(256 * 1024) // 256КБ должно хватить
+                        // 256КБ должно хватить; потолок - целое число кадров, иначе AudioTrack отклонит буфер
+                        AudioBufferLogic.capToWholeFrames(standardSize, pcmFrameSize)
                     }
 
                     val audioOutputProvider = AudioTrackAudioOutputProvider.Builder(appContext)
