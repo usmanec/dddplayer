@@ -7,6 +7,7 @@ import android.view.View
 import androidx.core.view.isVisible
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
+import top.rootu.dddplayer.logic.SeekStepLogic
 import top.rootu.dddplayer.viewmodel.PlayerViewModel
 import top.rootu.dddplayer.viewmodel.SettingsViewModel
 
@@ -211,21 +212,7 @@ class PlayerInputHandler(
         seekResetHandler.removeCallbacks(seekResetRunnable)
         seekResetHandler.postDelayed(seekResetRunnable, delayMillis)
 
-        // Базовый шаг: очень маленький, зависит от длины видео
-        // Для 2-часового фильма: (7200000 / 200 / 8) = 4500 мс (4.5 сек)
-        val baseStep = (duration / 200 / 8).coerceIn(250, 10000)
-
-        // Множитель ускорения
-        val multiplier = when {
-            seekAccelerationCount < 5 -> 1
-            seekAccelerationCount < 15 -> 2
-            seekAccelerationCount < 30 -> 4
-            seekAccelerationCount < 50 -> 8
-            else -> 16
-        }
-
-        // Итоговый шаг (Минимум 0.5 сек, максимум 60 сек)
-        val step = (baseStep * multiplier).coerceIn(500, 60000)
+        val step = SeekStepLogic.step(duration, seekAccelerationCount)
 
         // Определяем текущую базу для перемотки
         // Если мы уже мотаем (pendingSeekPosition != -1), то мотаем оттуда.
