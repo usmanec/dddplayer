@@ -227,6 +227,10 @@
     <string name="swipe_release_next">松开切换</string>
     <string name="swipe_release_exit">松开退出</string>
     <string name="pref_pause_dim">暂停时调暗屏幕</string>
+    <string name="pref_seek_step">快进步长</string>
+    <string name="pref_seek_step_desc">一次 ←/→ 按键移动的距离；按住时步长增加</string>
+    <string name="seek_step_seconds_format">%1$d 秒</string>
+    <string name="seek_step_half_second">0.5 秒</string>
     <string name="pref_pause_dim_desc">保护 OLED 屏幕免受烧屏影响</string>
     <string name="dialog_input_url_title">输入播放列表链接</string>
     <string name="dialog_input_url_hint">http://...</string>

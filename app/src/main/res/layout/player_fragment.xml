@@ -462,6 +462,52 @@
         android:visibility="gone"
         tools:visibility="visible"/>
 
+    <!-- Полоска прогресса и таймкоды при перемотке с пульта без HUD -->
+    <LinearLayout
+        android:id="@+id/seek_progress_panel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="vertical"
+        android:paddingHorizontal="16dp"
+        android:paddingBottom="8dp"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/seek_time_current"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="@color/tv_white"
+                android:textSize="14sp"
+                tools:text="00:15:45" />
+
+            <TextView
+                android:id="@+id/seek_time_duration"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_secondary"
+                android:textSize="14sp"
+                tools:text="00:45:10" />
+        </LinearLayout>
+
+        <ProgressBar
+            android:id="@+id/seek_progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:max="1000"
+            android:progressBackgroundTint="@color/progress_track"
+            android:progressTint="@color/tv_white"
+            tools:progress="600" />
+    </LinearLayout>
+
     <!-- Панель управления  нижняя (Элементы управления) -->
     <include
         android:id="@+id/playback_controls"

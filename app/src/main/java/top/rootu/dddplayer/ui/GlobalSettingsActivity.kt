@@ -35,6 +35,7 @@ import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
 import top.rootu.dddplayer.logic.AudioMixerLogic
 import top.rootu.dddplayer.logic.OpenSourceLicenses
+import top.rootu.dddplayer.logic.SeekStepLogic
 import top.rootu.dddplayer.logic.UpdateInfo
 import top.rootu.dddplayer.model.MenuItem
 import top.rootu.dddplayer.model.PlaybackSpeed
@@ -103,6 +104,8 @@ class GlobalSettingsActivity : AppCompatActivity() {
     private lateinit var switchAfrSkip24: SwitchCompat
     private lateinit var itemAfrPause: LinearLayout
     private lateinit var textAfrPauseValue: TextView
+    private lateinit var itemSeekStep: LinearLayout
+    private lateinit var textSeekStepValue: TextView
     private lateinit var itemAfrSkipShorts: LinearLayout
     private lateinit var switchAfrSkipShorts: SwitchCompat
     private lateinit var itemSkipSilence: LinearLayout
@@ -364,6 +367,8 @@ class GlobalSettingsActivity : AppCompatActivity() {
         switchAfrSkip24 = findViewById(R.id.switch_afr_skip_24)
         itemAfrPause = findViewById(R.id.item_afr_pause)
         textAfrPauseValue = findViewById(R.id.text_afr_pause_value)
+        itemSeekStep = findViewById(R.id.item_seek_step)
+        textSeekStepValue = findViewById(R.id.text_seek_step_value)
         itemAfrSkipShorts = findViewById(R.id.item_afr_skip_shorts)
         switchAfrSkipShorts = findViewById(R.id.switch_afr_skip_shorts)
         itemSkipSilence = findViewById(R.id.item_skip_silence)
@@ -578,6 +583,17 @@ class GlobalSettingsActivity : AppCompatActivity() {
                 settingsViewModel.setExternalPositionMode(it)
             }
         }
+        itemSeekStep.setOnClickListener {
+            val steps = SeekStepLogic.STEPS
+            val current = settingsViewModel.seekStepMs.value ?: SeekStepLogic.DEFAULT_STEP_MS
+            showSingleChoiceDialog(
+                getString(R.string.pref_seek_step),
+                steps.map { formatSeekStep(it) },
+                steps.indexOf(current).coerceAtLeast(0)
+            ) {
+                settingsViewModel.setSeekStepMs(steps[it])
+            }
+        }
         itemUpAction.setOnClickListener {
             val options = listOf(getString(R.string.pref_up_action_none), getString(R.string.pref_up_action_osd), getString(R.string.pref_up_action_menu), getString(R.string.pref_up_action_info))
             showSingleChoiceDialog(getString(R.string.pref_up_action), options, settingsViewModel.upButtonAction.value ?: SettingsRepository.UP_ACTION_INFO) {
@@ -736,6 +752,10 @@ class GlobalSettingsActivity : AppCompatActivity() {
                 getString(R.string.afr_pause_none)
             else
                 getString(R.string.afr_pause_format, ms / 1000f)
+        }
+
+        settingsViewModel.seekStepMs.observe(this) { ms ->
+            textSeekStepValue.text = formatSeekStep(ms)
         }
 
         settingsViewModel.isSkipSilenceEnabled.observe(this) { enabled ->
@@ -983,6 +1003,12 @@ class GlobalSettingsActivity : AppCompatActivity() {
         SettingsRepository.BUTTON_AUDIO -> getString(R.string.button_label_audio)
         SettingsRepository.BUTTON_SUBTITLES -> getString(R.string.button_label_subtitles)
         else -> key
+    }
+
+    private fun formatSeekStep(ms: Int): String = if (ms < 1000) {
+        getString(R.string.seek_step_half_second)
+    } else {
+        getString(R.string.seek_step_seconds_format, ms / 1000)
     }
 
     private fun showSingleChoiceDialog(title: String, items: List<String>, currentIndex: Int, onSelected: (Int) -> Unit) {

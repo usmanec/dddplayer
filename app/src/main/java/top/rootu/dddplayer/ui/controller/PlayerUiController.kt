@@ -127,6 +127,10 @@ class PlayerUiController(private val rootView: View) {
     val seekOverlay: View = rootView.findViewById(R.id.seek_overlay)
     val seekDeltaText: TextView = rootView.findViewById(R.id.seek_delta)
     val seekTargetText: TextView = rootView.findViewById(R.id.seek_target_time)
+    private val seekProgressPanel: View = rootView.findViewById(R.id.seek_progress_panel)
+    private val seekProgress: ProgressBar = rootView.findViewById(R.id.seek_progress)
+    private val seekTimeCurrent: TextView = rootView.findViewById(R.id.seek_time_current)
+    private val seekTimeDuration: TextView = rootView.findViewById(R.id.seek_time_duration)
 
     private val gestureContainer: View = rootView.findViewById(R.id.gesture_indicator_container)
     private val gestureIcon: ImageView = rootView.findViewById(R.id.gesture_icon)
@@ -178,7 +182,7 @@ class PlayerUiController(private val rootView: View) {
             hideHandler.removeCallbacks(hideGestureRunnable)
             hideHandler.removeCallbacks(hideInfoPanelRunnable)
             topInfoPanel.isVisible = false
-            listOf(seekOverlay, gestureContainer, rewindOverlay, ffwdOverlay,
+            listOf(seekOverlay, seekProgressPanel, gestureContainer, rewindOverlay, ffwdOverlay,
                 overlayPrev, overlayNext, dimOverlay).forEach {
                 it.animate().cancel()
                 it.isVisible = false
@@ -410,11 +414,15 @@ class PlayerUiController(private val rootView: View) {
         }
     }
 
-    fun showSeekOverlay(deltaMs: Long, targetTimeMs: Long, isLive: Boolean = false, liveOffsetMs: Long = 0L) {
+    fun showSeekOverlay(deltaMs: Long, targetTimeMs: Long, durationMs: Long, isLive: Boolean = false, liveOffsetMs: Long = 0L) {
         seekOverlay.isVisible = true
         val sign = if (deltaMs > 0) "+" else "-"
         val absDelta = abs(deltaMs)
-        val deltaStr = if (absDelta < 60000) "${absDelta / 1000}s" else formatTime(absDelta)
+        val deltaStr = when {
+            absDelta < 1000 -> String.format(Locale.getDefault(), "%.1f s", absDelta / 1000f)
+            absDelta < 60000 -> "${absDelta / 1000}s"
+            else -> formatTime(absDelta)
+        }
         seekDeltaText.text = rootView.context.getString(R.string.seek_delta_format, sign, deltaStr)
         if (isLive) {
             // В эфире показываем реальное время, на которое целимся
@@ -423,10 +431,21 @@ class PlayerUiController(private val rootView: View) {
         } else {
             seekTargetText.text = formatTime(targetTimeMs)
         }
+        // Полоска с таймкодами нужна только когда нижняя панель скрыта (в ней есть свой сикбар)
+        // и только для видео с известной длительностью: в прямом эфире таймкоды другие.
+        if (durationMs > 0 && !isLive && !controlsView.isVisible) {
+            seekProgress.progress = ((targetTimeMs * 1000) / durationMs).toInt().coerceIn(0, 1000)
+            seekTimeCurrent.text = timeCurrentTextView.text
+            seekTimeDuration.text = timeDurationTextView.text
+            seekProgressPanel.isVisible = true
+        } else {
+            seekProgressPanel.isVisible = false
+        }
     }
 
     fun hideSeekOverlay() {
         seekOverlay.isVisible = false
+        seekProgressPanel.isVisible = false
     }
 
     fun showFatalError(error: PlaybackException) {
@@ -656,13 +675,14 @@ class PlayerUiController(private val rootView: View) {
         aspectRatioFrame.translationY = (aspectRatioFrame.translationY + dy).coerceIn(-maxY, maxY)
     }
 
-    fun showControls(focusOnSeekBar: Boolean = false) {
+    fun showControls() {
         if (inPictureInPicture) return
         controlsView.visibility = View.VISIBLE
         topInfoPanel.visibility = View.VISIBLE
+        seekProgressPanel.isVisible = false // в панели есть свой сикбар и таймкоды
         updateClockVisibility() // Скрываем одиночные часы, т.к. показана панель
 
-        if (focusOnSeekBar) seekBar.requestFocus() else playPauseButton.requestFocus()
+        playPauseButton.requestFocus()
     }
 
     fun hideControls() {

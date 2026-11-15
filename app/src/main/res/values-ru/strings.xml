@@ -234,6 +234,10 @@
     <string name="swipe_release_next">Отпустите для переключения</string>
     <string name="swipe_release_exit">Отпустите для выхода</string>
     <string name="pref_pause_dim">Затемнение экрана на паузе</string>
+    <string name="pref_seek_step">Шаг перемотки</string>
+    <string name="pref_seek_step_desc">Насколько сдвигает одно нажатие ←/→; при удержании шаг растет</string>
+    <string name="seek_step_seconds_format">%1$d с</string>
+    <string name="seek_step_half_second">0,5 с</string>
     <string name="pref_pause_dim_desc">Защищает OLED экраны от выгорания</string>
     <string name="dialog_input_url_title">Введите ссылку на плейлист</string>
     <string name="dialog_input_url_hint">http://...</string>
