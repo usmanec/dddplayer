@@ -219,6 +219,10 @@
     <string name="swipe_release_next">Адпусціце для пераключэння</string>
     <string name="swipe_release_exit">Адпусціце для выхаду</string>
     <string name="pref_pause_dim">Зацьмняць экран на паўзе</string>
+    <string name="pref_seek_step">Крок перамоткі</string>
+    <string name="pref_seek_step_desc">На колькі зрушвае адно націсканне ←/→; пры ўтрыманні крок расце</string>
+    <string name="seek_step_seconds_format">%1$d с</string>
+    <string name="seek_step_half_second">0,5 с</string>
     <string name="pref_pause_dim_desc">Абараняе OLED экраны ад выгарання</string>
     <string name="dialog_input_url_title">Увядзіце спасылку на плэйліст</string>
     <string name="dialog_input_url_hint">http://...</string>

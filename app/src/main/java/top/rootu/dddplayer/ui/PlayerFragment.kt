@@ -436,15 +436,15 @@ class PlayerFragment : Fragment(), OnSurfaceReadyListener {
 
             swipeSeekCurrentPosition = (swipeSeekCurrentPosition + timeDelta).coerceIn(0, duration)
 
+            // Визуально двигаем сикбар и таймкоды: оверлей берет время из них
+            ui.seekBar.progress = swipeSeekCurrentPosition.toInt()
+            updateTimeLabelsUI(swipeSeekCurrentPosition)
+
             // Используем центральный оверлей (тот же, что и для кнопок)
             val totalDelta = swipeSeekCurrentPosition - (viewModel.player?.currentPosition ?: 0L)
             val isLive = viewModel.isLive.value ?: false
             val liveOffset = if (isLive) ((viewModel.duration.value ?: 0L) - swipeSeekCurrentPosition).coerceAtLeast(0) else 0L
-            ui.showSeekOverlay(totalDelta, swipeSeekCurrentPosition, isLive, liveOffset)
-
-            // Визуально двигаем сикбар
-            ui.seekBar.progress = swipeSeekCurrentPosition.toInt()
-            updateTimeLabelsUI(swipeSeekCurrentPosition)
+            ui.showSeekOverlay(totalDelta, swipeSeekCurrentPosition, duration, isLive, liveOffset)
         }
         else if (swipeAction == SettingsRepository.SWIPE_PLAYLIST || swipeAction == SettingsRepository.SWIPE_EXIT_NEXT) {
             // === PLAYLIST MODE (в режиме "Выход или След" вправо - всегда выход) ===

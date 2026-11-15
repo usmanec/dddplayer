@@ -7,6 +7,7 @@ import android.view.View
 import androidx.core.view.isVisible
 import top.rootu.dddplayer.R
 import top.rootu.dddplayer.data.SettingsRepository
+import top.rootu.dddplayer.logic.SeekStepLogic
 import top.rootu.dddplayer.viewmodel.PlayerViewModel
 import top.rootu.dddplayer.viewmodel.SettingsViewModel
 
@@ -22,14 +23,10 @@ class PlayerInputHandler(
     private val onShowPlaylist: () -> Unit
 ) {
 
-    private var seekAccelerationCount = 0
-    private var lastSeekTime = 0L
-    private var lastKeyCode = 0
-    private val seekResetHandler = Handler(Looper.getMainLooper())
-    private val seekResetRunnable = Runnable {
-        seekAccelerationCount = 0
-        lastKeyCode = 0
-    }
+    // Автоповтор нажатия: последняя стрелка и время её события (для пультов без repeatCount)
+    private var lastSeekKeyCode = 0
+    private var lastSeekEventTime = 0L
+    private var holdRepeat = 0
 
     private var pendingSeekPosition: Long = -1L
     private var pendingSeekDelta: Long = 0L
@@ -153,15 +150,14 @@ class PlayerInputHandler(
                     return true
                 }
                 if (!ui.controlsView.isVisible) {
-                    // Показываем контролы и фокусируемся на сикбаре
-                    ui.showControls(focusOnSeekBar = true)
-                    onResetHideTimer()
-                    // Поглощаем событие, чтобы не было прыжка при открытии панели
+                    // Пульт: сразу перематываем, HUD не показываем.
+                    // Если длительность неизвестна (поток), перемотки нет — показываем панель.
+                    if (!handleSeekBarSeek(event)) onShowControls()
                     return true
                 }
 
                 if (currentFocus?.id == R.id.seek_bar) {
-                    handleSeekBarSeek(event.keyCode)
+                    handleSeekBarSeek(event)
                     onResetHideTimer()
                     return true
                 }
@@ -189,50 +185,39 @@ class PlayerInputHandler(
         return false
     }
 
-    private fun handleSeekBarSeek(keyCode: Int) {
+    private fun handleSeekBarSeek(event: KeyEvent): Boolean {
         val duration = viewModel.duration.value ?: 0L
-        if (duration <= 0) return
+        if (duration <= 0) return false
 
-        val delayMillis = 500L // Считаем серию нажатий в пределах этого времени
+        val delayMillis = 500L // Серия нажатий копится до этой паузы, затем один seek
 
         performSeekHandler.removeCallbacks(performSeekRunnable)
 
-        val currentTime = System.currentTimeMillis()
+        val gap = event.eventTime - lastSeekEventTime
+        // Некоторые пульты (в т.ч. Box R) присылают автоповтор как обычное нажатие
+        // с repeatCount = 0, поэтому удержание определяем еще и по интервалу между событиями
+        val isHold = event.repeatCount > 0 ||
+            (event.keyCode == lastSeekKeyCode && gap in 0..HOLD_GAP_MS)
+        lastSeekKeyCode = event.keyCode
+        lastSeekEventTime = event.eventTime
+        holdRepeat = if (isHold) holdRepeat + 1 else 0
 
-        if (lastKeyCode == keyCode && currentTime - lastSeekTime < delayMillis) {
-            seekAccelerationCount++
-        } else {
-            seekAccelerationCount = 0
-        }
-        lastSeekTime = currentTime
-        lastKeyCode = keyCode
+        // На удержании держим окно шире интервала автоповтора (~500 мс),
+        // иначе первый повтор гоняется с отложенным seek и шаг теряется
+        val seekDelay = if (isHold) 700L else delayMillis
 
-        // Сброс счетчика при бездействии
-        seekResetHandler.removeCallbacks(seekResetRunnable)
-        seekResetHandler.postDelayed(seekResetRunnable, delayMillis)
+        val step = SeekStepLogic.step(duration, holdRepeat, repo.getSeekStepMs())
 
-        // Базовый шаг: очень маленький, зависит от длины видео
-        // Для 2-часового фильма: (7200000 / 200 / 8) = 4500 мс (4.5 сек)
-        val baseStep = (duration / 200 / 8).coerceIn(250, 10000)
-
-        // Множитель ускорения
-        val multiplier = when {
-            seekAccelerationCount < 5 -> 1
-            seekAccelerationCount < 15 -> 2
-            seekAccelerationCount < 30 -> 4
-            seekAccelerationCount < 50 -> 8
-            else -> 16
-        }
-
-        // Итоговый шаг (Минимум 0.5 сек, максимум 60 сек)
-        val step = (baseStep * multiplier).coerceIn(500, 60000)
-
-        // Определяем текущую базу для перемотки
+        // Определяем текущую базу для перемотки.
         // Если мы уже мотаем (pendingSeekPosition != -1), то мотаем оттуда.
-        // Иначе берем текущую позицию плеера как источник истины.
-        val startPos = if (pendingSeekPosition != -1L) pendingSeekPosition else viewModel.player?.currentPosition ?: ui.seekBar.progress.toLong()
+        // Иначе берем максимум из сикбара и позиции плеера: после seek позиция плеера
+        // обновляется асинхронно и отстает, а сикбар уже стоит на цели.
+        val startPos = if (pendingSeekPosition != -1L) pendingSeekPosition else maxOf(
+            ui.seekBar.progress.toLong(),
+            viewModel.player?.currentPosition ?: 0L
+        )
 
-        val target = if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT)
+        val target = if (event.keyCode == KeyEvent.KEYCODE_DPAD_LEFT)
             (startPos - step).coerceAtLeast(0)
         else
             (startPos + step).coerceAtMost(duration)
@@ -252,15 +237,20 @@ class PlayerInputHandler(
         viewModel.isUserInteracting = true
         ui.seekBar.progress = target.toInt()
         ui.updateTimeLabels(target, duration, speed, isLive, liveOffset)
-        ui.showSeekOverlay(pendingSeekDelta, target, isLive, liveOffset)
+        ui.showSeekOverlay(pendingSeekDelta, target, duration, isLive, liveOffset)
 
-        // Планируем выполнение seek через 500мс (как сброс ускорения)
+        // Планируем выполнение seek через seekDelay
         // Если пользователь нажмет еще раз до этого времени, таймер сбросится
-        performSeekHandler.postDelayed(performSeekRunnable, delayMillis)
+        performSeekHandler.postDelayed(performSeekRunnable, seekDelay)
+        return true
     }
 
     fun cleanup() {
-        seekResetHandler.removeCallbacksAndMessages(null)
         performSeekHandler.removeCallbacksAndMessages(null)
+    }
+
+    private companion object {
+        // Интервал между событиями короче этого — автоповтор, а не отдельное нажатие
+        const val HOLD_GAP_MS = 120L
     }
 }

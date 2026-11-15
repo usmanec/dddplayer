@@ -109,6 +109,9 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     private val _externalPositionMode = MutableLiveData(repository.getExternalPositionMode())
     val externalPositionMode: LiveData<Int> = _externalPositionMode
 
+    private val _seekStepMs = MutableLiveData(repository.getSeekStepMs())
+    val seekStepMs: LiveData<Int> = _seekStepMs
+
     private val _upButtonAction = MutableLiveData(repository.getUpButtonAction())
     val upButtonAction: LiveData<Int> = _upButtonAction
 
@@ -318,6 +321,11 @@ class GlobalSettingsViewModel(application: Application) : AndroidViewModel(appli
     fun toggleSkipSilence(enabled: Boolean) {
         repository.setSkipSilenceEnabled(enabled)
         _isSkipSilenceEnabled.value = enabled
+    }
+
+    fun setSeekStepMs(ms: Int) {
+        repository.setSeekStepMs(ms)
+        _seekStepMs.value = ms
     }
 
     fun cyclePauseDimLevel() {

@@ -244,6 +244,10 @@
     <string name="swipe_release_next">Release to switch</string>
     <string name="swipe_release_exit">Release to exit</string>
     <string name="pref_pause_dim">Dim screen on pause</string>
+    <string name="pref_seek_step">Seek step</string>
+    <string name="pref_seek_step_desc">How far one LEFT/RIGHT press moves; holding the button speeds it up</string>
+    <string name="seek_step_seconds_format">%1$d s</string>
+    <string name="seek_step_half_second">0.5 s</string>
     <string name="pref_pause_dim_desc">Protects OLED screens from burn-in</string>
     <string name="dialog_input_url_title">Enter Playlist URL</string>
     <string name="dialog_input_url_hint">http://...</string>

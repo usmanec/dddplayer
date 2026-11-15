@@ -9,6 +9,7 @@ import org.json.JSONException
 import org.json.JSONObject
 import top.rootu.dddplayer.logic.AnaglyphLogic
 import top.rootu.dddplayer.logic.HomeLogic
+import top.rootu.dddplayer.logic.SeekStepLogic
 import top.rootu.dddplayer.model.AnaglyphCalibration
 import top.rootu.dddplayer.model.AudioTrackStat
 import top.rootu.dddplayer.model.HistoryEntry
@@ -410,6 +411,11 @@ class SettingsRepository private constructor(context: Context) {
 
     fun getAfrPauseMs(): Int = prefs.getInt("afr_pause_ms", 2000)
     fun setAfrPauseMs(ms: Int) = prefs.edit { putInt("afr_pause_ms", ms) }
+
+    // Шаг перемотки одним нажатием стрелки по сикбару
+    fun getSeekStepMs(): Int = prefs.getInt("seek_step_ms", SeekStepLogic.DEFAULT_STEP_MS)
+        .takeIf { it in 500..60000 } ?: SeekStepLogic.DEFAULT_STEP_MS
+    fun setSeekStepMs(ms: Int) = prefs.edit { putInt("seek_step_ms", ms) }
 
     fun isAfrSkipShortsEnabled(): Boolean = prefs.getBoolean("afr_skip_shorts", true)
     fun setAfrSkipShortsEnabled(enabled: Boolean) = prefs.edit { putBoolean("afr_skip_shorts", enabled) }
