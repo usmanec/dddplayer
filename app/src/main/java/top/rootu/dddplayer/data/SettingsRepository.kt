@@ -26,6 +26,14 @@ class SettingsRepository private constructor(context: Context) {
     private val db = AppDatabase.getDatabase(context)
     private val prefs: SharedPreferences =
         context.getSharedPreferences("global_prefs", Context.MODE_PRIVATE)
+    // Серверы SMB с паролями — отдельный файл, исключенный из резервных копий (res/xml/backup_rules*.xml)
+    private val smbPrefs: SharedPreferences =
+        context.getSharedPreferences(SMB_PREFS, Context.MODE_PRIVATE)
+
+    init {
+        // До любого чтения или сброса настроек: сброс иначе сотрет серверы, еще лежащие в global_prefs
+        migrateSmbServers()
+    }
 
     companion object {
         const val TRACK_DEFAULT = ""
@@ -93,8 +101,10 @@ class SettingsRepository private constructor(context: Context) {
         const val RENDER_API_AUTO = 0
 
         // Не настройки, а данные пользователя: сброс настроек их сохраняет
+        const val SMB_PREFS = "smb_prefs"
+
         val USER_DATA_KEYS = setOf(
-            "watch_history", "saved_playlists", "smb_servers", "startup_playlist_uri", "last_channel_uri",
+            "watch_history", "saved_playlists", "startup_playlist_uri", "last_channel_uri",
             "last_update_check", "last_update_info_json"
         )
         const val RENDER_API_GLES2 = 1
@@ -199,7 +209,7 @@ class SettingsRepository private constructor(context: Context) {
 
     /** Сетевые папки SMB стартового экрана (пароль хранится в настройках приложения, недоступных другим приложениям). */
     fun getSmbServers(): List<SmbServer> {
-        val json = prefs.getString("smb_servers", null) ?: return emptyList()
+        val json = smbPrefs.getString("smb_servers", null) ?: return emptyList()
         return try {
             val array = JSONArray(json)
             (0 until array.length()).map { i ->
@@ -226,7 +236,15 @@ class SettingsRepository private constructor(context: Context) {
                     .put("user", it.user).put("password", it.password).put("domain", it.domain)
             )
         }
-        prefs.edit { putString("smb_servers", array.toString()) }
+        smbPrefs.edit { putString("smb_servers", array.toString()) }
+    }
+
+    // Однократный перенос серверов SMB из global_prefs (попадал в резервные копии вместе с паролями)
+    private fun migrateSmbServers() {
+        val old = prefs.getString("smb_servers", null) ?: return
+        // Синхронно и по порядку: старый ключ удаляется только после записи нового
+        if (!smbPrefs.contains("smb_servers")) smbPrefs.edit(commit = true) { putString("smb_servers", old) }
+        prefs.edit(commit = true) { remove("smb_servers") }
     }
 
     fun putSmbServer(server: SmbServer) {

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 и ниже: серверы SMB с паролями в резервную копию не попадают -->
+<full-backup-content>
+    <include domain="sharedpref" path="." />
+    <include domain="database" path="." />
+    <exclude domain="sharedpref" path="smb_prefs.xml" />
+</full-backup-content>

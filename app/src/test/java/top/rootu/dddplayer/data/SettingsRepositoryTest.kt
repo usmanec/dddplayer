@@ -278,6 +278,30 @@ class SettingsRepositoryTest {
     }
 
     @Test
+    fun `smb servers live outside the backed up settings and old ones move there`() {
+        val smbPrefs = context.getSharedPreferences(SettingsRepository.SMB_PREFS, Context.MODE_PRIVATE)
+        // Сохранено старой версией в global_prefs
+        prefs.edit().putString("smb_servers", """[{"id":"1","name":"NAS","address":"smb://nas/Video","user":"u","password":"p","domain":""}]""").commit()
+        val repo = repo()
+        assertEquals("p", repo.getSmbServers().single().password)
+        assertFalse(prefs.contains("smb_servers"))
+        assertTrue(smbPrefs.contains("smb_servers"))
+        // Новые серверы сразу пишутся в отдельный файл, сброс настроек их не трогает
+        repo.putSmbServer(SmbServer("2", "NAS 2", "smb://nas2/Video", "u2", "p2", ""))
+        assertFalse(prefs.contains("smb_servers"))
+        repo.resetAllSettings()
+        assertEquals(2, repo.getSmbServers().size)
+    }
+
+    @Test
+    fun `reset right after an upgrade keeps the old smb servers`() {
+        prefs.edit().putString("smb_servers", """[{"id":"1","name":"NAS","address":"smb://nas/Video"}]""").commit()
+        val repo = repo()
+        repo.resetAllSettings()
+        assertEquals(1, repo.getSmbServers().size)
+    }
+
+    @Test
     fun `control bar defaults keep all buttons and no back arrow`() {
         val repo = repo()
         assertTrue(repo.getHiddenControlButtons().isEmpty())
